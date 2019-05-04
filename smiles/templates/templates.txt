@@ -1,0 +1,4 @@
+CC(C)(C)OC(=O)OC/C=C/c1cccc(CCC(=O)ON2C(=O)CCC2=O)c1
+CC(=O)OC/C=C/c1cccc(CCC(=O)ON2C(=O)CCC2=O)c1
+CC(C)(C)OC(=O)OC/C=C/c1ccc(F)c(C[C@@H](CC2OCCCN2C(=O)OC(C)(C)C)C(=O)O)c1
+C#CCCC[C@@](CC(=O)ON1C(=O)CCC1=O)(Cc1cccc(/C=C/COC(=O)OCC(C)C)c1)C(OCC)OCC

@@ -5,6 +5,7 @@ import os
 from rdkit.Chem import Draw
 from pathlib import Path
 
+
 class Database():
 
     def __init__(self, client=None, db='rxn_templates', verbose=False):
@@ -65,7 +66,6 @@ class Database():
         return self.db['candidates'].insert_one({'reactant': reactant, 'products': products, 'num_products': num_products, 'template': template, 'sidechain': sidechain})
 
 
-
 def merge(template, side_chain):
     """
     Takes template and side_chain mongo docs, merges the SMILES strings together at the designated reacting site, and returns the merged SMILES string.
@@ -74,7 +74,6 @@ def merge(template, side_chain):
     # convert smiles strings to mols
     temp = Chem.MolFromSmiles(template['smiles'])
     sc = Chem.MolFromSmiles(side_chain['smiles'])
-
 
     # get atom map number of reacting site
     temp_map_num = int(template['rxn_ind'])
@@ -103,6 +102,7 @@ def merge(template, side_chain):
 
     return Chem.MolToSmiles(combo)
 
+
 def generate_rxn_temp(template, side_chain, store=False, verbose=False):
     """
     Takes template and side_chain mongo docs and combines them to create and return a SMARTS reaction template.
@@ -117,15 +117,16 @@ def generate_rxn_temp(template, side_chain, store=False, verbose=False):
     rxn = '(' + temp + '.' + sc + ')>>' + prod
 
     if verbose:
-        Draw.ReactionToImage(AllChem.ReactionFromSmarts(rxn), subImgSize=(500,500)).show()
+        Draw.ReactionToImage(AllChem.ReactionFromSmarts(rxn), subImgSize=(500, 500)).show()
 
     if store:
         new_rxn = rxn.replace('\\', '\\\\')
         db = Database()
         db.insert('reactions',
-            {"template": template['name'], "side_chain": side_chain['name'], "smiles": new_rxn})
+                  {"template": template['name'], "side_chain": side_chain['name'], "smiles": new_rxn})
 
     return rxn
+
 
 def generate_candidates(reactant, store=False, verbose=True):
     """
@@ -157,18 +158,19 @@ def generate_candidates(reactant, store=False, verbose=True):
             Draw.MolToImage(mol).show()
 
     if store:
-        db.insert('candidates', {'reactant': Chem.MolToSmiles(reactant), 'products': products, 'number_products': len(products)})
+        db.insert('candidates', {'reactant': Chem.MolToSmiles(reactant),
+                                 'products': products, 'number_products': len(products)})
 
     return products
 
-def read_mols(file='test_rxn.sdf', filepath=None, verbose=False):
+
+def read_mols(filepath=None, verbose=False):
 
     # set default
     if filepath is None:
-        filepath = str(Path(__file__).resolve().parents[1] / ('chemdraw/')) + '/'
+        filepath = str(Path(__file__).resolve().parents[1] / 'chemdraw/test_rxn.sdf')
 
-    fp = filepath + file
-    mols = Chem.SDMolSupplier(fp)
+    mols = Chem.SDMolSupplier(filepath)
 
     if verbose:
         for mol in mols:
@@ -185,6 +187,7 @@ def read_mols(file='test_rxn.sdf', filepath=None, verbose=False):
 #         exit()
 #
 #     with open()
+
 
 def write_mols(mols, file):
     """

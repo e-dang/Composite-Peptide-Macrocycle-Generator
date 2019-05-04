@@ -1,0 +1,10 @@
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1c[nH]c2ccccc12)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1nc2c(=O)[nH]ccc2[nH]1)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2cn[nH]c(=O)c2s1)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@@H](Cc1cnc2cc[nH]n2c1=O)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@@H](Cc1ccc2occc(=O)n12)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1ncc2cn[nH]c(=O)n12)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cnc2cc[nH]c(=O)n12)C(=O)O
+N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@H](Cc1cc2[nH]cnn2n1)C(=O)N[C@@H](Cc1n[nH]c(=O)c2n[nH]cc12)C(=O)O
