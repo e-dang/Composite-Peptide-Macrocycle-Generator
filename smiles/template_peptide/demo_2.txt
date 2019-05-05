@@ -1,2 +1,0 @@
-CC(C)[C@H](NC(=O)CCc1cccc(/C=C/COC(=O)OC(C)(C)C)c1)C(=O)N[C@@H](CCC(N)=O)C(=O)N[C@@H](Cc1ccc(O)cc1)C(=O)N[C@@H](Cc1c[nH]cn1)C(N)=O
-CC(C)(C)OC(=O)OC/C=C/c1cccc(CCC(=O)N[C@@H](Cc2c[nH]c3ccccc23)C(=O)N[C@@H](Cc2c[nH]c3ccccc23)C(=O)N[C@@H](Cc2ccc(O)cc2)C(N)=O)c1

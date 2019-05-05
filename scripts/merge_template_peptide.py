@@ -8,17 +8,41 @@ from rdkit.Chem import AllChem, Draw
 
 
 def get_template(fp_in_t, temp_ind):
+    """
+    Retrieves the template based on the value of temp_ind passed into the function and passes the template to a
+    helper function that modifies it in preparation for merging with peptide
+
+    Args:
+        fp_in_t (str): The filepath to the text file containing the template SMILES strings
+        temp_ind (int): Index indicating which template to retrieve, 1 - temp1a, 2 - temp1b, 3 - temp2, 4 - temp3
+
+    Returns:
+        rdkit Mol: The modified template
+    """
 
     template = None
+    org_smiles = None
     with open(fp_in_t, 'r') as f:
         for ind, smiles in enumerate(f.readlines()):
             if ind + 1 == temp_ind:
+                org_smiles = smiles
                 template = modify_template(Chem.MolFromSmiles(smiles), ind + 1)
 
-    return template
+    return template, org_smiles
 
 
 def modify_template(template, ind):
+    """
+    Helper function of get_template(), which performs a deletion of the substructure corresponding to the leaving
+    group upon amide bond foramtion and the assignment of an atom map number to reacting carbon atom
+
+    Args:
+        template (rdkit Mol): The rdkit Mol representation of the template
+        ind (int): The index that idicates the identity of the template
+
+    Returns:
+        rdkit Mol: The modified template
+    """
 
     # TODO: Need to implement same process for templates 2 and 3
     if ind == 1 or ind == 2:    # temp 1a or 1b
@@ -40,18 +64,37 @@ def modify_template(template, ind):
 
 
 def get_peptides(peptide_fp):
+    """
+    Get the peptides from the filepath peptide_fp
+
+    Args:
+        peptide_fp (str): The full filepath to the text file containing the peptide SMILES strings
+
+    Returns:
+        generator: A generator object containing all peptide SMILES strings in corresponding text file
+    """
 
     with open(peptide_fp, 'r') as f:
         return f.readlines()
 
 
 def combine(template, peptide):
+    """
+    Convert the peptide SMILES string to an rdkit Mol and combine it with the template through an amide linkage and the
+    designated reacting site
+
+    Args:
+        template (rdkit Mol): The template with pre-set atom map number for reacting atom
+        peptide (rdkit Mol): The peptide to be attached to the template
+
+    Returns:
+        str: The SMILES string of the molecule resulting from merging the template with the peptide
+    """
 
     # portion of peptide backbone containing n-term
     patt = Chem.MolFromSmarts('NCC(=O)NCC(=O)')
 
     # find n-term nitrogen and assign atom map number
-    peptide = Chem.MolFromSmiles(peptide)
     matches = peptide.GetSubstructMatches(patt, useChirality=False)
     for pairs in matches:
         for atom_idx in pairs:
@@ -84,7 +127,7 @@ def main():
     parser = argparse.ArgumentParser(description='Connects each peptide defined in the input file to a template and '
                                      'write the resulting molecule to file as a SMILES string')
     parser.add_argument('-t', '--temp', dest='template', choices=[1, 2, 3, 4], type=int, default=[1], nargs='+',
-                        help='The template(s) to be used')
+                        help='The template(s) to be used; 1 - temp1a, 2 - temp1b, 3 - temp2, 4 - temp3')
     parser.add_argument('-tin', '--temp_in', dest='temp_in', default='templates.txt',
                         help='The text file containing template SMILES strings')
     parser.add_argument('-pin', '--pep_in', dest='pep_in', default=['length3_all.txt'], nargs='+',
@@ -126,14 +169,24 @@ def main():
                          outfile_name) if args.out is None else str(args.out[i * len(args.template) + j])
 
             # prep corresponding template and peptides
-            template = get_template(fp_in_t, temp_ind)
-            peptides = get_peptides(peptide_fp)
+            template, temp_smiles = get_template(fp_in_t, temp_ind)
 
             # connect and write to file
-            with open(fp_out, 'w') as f:
-                for peptide in tqdm(peptides):
-                    f.write(combine(template, peptide))
-                    f.write('\n')
+            with open(fp_out, 'w') as fout, open(peptide_fp, 'r') as f_pep:
+                for line in tqdm(f_pep.readlines()):
+
+                    # extract data
+                    line = line.split(',')
+                    peptide = line[0]
+                    monomers = line[1:]
+
+                    # format data
+                    pep_temp_mono_str = ',' + peptide.rstrip() + ',' + temp_smiles.rstrip()
+                    for monomer in monomers:
+                        pep_temp_mono_str += ',' + monomer.rstrip()
+
+                    fout.write(combine(template, Chem.MolFromSmiles(peptide)) + pep_temp_mono_str)
+                    fout.write('\n')
 
 
 if __name__ == '__main__':

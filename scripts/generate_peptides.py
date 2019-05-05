@@ -6,11 +6,11 @@ from time import time
 from tqdm import tqdm
 
 from rdkit import Chem
-from rdkit.Chem import Draw
 
 
 def get_monomers(fp_in):
-    """Read monomer SMILES strings from all files defined by fp_in into list, shuffle list, and compress into generator
+    """
+    Read monomer SMILES strings from all files defined by fp_in into list, shuffle list, and compress into generator
 
     Args:
         fp_in (list): List of full filepaths to all input files
@@ -33,10 +33,11 @@ def get_monomers(fp_in):
 
 
 def get_required(fp_req):
-    """Read in required monomer SMILES strings from file defined by fp_req into a set.
+    """
+    Read in required monomer SMILES strings from file defined by fp_req into a set.
 
     Args:
-        fp_req (list): Peptides are required to contain at least one monomer from the list of required monomers. This 
+        fp_req (list): Peptides are required to contain at least one monomer from the list of required monomers. This
             argument is a list of full filepaths to the files containg the required monomer SMILES strings
 
     Returns:
@@ -53,7 +54,8 @@ def get_required(fp_req):
 
 
 def connect_monomers(monomers):
-    """Takes a list of monomer SMILES strings and connects them to form a peptide and returns the peptide SMILES string
+    """
+    Takes a list of monomer SMILES strings and connects them to form a peptide and returns the peptide SMILES string
 
     Args:
         monomers (list): List of length args.num_monomers of monomer SMILES strings to be connected into a peptide
@@ -120,10 +122,10 @@ def connect_monomers(monomers):
             Chem.SanitizeMol(combo)
             peptide = combo
         except:
-            print(Chem.MolToSmiles(monomer))
-            print(Chem.MolToSmiles(peptide))
-            print(Chem.MolToSmiles(combo))
-            exit()
+            print('Error! Could not sanitize mol-------------')
+            print('Monomer:', Chem.MolToSmiles(monomer))
+            print('Peptide:', Chem.MolToSmiles(peptide))
+            print('Combo:', Chem.MolToSmiles(combo))
 
     return Chem.MolToSmiles(peptide)
 
@@ -131,7 +133,8 @@ def connect_monomers(monomers):
 def main():
     parser = argparse.ArgumentParser(
         description='Connects specified number of monomers to form a peptide. Takes input file(s) containing '
-        'monomer SMILES strings and outputs to a text file the peptides as SMILES strings')
+        'monomer SMILES strings and outputs to a text file the peptides as SMILES strings. Input and output are text '
+        'files because this script will run on a super computer')
     parser.add_argument('num_monomers', type=int, help='The number of monomers per peptide')
     parser.add_argument('-n', '--num_pep', dest='num_peptides', type=int,
                         default=None, help='The number of peptides to make; defaults to the length of the cartesian '
@@ -171,7 +174,7 @@ def main():
 
     # create peptides
     with open(fp_out, 'w') as f:
-        for count, monomers in tqdm(enumerate(mono_prod), total=length ** 3):
+        for count, monomers in tqdm(enumerate(mono_prod), total=length ** args.num_monomers):
 
             # only produce num_peptides peptides
             if args.num_peptides is not None and count >= args.num_peptides:
@@ -182,8 +185,12 @@ def main():
             if not mono_set.intersection(required):
                 continue
 
+            monomers_str = ''
+            for monomer in monomers:
+                monomers_str += ',' + monomer.rstrip()
+
             # create peptide and write to SMILES to file
-            f.write(connect_monomers(monomers))
+            f.write(connect_monomers(monomers) + monomers_str)
             f.write('\n')
 
 

@@ -2,12 +2,15 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 from rdkit.Chem import AllChem
-from utils import Database, generate_rxn_temp, generate_candidates, write_mols, read_mols
+from utils import Database, write_mols, read_mols
 
-mol = Chem.MolFromSmiles('CC(C)(C)OC(=O)OC/C=C/c1ccc(F)c(C[C@@H](CC2OCCCN2C(=O)OC(C)(C)C)C(=O)O)c1')
-# mol = Chem.MolFromSmarts('N[C@H](Cc1cc2ccc(=O)[nH]c2s1)C(=O)N1CCC[C@H:2]1C=O')
-# Draw.MolToImage(mol, size=(1000, 1000), includeAtomNumbers=True).show()
-Draw.MolToImage(mol, size=(500, 500)).show()
+# rxn = AllChem.ReactionFromSmarts(
+# '([*:3]Cc1cccc(/C=C/[C:1]OC(=O)OC(C)(C)C)c1.c1oc(C[*:4])c[cH:2]1)>>C(=C/[C:1][c:2]1coc(C[*:4])c1)\\c1cccc(C[*:3])c1')
+mol = Chem.MolFromSmiles('Cc1ccco1')
+# mol = Chem.MolFromSmiles('O=c1nc2c(co1)c(C[*:4])c[nH:2]2')
+Draw.MolToImage(mol, size=(1000, 1000), includeAtomNumbers=True).show()
+# Draw.MolToImage(mol, size=(500, 500)).show()
+# Draw.ReactionToImage(rxn, subImgSize=(500, 500)).show()
 
 
 # reactants = read_mols(verbose=False)

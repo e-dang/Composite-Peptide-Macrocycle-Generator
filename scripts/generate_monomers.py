@@ -8,14 +8,15 @@ from utils import read_mols
 
 
 def get_backbone(fp_in_bb):
-    """Gets the designated backbone structure from file and designates the attachment point of the
+    """
+    Gets the designated backbone structure from file and designates the attachment point of the
     side chain with an atom map number
 
     Args:
         fp_in_bb (string): The filepath to the file containing monomer backbone structures
 
     Returns:
-        rdkit.Chem.Mol: The backbone molecule
+        rdkit Mol: The backbone molecule
     """
 
     backbone = read_mols(fp_in_bb)[0]
@@ -34,13 +35,14 @@ def get_backbone(fp_in_bb):
 
 
 def get_side_chains(fp_in_sc):
-    """Gets all side chain structures from all files and loads them into an array.
+    """
+    Gets all side chain structures from all files and loads them into an array.
 
     Args:
         fp_in_sc (string): The filepath to the file(s) containing the desired side chains
 
     Returns:
-        list: A list containing the side chains as rdkit.Chem.Mol 
+        list: A list containing the side chains as rdkit Mols
     """
 
     side_chains = []
@@ -51,14 +53,15 @@ def get_side_chains(fp_in_sc):
 
 
 def create_monomer(backbone, side_chain, stereo):
-    """Connects the side chain to the backbone at the designated attachment points. 
+    """
+    Connects the side chain to the backbone at the designated attachment points.
 
     Args:
-        backbone (rdkit.Chem.Mol): The backbone to which the side chain will be attached to
-        side_chain (rdkit.Chem.Mol): The side chain being attached to the backbone structure
+        backbone (rdkit Mol): The backbone to which the side chain will be attached to
+        side_chain (rdkit Mol): The side chain being attached to the backbone structure
 
     Returns:
-        rdkit.Chem.Mol: The resulting monomer from connecting the backbone and side chain molecules
+        rdkit Mol: The resulting monomer from connecting the backbone and side chain molecules
     """
 
     # set atom map number for attachment point of side chain
@@ -127,7 +130,7 @@ def main():
         'written to ../smiles/monomers/ folder')
     parser.add_argument('stereo', choices=['S', 'R'], help='Stereochemistry of the monomer.')
     parser.add_argument('-sc', dest='sc_file', nargs='+',
-                        default=['sidechains_cust.sdf'], help='The .sdf file containing monomer side chains.')
+                        default=['sidechains_cust.sdf'], help='The sdf file containing monomer side chains.')
     parser.add_argument('-bb', dest='bb_file', default='monomer_backbone.sdf',
                         help='The .sdf file containing monomer backbone.')
     parser.add_argument('-o', '--out', dest='out', default='custom_', help='The output text file.')

@@ -1,26 +1,53 @@
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from pymongo import MongoClient
-import os
-from rdkit.Chem import Draw
 from pathlib import Path
+
+from pymongo import MongoClient
+from rdkit import Chem
+from rdkit.Chem import AllChem, Draw
+from itertools import chain
 
 
 class Database():
+    """
+    A class to establish a connection to the MongoDB database
 
-    def __init__(self, client=None, db='rxn_templates', verbose=False):
+    Returns:
+        Database: An instance of self
+    """
 
-        self.client = MongoClient('localhost', 27017) if client is None else client
+    def __init__(self, host='localhost', port=27017, client=None, db='rxn_templates', verbose=False):
+        """
+        Constructor - initializes database connection
+
+        Args:
+            host (str, optional): The server host name. Defaults to 'localhost'.
+            port (int, optional): the port number. Defaults to 27017.
+            client (pymongo mongoclient, optional): A preinitialized pymongo client. Defaults to None.
+            db (str, optional): The database to connect to. Defaults to 'rxn_templates'.
+            verbose (bool, optional): Prints all collections within database. Defaults to False.
+        """
+
+        self.client = MongoClient(host, port) if client is None else client
         self.db = self.client[db]
 
         if verbose:
             print(db.collection_names())
 
     def __del__(self):
+        """
+        Destructor - properly close connection
+        """
         self.client.close()
 
     def insert(self, collection, document):
         """
+        Insert a document into a collection
+
+        Args:
+            collection (str): The collection to insert the document into
+            document (dict): Dictionary containing the data in attribute: value format
+
+        Returns:
+            bool: True if successful
         """
 
         col = self.db[collection]
@@ -34,134 +61,89 @@ class Database():
 
     def find(self, collection, query):
         """
+        Fetch a set of documents based on query
+
+        Args:
+            collection (str): The collection to search
+            query (dict): Dictionary containing the query in attribute: value format
+
+        Returns:
+            pymongo cursor: The results of the query
         """
 
         return self.db[collection].find(query)
 
     def find_all(self, collection):
         """
+        Fetches all documents in a collection
+
+        Args:
+            collection (str): The collection to query
+
+        Returns:
+            pymongo cursor: The results of the query
         """
 
         return self.db[collection].find({})
 
-    def insert_sidechain(self, smarts, smiles, chain_ind, rxn_ind):
+    def insert_sidechain(self, smiles, atom_mapped_smiles, chain_ind, rxn_ind, collection='side_chains'):
         """
         Insert a new side_chain document into the database's side_chains collection
+
+        Args:
+            smiles (str): The side chain's SMILES string
+            atom_mapped_smiles (str): The side chain's atom mapped SMILES string to be used for generating reaction templates
+            chain_ind (int): The atom map number of the atom connecting to the peptide backbone
+            rxn_ind (int): The atom map number of the atom reacting in the reaction template
+            collection (str, optional): A collection name to insert into. Defaults to 'side_chains'.
+
+        Returns:
+            bool: True if successful
         """
 
-        return self.db['side_chains'].insert_one({'smarts': smarts, 'smiles': smiles, 'chain_ind': chain_ind, 'rxn_ind': rxn_ind})
+        return self.db[collection].insert_one({'smiles': smiles, 'atom_mapped_smiles': atom_mapped_smiles,
+                                               'chain_ind': chain_ind, 'rxn_ind': rxn_ind})
 
-    def insert_reaction(self, template, side_chain, smarts):
+    def insert_reaction(self, temp_smiles, sc_smiles, reaction_smarts, collection='reactions'):
         """
         Insert a new reaction template document into the database's reaction collection
+
+        Args:
+            temp_name (str): The name of the template
+            temp_smiles (str): The template's SMILES string
+            sc_smiles (str): The side chain's SMILES string
+            reaction_smarts (str): The reaction SMARTS string
+            collection (str): The name of the collection to insert into. Defaults to 'reactions'.
+
+        Returns:
+            bool: True if successful
         """
 
-        return self.db['reactions'].insert_one({'template': template, 'side_chain': side_chain, 'smarts': smarts})
+        return self.db[collection].insert_one({'temp_smiles': temp_smiles, 'sc_smiles': sc_smiles,
+                                               'reaction_smarts': reaction_smarts})
 
-    def insert_candidates(self, reactant, products, num_products, template, sidechain):
+    def insert_candidates(self, reactant, products, num_products, temp_smiles, pep_smiles, monomers,
+                          reacting_side_chains, collection='candidates'):
         """
-        Insert a new reaction template document into the database's candidates collection
+        Insert the result of applying a reaction template to a reactant into the database's candidates collection
+
+        Args:
+            reactant (str): The reactant SMILES string
+            products (list): A list of all product SMILES strings
+            num_products (int): The number of total products enumerated
+            temp_name (str): The name of the template in the reactant
+            temp_smiles (str): The template's SMILES string
+            sc_smiles (str): The peptide's SMILES string
+            sc_monomers (list): A list of the monomers that compose the peptide as SMILES strings
+            collection (str, optional): The collection to insert into. Defaults to 'candidates'.
+
+        Returns:
+            bool: True if successful
         """
 
-        return self.db['candidates'].insert_one({'reactant': reactant, 'products': products, 'num_products': num_products, 'template': template, 'sidechain': sidechain})
-
-
-def merge(template, side_chain):
-    """
-    Takes template and side_chain mongo docs, merges the SMILES strings together at the designated reacting site, and returns the merged SMILES string.
-    """
-
-    # convert smiles strings to mols
-    temp = Chem.MolFromSmiles(template['smiles'])
-    sc = Chem.MolFromSmiles(side_chain['smiles'])
-
-    # get atom map number of reacting site
-    temp_map_num = int(template['rxn_ind'])
-    sc_map_num = int(side_chain['rxn_ind'])
-
-    # remove substruct and combine mols
-    temp = Chem.DeleteSubstructs(temp, Chem.MolFromSmiles(template['substruct']))
-    combo = Chem.RWMol(Chem.CombineMols(temp, sc))
-
-    # get reacting atom indicies
-    temp_atom = None
-    sc_atom = None
-    for atom in combo.GetAtoms():
-        if atom.GetAtomMapNum() == temp_map_num:
-            temp_atom = atom.GetIdx()
-        elif atom.GetAtomMapNum() == sc_map_num:
-            sc_atom = atom.GetIdx()
-
-    # check if reacting atom is a nitrogen and if so remove all hydrogens
-    if combo.GetAtomWithIdx(sc_atom).GetSymbol() == 'N':
-        combo.GetAtomWithIdx(sc_atom).SetNumExplicitHs(0)
-
-    # create bond
-    combo.AddBond(temp_atom, sc_atom, order=Chem.rdchem.BondType.SINGLE)
-    Chem.SanitizeMol(combo)
-
-    return Chem.MolToSmiles(combo)
-
-
-def generate_rxn_temp(template, side_chain, store=False, verbose=False):
-    """
-    Takes template and side_chain mongo docs and combines them to create and return a SMARTS reaction template.
-    """
-
-    # get smiles strings
-    temp = template['smiles']
-    sc = side_chain['smiles']
-    prod = merge(template, side_chain)
-
-    # combine smiles strings
-    rxn = '(' + temp + '.' + sc + ')>>' + prod
-
-    if verbose:
-        Draw.ReactionToImage(AllChem.ReactionFromSmarts(rxn), subImgSize=(500, 500)).show()
-
-    if store:
-        new_rxn = rxn.replace('\\', '\\\\')
-        db = Database()
-        db.insert('reactions',
-                  {"template": template['name'], "side_chain": side_chain['name'], "smiles": new_rxn})
-
-    return rxn
-
-
-def generate_candidates(reactant, store=False, verbose=True):
-    """
-    """
-
-    # check if reactant is mol, if not convert
-    if isinstance(reactant, str):
-        reactant = Chem.MolFromSmiles(reactant)
-
-    # get reaction smarts
-    db = Database()
-    rxn_docs = db.find_all('reactions')
-
-    # apply reactions
-    unique_prod = {}
-    for doc in rxn_docs:
-        rxn = AllChem.ReactionFromSmarts(doc['smiles'])
-        prod = rxn.RunReactants((reactant,))
-
-        for mol in prod:
-            Chem.SanitizeMol(mol[0])
-            smiles = Chem.MolToSmiles(mol[0])
-            unique_prod[smiles] = mol[0]
-
-    products = sorted(unique_prod.keys())
-
-    if verbose:
-        for mol in unique_prod.values():
-            Draw.MolToImage(mol).show()
-
-    if store:
-        db.insert('candidates', {'reactant': Chem.MolToSmiles(reactant),
-                                 'products': products, 'number_products': len(products)})
-
-    return products
+        return self.db[collection].insert_one({'reactant': reactant, 'products': products, 'num_products': num_products,
+                                               'pep_smiles': pep_smiles, 'temp_smiles': temp_smiles,
+                                               'monomers': monomers, 'reacting_side_chains': reacting_side_chains})
 
 
 def read_mols(filepath=None, verbose=False):
@@ -179,14 +161,14 @@ def read_mols(filepath=None, verbose=False):
 
     return mols
 
-# def draw_mols(mols=None, file=None, verbose=False):
-#     """
-#     """
-#     if mols is None and file is None:
-#         print('Need mol smiles string or text file to read from')
-#         exit()
-#
-#     with open()
+
+def read_multiple_sdf(filepaths, verbose=False):
+
+    mols = []
+    for file in filepaths:
+        mols = chain(mols, read_mols(file))
+
+    return mols
 
 
 def write_mols(mols, file):
