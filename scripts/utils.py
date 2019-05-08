@@ -104,14 +104,14 @@ class Database():
         return self.db[collection].insert_one({'smiles': smiles, 'atom_mapped_smiles': atom_mapped_smiles,
                                                'chain_ind': chain_ind, 'rxn_ind': rxn_ind})
 
-    def insert_reaction(self, temp_smiles, sc_smiles, reaction_smarts, collection='reactions'):
+    def insert_reaction(self, template, side_chain, reaction_smarts, collection='reactions'):
         """
         Insert a new reaction template document into the database's reaction collection
 
         Args:
             temp_name (str): The name of the template
-            temp_smiles (str): The template's SMILES string
-            sc_smiles (str): The side chain's SMILES string
+            template (str): The template's SMILES string
+            side_chain (str): The side chain's SMILES string
             reaction_smarts (str): The reaction SMARTS string
             collection (str): The name of the collection to insert into. Defaults to 'reactions'.
 
@@ -119,10 +119,10 @@ class Database():
             bool: True if successful
         """
 
-        return self.db[collection].insert_one({'temp_smiles': temp_smiles, 'sc_smiles': sc_smiles,
+        return self.db[collection].insert_one({'template': template, 'side_chain': side_chain,
                                                'reaction_smarts': reaction_smarts})
 
-    def insert_candidates(self, reactant, products, num_products, temp_smiles, pep_smiles, monomers,
+    def insert_candidates(self, reactant, products, num_products, template, peptide, monomers,
                           reacting_side_chains, collection='candidates'):
         """
         Insert the result of applying a reaction template to a reactant into the database's candidates collection
@@ -132,9 +132,9 @@ class Database():
             products (list): A list of all product SMILES strings
             num_products (int): The number of total products enumerated
             temp_name (str): The name of the template in the reactant
-            temp_smiles (str): The template's SMILES string
-            sc_smiles (str): The peptide's SMILES string
-            sc_monomers (list): A list of the monomers that compose the peptide as SMILES strings
+            template (str): The template's SMILES string
+            peptide (str): The peptide's SMILES string
+            monomers (list): A list of the monomers that compose the peptide as SMILES strings
             collection (str, optional): The collection to insert into. Defaults to 'candidates'.
 
         Returns:
@@ -142,7 +142,7 @@ class Database():
         """
 
         return self.db[collection].insert_one({'reactant': reactant, 'products': products, 'num_products': num_products,
-                                               'pep_smiles': pep_smiles, 'temp_smiles': temp_smiles,
+                                               'peptide': peptide, 'template': template,
                                                'monomers': monomers, 'reacting_side_chains': reacting_side_chains})
 
 

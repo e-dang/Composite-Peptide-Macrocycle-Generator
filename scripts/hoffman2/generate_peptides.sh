@@ -2,7 +2,7 @@
 #$ -cwd
 #$ -o ../output/gen_peptides.txt
 #$ -j y
-#$ -l h_data=10000M,h_rt=3:00:00
+#$ -l h_data=12000M,h_rt=5:00:00
 #$ -pe shared 8
 #$ -t 2-5:1
 

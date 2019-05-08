@@ -1,35 +1,33 @@
 import argparse
+import json
 import random as rand
-from itertools import product, chain
+from itertools import chain, product
 from pathlib import Path
 from time import time
-from tqdm import tqdm
 
 from rdkit import Chem
+from tqdm import tqdm
 
 
 def get_monomers(fp_in):
     """
-    Read monomer SMILES strings from all files defined by fp_in into list, shuffle list, and compress into generator
+    Read monomer SMILES strings from all files defined by fp_in into list
 
     Args:
         fp_in (list): List of full filepaths to all input files
 
     Returns:
-        tuple - (generator, int): Generator contains all monomer SMILES strings, and length is the number of monomers
+        (list): List of tuples, each tuple contains the monomer SMILES string and the monomer type
+        (int): The length of the monomers list
     """
 
     monomers = []
-    length = None
     for file in fp_in:
         with open(file, 'r') as f:
-            monomers.extend(list(f.readlines()))
+            for doc in json.load(f):
+                monomers.append((doc['smiles'], doc['type']))
 
-    rand.shuffle(monomers)
-    length = len(monomers)
-    monomers = chain(monomers)
-
-    return monomers, length
+    return monomers, len(monomers)
 
 
 def get_required(fp_req):
@@ -47,8 +45,8 @@ def get_required(fp_req):
     required = set()
     for file in fp_req:
         with open(file, 'r') as f:
-            for smiles in f.readlines():
-                required.add(smiles)
+            for doc in json.load(f):
+                required.add(doc['smiles'])
 
     return required
 
@@ -66,26 +64,40 @@ def connect_monomers(monomers):
 
     # begin conneting each monomer in n_monomers
     peptide = None
-    for i, monomer in enumerate(monomers):
+    previous_type = None
+    for i, monomer_tup in enumerate(monomers):
 
-        monomer = Chem.MolFromSmiles(monomer)
+        monomer = Chem.MolFromSmiles(monomer_tup[0])
 
         # start peptide with first monomer
         if i == 0:
             peptide = monomer
+            previous_type = monomer_tup[1]
             continue
 
-        # TODO: make option for passing in patterns for other backbone structures
-        patt = Chem.MolFromSmarts('NCC(=O)O')   # alpha amino acid backbone
-        monomer_match = monomer.GetSubstructMatches(patt)
-        peptide_match = peptide.GetSubstructMatches(patt)
+        # choose peptide matching pattern based on previous monomer backbone type
+        if previous_type == 'alpha_amino_acid':
+            patt_prev = Chem.MolFromSmarts('NCC(=O)O')
+        elif previous_type == 'beta3_amino_acid' or previous_type == 'beta2_amino_acid':
+            print('entered')
+            patt_prev = Chem.MolFromSmarts('NCCC(=O)O')
+
+        # choose monomer matching pattern based on backbone type
+        if monomer_tup[1] == 'alpha_amino_acid':
+            patt_cur = Chem.MolFromSmarts('NCC(=O)O')
+        elif monomer_tup[1] == 'beta3_amino_acid' or monomer_tup[1] == 'beta2_amino_acid':
+            patt_cur = Chem.MolFromSmarts('NCCC(=O)O')
+
+        previous_type = monomer_tup[1]
+        peptide_match = peptide.GetSubstructMatches(patt_prev)
+        monomer_match = monomer.GetSubstructMatches(patt_cur)
 
         # set atom map number for nitrogen connection point of monomer
         monomer_old_attach_idx = None
         for pairs in monomer_match:
             for atom_idx in pairs:
                 atom = Chem.Mol.GetAtomWithIdx(monomer, atom_idx)
-                if atom.GetSymbol() == 'N':
+                if atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) != 0:
                     atom.SetAtomMapNum(1)
                     monomer_old_attach_idx = atom_idx
 
@@ -133,31 +145,33 @@ def connect_monomers(monomers):
 def main():
     parser = argparse.ArgumentParser(
         description='Connects specified number of monomers to form a peptide. Takes input file(s) containing '
-        'monomer SMILES strings and outputs to a text file the peptides as SMILES strings. Input and output are text '
+        'monomer SMILES strings and outputs to a json file the peptides as SMILES strings. Input and output are json '
         'files because this script will run on a super computer')
     parser.add_argument('num_monomers', type=int, help='The number of monomers per peptide')
     parser.add_argument('-n', '--num_pep', dest='num_peptides', type=int,
                         default=None, help='The number of peptides to make; defaults to the length of the cartesian '
                         'product of all monomers')
     parser.add_argument('-i', '--in', dest='in_file', nargs='+',
-                        default=['custom_S.txt', 'custom_R.txt', 'natural_D.txt', 'natural_L.txt'],
-                        help='The input text file(s) containing monomer SMILES strings')
+                        default=['custom_S.json', 'custom_R.json', 'natural_D.json', 'natural_L.json'],
+                        help='The input json file(s) containing monomer SMILES strings')
     parser.add_argument('-o', '--out', dest='out_file', default='length',
-                        help='The output text file to write the peptide SMILES strings')
+                        help='The output json file to write the peptide SMILES strings')
     parser.add_argument('-r', '--req', dest='required', nargs='+',
-                        default=['custom_required.txt', 'natural_required.txt'],
-                        help='The text file defining monomers that a peptide is required to have at least one of')
+                        default=['custom_required.json', 'natural_required.json'],
+                        help='The json file defining monomers that a peptide is required to have at least one of')
     parser.add_argument('-fi', '--fin', dest='fp_in', default='smiles/monomers',
                         help='The filepath to the input files relative to base project directory')
     parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/peptides',
                         help='The filepath to the output file relative to base project directory')
+    parser.add_argument('--show_progress', dest='progress', action='store_false',
+                        help='Show progress bar. Defaults to False')
 
     args = parser.parse_args()
 
     # format output file based on specified length of peptides
     if args.out_file == 'length':
         args.out_file += str(args.num_monomers)
-        args.out_file += '_all.txt' if args.num_peptides is None else '_' + str(args.num_peptides)
+        args.out_file += '_all.json' if args.num_peptides is None else '_' + str(args.num_peptides) + '.json'
 
     # get full filepath to input, output, and requirement files
     base_path = Path(__file__).resolve().parents[1]
@@ -173,27 +187,42 @@ def main():
     required = get_required(fp_req)
 
     # create peptides
+    collection = []
+    count = 0
+    skipped = 0
+    length = length ** args.num_monomers if args.num_peptides is None else args.num_peptides
+    for monomers_tup in tqdm(mono_prod, total=length, disable=args.progress):
+        print(count)
+
+        # only produce num_peptides peptides
+        if args.num_peptides is not None and count > args.num_peptides:
+            break
+
+        # check to see if list of monomers has at least one required monomer
+        monomers = [tup[0] for tup in monomers_tup]
+        mono_set = set(monomers)
+        if not mono_set.intersection(required):
+            skipped += 1
+            continue
+
+        # create peptide and accumulate data
+        doc = {}
+        doc['peptide'] = connect_monomers(monomers_tup)
+        doc['monomers'] = monomers
+        collection.append(doc)
+        count += 1
+
+        # prevent list from getting too large
+        if len(collection) > 500000000:
+            with open(fp_out, 'w') as f:
+                json.dump(collection, f)
+                collection = []
+
+    # write SMILES to json
+    print('# Invalid Seqs:', skipped)
     with open(fp_out, 'w') as f:
-        for count, monomers in tqdm(enumerate(mono_prod), total=length ** args.num_monomers):
-
-            # only produce num_peptides peptides
-            if args.num_peptides is not None and count >= args.num_peptides:
-                break
-
-            # check to see if list of monomers has at least one required monomer
-            mono_set = set(monomers)
-            if not mono_set.intersection(required):
-                continue
-
-            monomers_str = ''
-            for monomer in monomers:
-                monomers_str += ',' + monomer.rstrip()
-
-            # create peptide and write to SMILES to file
-            f.write(connect_monomers(monomers) + monomers_str)
-            f.write('\n')
+        json.dump(collection, f)
 
 
 if __name__ == '__main__':
-    rand.seed(time())
     main()

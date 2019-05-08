@@ -1,87 +1,112 @@
+import argparse
+import json
+from copy import copy
+from pathlib import Path
+
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from rdkit.Chem import Draw
-import argparse
-from pathlib import Path
+
 from utils import read_multiple_sdf
 
+SIDE_CHAIN_MAP_NUM = 1
+CONNECTION_MAP_NUM = 2
 
-def alternate_connection_point(mol):
 
-    print(Chem.MolToSmiles(mol))
+def alternate_connection_point_test(mol, connection):
+
+    mols = set()
     attached = set()
-    methyl = Chem.MolFromSmiles('C')
-    methyl.GetAtoms()[0].SetAtomMapNum(2)
-    mols = []
-    mod_mol = Chem.RWMol(mol)
-    patt = Chem.MolFromSmarts('[CH3]*')  # methyl carbon is attachment point
+    connection = Chem.MolFromSmarts(connection)
 
-    for i in range(len(mol.GetAtoms())):
-        matches = mod_mol.GetSubstructMatches(patt, useChirality=False)
-        for pairs in matches:
-            for atom_idx in pairs:
-                atom = Chem.Mol.GetAtomWithIdx(mod_mol, atom_idx)
-                if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 3:  # this atom is methyl carbon
+    # check if connecting atom is atom mapped
+    map_nums = [atom.GetAtomMapNum() for atom in connection.GetAtoms()]
+    if CONNECTION_MAP_NUM not in map_nums:
+        print('Need to specifiy connecting atom with atom map number')
+        raise SystemExit
 
-                    # add neighbor idx to list of atoms that have had methyl carbon attached
-                    try:
-                        attached.add(Chem.Atom.GetNeighbors(atom)[0].GetIdx())
-                        mod_mol.RemoveAtom(atom_idx)
-                    except:
-                        print('Error, that atom has already been added to the set!')
-                        print('Molecule:', Chem.MolToSmiles(mol))
+    # try to make attachment at each atom
+    for atom in mol.GetAtoms():
 
-        # find next eligible atom to attach methyl to
+        # detetmine atom eligibility
+        atom_idx = None
         found = False
-        for atom in mod_mol.GetAtoms():
-            if atom.GetIdx() in attached:
-                continue
-            elif atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0:
-                atom.SetAtomMapNum(1)
-                found = True
-                break
-            elif atom.GetSymbol() == 'N' and atom.GetTotalNumHs() != 0:
-                atom.SetAtomMapNum(1)
-                found = True
-                break
-            elif atom.GetSymbol() == 'O' and atom.GetTotalNumHs() != 0:
-                atom.SetAtomMapNum(1)
-                found = True
-                break
-
-        # no more eligible atoms that haven't already had methyl attached
-        if not found:
-            break
+        if atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0 and atom.GetTotalNumHs() < 3:
+            atom.SetAtomMapNum(SIDE_CHAIN_MAP_NUM)
+            atom_idx = atom.GetIdx()
+            attached.add(atom_idx)
+            found = True
+        elif (atom.GetSymbol() == 'N' or atom.GetSymbol() == 'O' or atom.GetSymbol() == 'S') and atom.GetTotalNumHs() != 0:
+            atom.SetAtomMapNum(SIDE_CHAIN_MAP_NUM)
+            atom_idx = atom.GetIdx()
+            attached.add(atom_idx)
+            found = True
+        elif atom.GetIdx() in attached or not found:
+            continue
 
         # prepare for attachment
-        combo = Chem.RWMol(Chem.CombineMols(mod_mol, methyl))
+        combo = Chem.RWMol(Chem.CombineMols(mol, connection))
 
+        # find reacting atoms on combo mol and reset atom map numbers
         mol_atom = None
-        methyl_atom = None
-        for atom in combo.GetAtoms():
-            if atom.GetAtomMapNum() == 1:
-                mol_atom = atom.GetIdx()
-                atom.SetAtomMapNum(0)
-            elif atom.GetAtomMapNum() == 2:
-                methyl_atom = atom.GetIdx()
-                atom.SetAtomMapNum(0)
+        conn_atom = None
+        for combo_atom in combo.GetAtoms():
+            if combo_atom.GetAtomMapNum() == SIDE_CHAIN_MAP_NUM:
+                mol_atom = combo_atom.GetIdx()
+                combo_atom.SetAtomMapNum(0)
+                Chem.Mol.GetAtomWithIdx(mol, atom_idx).SetAtomMapNum(0)
+            elif combo_atom.GetAtomMapNum() == CONNECTION_MAP_NUM:
+                conn_atom = combo_atom.GetIdx()
+                combo_atom.SetAtomMapNum(0)
 
         # create bond
-        combo.AddBond(mol_atom, methyl_atom, order=Chem.rdchem.BondType.SINGLE)
-        Chem.SanitizeMol(combo)
-        mols.append(Chem.MolToSmiles(combo))
-        mod_mol = combo
+        combo.AddBond(mol_atom, conn_atom, order=Chem.rdchem.BondType.SINGLE)
+
+        # fix hydrogen counts
+        atom_react = combo.GetAtomWithIdx(mol_atom)
+        if atom_react.GetSymbol() == 'N' or atom_react.GetSymbol() == 'O' or atom_react.GetSymbol() == 'S':
+            atom_react.SetNumExplicitHs(0)
+        elif atom_react.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom_react) > 0:
+            atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
+
+        try:
+            Chem.SanitizeMol(combo)
+            mols.add(Chem.MolToSmiles(combo))
+        except ValueError:
+            print("Can't sanitize mol:", Chem.MolToSmiles(mol))
 
     return mols
+
+
+def transform_connection_point(mols, new_connection, conn_idx, old_connection='[CH3]'):
+
+    new_smiles = set()
+    for mol in mols:
+        new_mols = Chem.ReplaceSubstructs(Chem.MolFromSmiles(mol), Chem.MolFromSmarts(old_connection),
+                                          Chem.MolFromSmarts(new_connection), replacementConnectionPoint=conn_idx)
+        for new_mol in new_mols:
+            Chem.SanitizeMol(new_mol)
+            new_smiles.add(Chem.MolToSmiles(new_mol))
+
+    return new_smiles
+
+
+def accumulate_mols(mols, collection, parent, modifications):
+
+    for smiles in mols:
+        doc = {}
+        doc['smiles'] = smiles
+        doc['parent'] = parent
+        doc['modification'] = modifications
+        collection.append(doc)
 
 
 def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-i', '--in', dest='input', nargs='+',
-                        default=['sidechains_cust.sdf'], help='The sdf file containing monomer side chains.')
-    parser.add_argument('-o', '--out', dest='out', default='diverse_side_chains.txt', help='The output text file.')
+                        default=['side_chains_all.sdf'], help='The sdf file containing monomer side chains.')
+    parser.add_argument('-o', '--out', dest='out', default='side_chains.json', help='The output json file.')
     parser.add_argument('-fi', '--fin', dest='fp_in', default='chemdraw/', help='The input filepath relative to script')
-    parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/side_chains/',
+    parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/pre_monomer/',
                         help='The ouput filepath relative to script')
 
     args = parser.parse_args()
@@ -91,13 +116,23 @@ def main():
     fp_in = [str(base_path / args.fp_in / file) for file in args.input]
     fp_out = str(base_path / args.fp_out / args.out)
 
+    # get mols from all files
     mols = read_multiple_sdf(fp_in)
+
+    # diversify
+    collection = []
     for mol in mols:
-        mod_mol = alternate_connection_point(mol)
-        print(mod_mol)
-        for smiles in mod_mol:
-            Draw.MolToImage(Chem.MolFromSmiles(smiles)).show()
-        exit()
+        unique_methyl_mols = alternate_connection_point_test(mol, '[CH3:2]')
+        unique_ethyl_mols = alternate_connection_point_test(mol, '[CH3][CH2:2]')
+        unique_propyl_mols = alternate_connection_point_test(mol, '[CH3][CH2][CH2:2]')
+        accumulate_mols(unique_methyl_mols, collection, Chem.MolToSmiles(mol), [0, 3])
+        accumulate_mols(unique_ethyl_mols, collection, Chem.MolToSmiles(mol), [1, 3])
+        accumulate_mols(unique_propyl_mols, collection, Chem.MolToSmiles(mol), [2, 3])
+
+    # write data to json file
+    print(len(collection))
+    with open(fp_out, 'w') as f:
+        json.dump(collection, f)
 
 
 if __name__ == '__main__':

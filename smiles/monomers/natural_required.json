@@ -1,0 +1,72 @@
+[
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@@H](CS)C(=O)O",
+        "side_chain": "CS"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@H](CS)C(=O)O",
+        "side_chain": "CS"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@H](Cc1c[nH]cn1)C(=O)O",
+        "side_chain": "Cc1c[nH]cn1"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@@H](Cc1c[nH]cn1)C(=O)O",
+        "side_chain": "Cc1c[nH]cn1"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "NCCCC[C@H](N)C(=O)O",
+        "side_chain": "CCCCN"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "NCCCC[C@@H](N)C(=O)O",
+        "side_chain": "CCCCN"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@H](CO)C(=O)O",
+        "side_chain": "CO"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@@H](CO)C(=O)O",
+        "side_chain": "CO"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O",
+        "side_chain": "Cc1c[nH]c2ccccc12"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@H](Cc1c[nH]c2ccccc12)C(=O)O",
+        "side_chain": "Cc1c[nH]c2ccccc12"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "NC(=O)C[C@@H](N)C(=O)O",
+        "side_chain": "CC(N)=O"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "NC(=O)C[C@H](N)C(=O)O",
+        "side_chain": "CC(N)=O"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@@H](Cc1ccc(O)cc1)C(=O)O",
+        "side_chain": "Cc1ccc(O)cc1"
+    },
+    {
+        "type": "alpha_amino_acid",
+        "smiles": "N[C@H](Cc1ccc(O)cc1)C(=O)O",
+        "side_chain": "Cc1ccc(O)cc1"
+    }
+]

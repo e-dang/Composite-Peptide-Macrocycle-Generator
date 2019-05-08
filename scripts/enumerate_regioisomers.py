@@ -113,6 +113,8 @@ def main():
                         help='The output text file to write resulting SMILES strings')
     parser.add_argument('-fo', '--fp_out', dest='fp_out', default='smiles/rxn_templates/',
                         help='The filepath to the output directory relative to base project directory')
+    parser.add_argument('--show_progress', dest='progress', action='store_false',
+                        help='Show progress bar. Defaults to False')
 
     args = parser.parse_args()
 
@@ -130,7 +132,7 @@ def main():
         f = open(args.fout, 'w')
 
     # enumerate all regioisomers with atom map numbers and write to output
-    for side_chain in tqdm(get_side_chains(fp_in)):
+    for side_chain in tqdm(get_side_chains(fp_in), disable=args.progress):
         for smiles in set_atom_map_nums(side_chain):
             db.insert_sidechain(Chem.MolToSmiles(side_chain), smiles, 4, 2)
 

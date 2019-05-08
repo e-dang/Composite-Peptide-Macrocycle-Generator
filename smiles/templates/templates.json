@@ -1,0 +1,18 @@
+[
+    {
+        "name": "temp1a",
+        "smiles": "CC(C)(C)OC(=O)OC/C=C/c1cccc(CCC(=O)ON2C(=O)CCC2=O)c1"
+    },
+    {
+        "name": "temp1b",
+        "smiles": "CC(=O)OC/C=C/c1cccc(CCC(=O)ON2C(=O)CCC2=O)c1"
+    },
+    {
+        "name": "temp2",
+        "smiles": "CC(C)(C)OC(=O)OC/C=C/c1ccc(F)c(C[C@@H](CC2OCCCN2C(=O)OC(C)(C)C)C(=O)O)c1"
+    },
+    {
+        "name": "temp3",
+        "smiles": "C#CCCC[C@@](CC(=O)ON1C(=O)CCC1=O)(Cc1cccc(/C=C/COC(=O)OCC(C)C)c1)C(OCC)OCC"
+    }
+]

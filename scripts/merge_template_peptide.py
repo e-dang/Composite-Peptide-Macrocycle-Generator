@@ -1,10 +1,11 @@
 import argparse
+import json
 from itertools import chain
 from pathlib import Path
-from tqdm import tqdm
 
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
+from tqdm import tqdm
 
 
 def get_template(fp_in_t, temp_ind):
@@ -13,7 +14,7 @@ def get_template(fp_in_t, temp_ind):
     helper function that modifies it in preparation for merging with peptide
 
     Args:
-        fp_in_t (str): The filepath to the text file containing the template SMILES strings
+        fp_in_t (str): The filepath to the json file containing the template SMILES strings
         temp_ind (int): Index indicating which template to retrieve, 1 - temp1a, 2 - temp1b, 3 - temp2, 4 - temp3
 
     Returns:
@@ -21,14 +22,12 @@ def get_template(fp_in_t, temp_ind):
     """
 
     template = None
-    org_smiles = None
     with open(fp_in_t, 'r') as f:
-        for ind, smiles in enumerate(f.readlines()):
+        for ind, doc in enumerate(json.load(f)):
             if ind + 1 == temp_ind:
-                org_smiles = smiles
-                template = modify_template(Chem.MolFromSmiles(smiles), ind + 1)
+                template = modify_template(Chem.MolFromSmiles(doc['smiles']), ind + 1)
 
-    return template, org_smiles
+    return template
 
 
 def modify_template(template, ind):
@@ -61,21 +60,6 @@ def modify_template(template, ind):
                 atom.SetAtomMapNum(1)
 
     return template_mod
-
-
-def get_peptides(peptide_fp):
-    """
-    Get the peptides from the filepath peptide_fp
-
-    Args:
-        peptide_fp (str): The full filepath to the text file containing the peptide SMILES strings
-
-    Returns:
-        generator: A generator object containing all peptide SMILES strings in corresponding text file
-    """
-
-    with open(peptide_fp, 'r') as f:
-        return f.readlines()
 
 
 def combine(template, peptide):
@@ -128,19 +112,21 @@ def main():
                                      'write the resulting molecule to file as a SMILES string')
     parser.add_argument('-t', '--temp', dest='template', choices=[1, 2, 3, 4], type=int, default=[1], nargs='+',
                         help='The template(s) to be used; 1 - temp1a, 2 - temp1b, 3 - temp2, 4 - temp3')
-    parser.add_argument('-tin', '--temp_in', dest='temp_in', default='templates.txt',
-                        help='The text file containing template SMILES strings')
-    parser.add_argument('-pin', '--pep_in', dest='pep_in', default=['length3_all.txt'], nargs='+',
-                        help='The text file(s) containing peptide SMILES strings')
+    parser.add_argument('-tin', '--temp_in', dest='temp_in', default='templates.json',
+                        help='The json file containing template SMILES strings')
+    parser.add_argument('-pin', '--pep_in', dest='pep_in', default=['length3_all.json'], nargs='+',
+                        help='The json file(s) containing peptide SMILES strings')
     parser.add_argument('-o', '--out', dest='out', default=None, nargs='+',
-                        help='The output text file(s) to write the resulting SMILES strings; default will out assign '
+                        help='The output json file(s) to write the resulting SMILES strings; default will out assign '
                         'file names')
     parser.add_argument('-fit', '--fin_t', dest='fp_in_t', default='smiles/templates',
-                        help='The filepath to the template text file relative to the base project directory')
+                        help='The filepath to the template json file relative to the base project directory')
     parser.add_argument('-fip', '--fin_p', dest='fp_in_p', default='smiles/peptides',
-                        help='The filepath to the peptide text file(s) relative to the base project directory')
+                        help='The filepath to the peptide json file(s) relative to the base project directory')
     parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/template_peptide/c_term',
-                        help='The filepath for the output text file relative to the base project directory')
+                        help='The filepath for the output json file relative to the base project directory')
+    parser.add_argument('--show_progress', dest='progress', action='store_false',
+                        help='Show progress bar. Defaults to False')
 
     args = parser.parse_args()
 
@@ -160,33 +146,25 @@ def main():
 
     # connect all peptides in each peptide group to each template and write to correct output file
     template_names = ['_temp1a', '_temp1b', '_temp2', '_temp3']
-    for i, peptide_fp in tqdm(enumerate(fp_in_p)):
-        for j, temp_ind in tqdm(enumerate(args.template)):
+    for i, peptide_fp in tqdm(enumerate(fp_in_p), disable=args.progress):
+        for j, temp_ind in tqdm(enumerate(args.template), disable=args.progress):
 
             # create output filepath based on template and peptide lengths if output file(s) not specified
-            outfile_name = args.pep_in[i].split('_')[0] + template_names[j] + '.txt'
+            outfile_name = args.pep_in[i].split('_')[0] + template_names[j] + '.json'
             fp_out = str(base_path / args.fp_out /
                          outfile_name) if args.out is None else str(args.out[i * len(args.template) + j])
 
             # prep corresponding template and peptides
-            template, temp_smiles = get_template(fp_in_t, temp_ind)
+            template = get_template(fp_in_t, temp_ind)
 
             # connect and write to file
+            collection = []
             with open(fp_out, 'w') as fout, open(peptide_fp, 'r') as f_pep:
-                for line in tqdm(f_pep.readlines()):
+                for doc in tqdm(json.load(f_pep), disable=args.progress):
+                    doc['template-peptide'] = combine(template, Chem.MolFromSmiles(doc['peptide']))
+                    collection.append(doc)
 
-                    # extract data
-                    line = line.split(',')
-                    peptide = line[0]
-                    monomers = line[1:]
-
-                    # format data
-                    pep_temp_mono_str = ',' + peptide.rstrip() + ',' + temp_smiles.rstrip()
-                    for monomer in monomers:
-                        pep_temp_mono_str += ',' + monomer.rstrip()
-
-                    fout.write(combine(template, Chem.MolFromSmiles(peptide)) + pep_temp_mono_str)
-                    fout.write('\n')
+                json.dump(collection, fout)
 
 
 if __name__ == '__main__':

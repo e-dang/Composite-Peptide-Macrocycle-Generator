@@ -41,7 +41,7 @@ def merge(template, side_chain):
         elif atom.GetAtomMapNum() == sc_map_num:
             sc_atom = atom.GetIdx()
 
-    # check if reacting atom is a nitrogen and if so remove all hydrogens
+    # fix hydrogen counts
     atom_react = combo.GetAtomWithIdx(sc_atom)
     if atom_react.GetSymbol() == 'N' or atom_react.GetSymbol() == 'O':
         atom_react.SetNumExplicitHs(0)
