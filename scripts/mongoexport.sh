@@ -2,7 +2,12 @@
 
 DATE=$(date +"%m%d%y")
 
-mongoexport --db rxn_templates --collection candidates --out ~/Documents/UCLA_Research/json/${DATE}/candidates.json --pretty
-mongoexport --db rxn_templates --collection reactions --out ~/Documents/UCLA_Research/json/${DATE}/reactions.json --pretty
-mongoexport --db rxn_templates --collection side_chains --out ~/Documents/UCLA_Research/json/${DATE}/side_chains.json --pretty
-mongoexport --db rxn_templates --collection templates --out ~/Documents/UCLA_Research/json/${DATE}/templates.json --pretty
+mongoexport --db rxn_templates --collection reactions --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/rxn_templates/reactions.json --pretty --jsonArray
+mongoexport --db rxn_templates --collection side_chains --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/rxn_templates/side_chains.json --pretty --jsonArray
+mongoexport --db rxn_templates --collection templates --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/rxn_templates/templates.json --pretty --jsonArray
+
+mongoexport --db molecules --collection candidates --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/molecules/candidates.json --pretty --jsonArray
+mongoexport --db molecules --collection monomers --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/molecules/monomers.json --pretty --jsonArray
+mongoexport --db molecules --collection peptides --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/molecules/peptides.json --pretty --jsonArray
+mongoexport --db molecules --collection side_chains --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/molecules/side_chains.json --pretty --jsonArray
+mongoexport --db molecules --collection template_peptides --out ~/Documents/UCLA_Research/macrocycles/json/${DATE}/molecules/template_peptides.json --pretty --jsonArray

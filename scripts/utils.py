@@ -1,9 +1,10 @@
+import json
+from itertools import chain
 from pathlib import Path
 
 from pymongo import MongoClient
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
-from itertools import chain
 
 
 class Database():
@@ -14,7 +15,7 @@ class Database():
         Database: An instance of self
     """
 
-    def __init__(self, host='localhost', port=27017, client=None, db='rxn_templates', verbose=False):
+    def __init__(self, host='localhost', port=27017, client=None, db='rxn_templates'):
         """
         Constructor - initializes database connection
 
@@ -28,9 +29,6 @@ class Database():
 
         self.client = MongoClient(host, port) if client is None else client
         self.db = self.client[db]
-
-        if verbose:
-            print(db.collection_names())
 
     def __del__(self):
         """
@@ -59,7 +57,7 @@ class Database():
 
         return result
 
-    def find(self, collection, query):
+    def find(self, collection, query, projection=None):
         """
         Fetch a set of documents based on query
 
@@ -71,7 +69,7 @@ class Database():
             pymongo cursor: The results of the query
         """
 
-        return self.db[collection].find(query)
+        return self.db[collection].find(query) if projection is None else self.db[collection].find(query, projection)
 
     def find_all(self, collection):
         """
@@ -86,23 +84,29 @@ class Database():
 
         return self.db[collection].find({})
 
-    def insert_sidechain(self, smiles, atom_mapped_smiles, chain_ind, rxn_ind, collection='side_chains'):
+    def insert_sidechain(self, smiles, atom_mapped_smiles, chain_map_num, rxn_map_num, atom_idx, collection='side_chains'):
         """
         Insert a new side_chain document into the database's side_chains collection
 
         Args:
             smiles (str): The side chain's SMILES string
             atom_mapped_smiles (str): The side chain's atom mapped SMILES string to be used for generating reaction templates
-            chain_ind (int): The atom map number of the atom connecting to the peptide backbone
-            rxn_ind (int): The atom map number of the atom reacting in the reaction template
+            chain_map_num (int): The atom map number of the atom connecting to the peptide backbone
+            rxn_map_num (int): The atom map number of the atom reacting in the reaction template
+            atom_ind (int): The atom index of the reacting atom
             collection (str, optional): A collection name to insert into. Defaults to 'side_chains'.
 
         Returns:
             bool: True if successful
         """
 
+        # check if connected to correct database
+        if self.db.name != 'rxn_templates':
+            print('Not connected to rxn_templates database.')
+            return
+
         return self.db[collection].insert_one({'smiles': smiles, 'atom_mapped_smiles': atom_mapped_smiles,
-                                               'chain_ind': chain_ind, 'rxn_ind': rxn_ind})
+                                               'chain_map_num': chain_map_num, 'rxn_map_num': rxn_map_num, 'atom_idx': atom_idx})
 
     def insert_reaction(self, template, side_chain, reaction_smarts, collection='reactions'):
         """
@@ -118,6 +122,11 @@ class Database():
         Returns:
             bool: True if successful
         """
+
+        # check if connected to correct database
+        if self.db.name != 'rxn_templates':
+            print('Not connected to rxn_templates database.')
+            return
 
         return self.db[collection].insert_one({'template': template, 'side_chain': side_chain,
                                                'reaction_smarts': reaction_smarts})
@@ -140,6 +149,11 @@ class Database():
         Returns:
             bool: True if successful
         """
+
+        # check if connected to correct database
+        if self.db.name != 'rxn_templates':
+            print('Not connected to rxn_templates database.')
+            return
 
         return self.db[collection].insert_one({'reactant': reactant, 'products': products, 'num_products': num_products,
                                                'peptide': peptide, 'template': template,
@@ -186,3 +200,24 @@ def write_mols(mols, file):
             mol = Chem.MolFromSmiles(mol)
 
         writer.write(mol)
+
+
+def create_monomer_requirements(fp='smiles/monomers/required.json'):
+    """
+    Takes all required monomers from the monomers collection in the molecules database and writes them to a json file.
+
+    Args:
+        fp (str, optional): The filepath to the output json file. Defaults to '/smiles/monomers/required.json'.
+    """
+
+    # get all required monomers from database
+    db = Database(db='molecules')
+    required = db.find('monomers', {'required': True}, {'_id': 0})
+    collection = []
+    for monomer in required:
+        collection.append(monomer)
+    # print(collection)
+    # write monomers to file
+    fp = str(Path(__file__).resolve().parents[1] / fp)
+    with open(fp, 'w') as f:
+        json.dump(collection, f)

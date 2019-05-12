@@ -1,8 +1,10 @@
 import argparse
+import json
 from pathlib import Path
 
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
+from tqdm import tqdm
 
 from utils import Database
 
@@ -53,11 +55,11 @@ def generate_candidates(reactant, rxn_docs, verbose=False, show=False):
 
 def main():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-f', '--fin', dest='in_file', nargs='+', default=['length3_all.txt'],
-                        help='The input text file(s) containing the SMILES strings of template-peptide connected molecule')
-    parser.add_argument('-fp', '--fp_in', dest='fp_in', default='/smiles/template_peptide/c_term/',
+    parser.add_argument('-f', '--fin', dest='in_file', nargs='+', default=['length3_temp1a.json'],
+                        help='The input json file(s) containing the SMILES strings of template-peptide connected molecule')
+    parser.add_argument('-fp', '--fp_in', dest='fp_in', default='smiles/template_peptide/c_term/',
                         help='The filepath to the input files relative to base project directory')
-    parser.add_argument('-d', '--db', dest='database', default='rxn_templates',
+    parser.add_argument('-d', '--db', dest='database', default='molecules',
                         help='The mongoDB database to connect to')
     parser.add_argument('-hn', '--host', dest='host', default='localhost',
                         help='The host MongoDB server to connect to')
@@ -69,34 +71,39 @@ def main():
     parser.add_argument('-sh', '-show', dest='show', action='store_true',
                         help='Toggle to show reaction SMARTS image; Do not toggle if generating a lot of reaction '
                         'templates')
+    parser.add_argument('--show_progress', dest='progress', action='store_false',
+                        help='Show progress bar. Defaults to False')
 
     args = parser.parse_args()
+    # print(args.in_file)
 
     # generate filepath to the input file
     base_path = Path(__file__).resolve().parents[1]
     fp_in = [str(base_path / args.fp_in / file) for file in args.in_file]
+    # print(base_path)
+    # print(fp_in)
 
     # establish database connection and retrieve reaction documents
-    db = Database(host=args.host, port=args.port, db=args.db)
-    rxn_docs = db.find_all('reactions')
+    db = Database(host=args.host, port=args.port, db=args.database)
+    rxn_docs = db.find_all('reactions_test')
 
     # for each reactant generate candidates
-    with open(fp_in, 'r') as f:
-        for line in f.readlines():
+    for fp in fp_in:
+        with open(fp, 'r') as f:
+            for doc in tqdm(json.load(f), disable=args.progress):
 
-            # extract data
-            line = line.split(',')
-            reactant = line[0]
-            peptide = line[1]
-            template = line[2]
-            monomers = line[3:]
+                # extract data
+                reactant = doc['template-peptide']
+                peptide = doc['peptide']
+                template = doc['template']
+                monomers = doc['monomers']
 
-            products, reacting_side_chains = generate_candidates(
-                reactant, rxn_docs, verbose=args.verbose, show=args.show)
+                products, reacting_side_chains = generate_candidates(
+                    reactant, rxn_docs, verbose=args.verbose, show=args.show)
 
-            if args.store:
-                db.insert_candidates(reactant, products, len(products), peptide,
-                                     template, monomers, list(reacting_side_chains))
+                if args.store:
+                    db.insert_candidates(reactant, products, len(products), peptide,
+                                         template, monomers, list(reacting_side_chains))
 
 
 if __name__ == '__main__':

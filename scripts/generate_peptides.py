@@ -25,7 +25,7 @@ def get_monomers(fp_in):
     for file in fp_in:
         with open(file, 'r') as f:
             for doc in json.load(f):
-                monomers.append((doc['smiles'], doc['type']))
+                monomers.append((doc['monomer'], doc['type']))
 
     return monomers, len(monomers)
 
@@ -46,7 +46,7 @@ def get_required(fp_req):
     for file in fp_req:
         with open(file, 'r') as f:
             for doc in json.load(f):
-                required.add(doc['smiles'])
+                required.add(doc['monomer'])
 
     return required
 
@@ -60,11 +60,13 @@ def connect_monomers(monomers):
 
     Returns:
         string: The SMILES string representation of the resulting peptide
+        string: The type of monomer on the N-terminus of peptide
     """
 
     # begin conneting each monomer in n_monomers
     peptide = None
     previous_type = None
+    peptide_Nterm = None
     for i, monomer_tup in enumerate(monomers):
 
         monomer = Chem.MolFromSmiles(monomer_tup[0])
@@ -73,13 +75,13 @@ def connect_monomers(monomers):
         if i == 0:
             peptide = monomer
             previous_type = monomer_tup[1]
+            peptide_Nterm = monomer_tup[1]  # need to know what type of a monomer on N-term
             continue
 
         # choose peptide matching pattern based on previous monomer backbone type
         if previous_type == 'alpha_amino_acid':
             patt_prev = Chem.MolFromSmarts('NCC(=O)O')
         elif previous_type == 'beta3_amino_acid' or previous_type == 'beta2_amino_acid':
-            print('entered')
             patt_prev = Chem.MolFromSmarts('NCCC(=O)O')
 
         # choose monomer matching pattern based on backbone type
@@ -139,7 +141,7 @@ def connect_monomers(monomers):
             print('Peptide:', Chem.MolToSmiles(peptide))
             print('Combo:', Chem.MolToSmiles(combo))
 
-    return Chem.MolToSmiles(peptide)
+    return Chem.MolToSmiles(peptide), peptide_Nterm
 
 
 def main():
@@ -152,7 +154,8 @@ def main():
                         default=None, help='The number of peptides to make; defaults to the length of the cartesian '
                         'product of all monomers')
     parser.add_argument('-i', '--in', dest='in_file', nargs='+',
-                        default=['custom_S.json', 'custom_R.json', 'natural_D.json', 'natural_L.json'],
+                        default=['custom_CCW.json', 'custom_CW.json', 'natural_D.json',
+                                 'natural_L.json'],
                         help='The input json file(s) containing monomer SMILES strings')
     parser.add_argument('-o', '--out', dest='out_file', default='length',
                         help='The output json file to write the peptide SMILES strings')
@@ -192,10 +195,9 @@ def main():
     skipped = 0
     length = length ** args.num_monomers if args.num_peptides is None else args.num_peptides
     for monomers_tup in tqdm(mono_prod, total=length, disable=args.progress):
-        print(count)
 
         # only produce num_peptides peptides
-        if args.num_peptides is not None and count > args.num_peptides:
+        if args.num_peptides is not None and count >= args.num_peptides:
             break
 
         # check to see if list of monomers has at least one required monomer
@@ -207,7 +209,7 @@ def main():
 
         # create peptide and accumulate data
         doc = {}
-        doc['peptide'] = connect_monomers(monomers_tup)
+        doc['peptide'], doc['N-term'] = connect_monomers(monomers_tup)
         doc['monomers'] = monomers
         collection.append(doc)
         count += 1
@@ -222,6 +224,7 @@ def main():
     print('# Invalid Seqs:', skipped)
     with open(fp_out, 'w') as f:
         json.dump(collection, f)
+        print('Complete!')
 
 
 if __name__ == '__main__':

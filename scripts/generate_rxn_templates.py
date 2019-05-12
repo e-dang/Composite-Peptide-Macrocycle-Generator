@@ -25,8 +25,8 @@ def merge(template, side_chain):
     sc = Chem.MolFromSmiles(side_chain['atom_mapped_smiles'])
 
     # get atom map number of reacting site
-    temp_map_num = int(template['rxn_ind'])
-    sc_map_num = int(side_chain['rxn_ind'])
+    temp_map_num = int(template['rxn_map_num'])
+    sc_map_num = int(side_chain['rxn_map_num'])
 
     # remove substruct and combine mols
     temp = Chem.DeleteSubstructs(temp, Chem.MolFromSmiles(template['substruct']))
@@ -100,8 +100,8 @@ def main():
                                      'map number = 1 to the side chain atom with atom map number = 2. The SMARTS '
                                      'reaction template can then be applied to template-peptide linked molecules to '
                                      'form a macrocycle.')
-    parser.add_argument('-t', '--temp', dest='templates', nargs='+', choices=[1, 2, 3, 4], type=int, default=[1],
-                        help='Which template(s) SMILES strings to import; 1 - temp1a, 2 - temp1b, 3 - temp2, 4 - temp3')
+    parser.add_argument('-t', '--temp', dest='templates', nargs='+', choices=[1, 2, 3], type=int, default=[1],
+                        help='Which template(s) SMILES strings to import; 1 - temp1a, 2 - temp2, 3 - temp3')
     parser.add_argument('-d', '--db', dest='database', default='rxn_templates',
                         help='The mongoDB database to connect to')
     parser.add_argument('-hn', '--host', dest='host', default='localhost',
@@ -114,11 +114,13 @@ def main():
     parser.add_argument('-sh', '-show', dest='show', action='store_true',
                         help='Toggle to show reaction SMARTS image; Do not toggle if generating a lot of reaction '
                         'templates')
+    parser.add_argument('--show_progress', dest='progress', action='store_false',
+                        help='Show progress bar. Defaults to False')
 
     args = parser.parse_args()
 
     # get template names for db querying
-    templates = [name for ind, name in enumerate(['temp1a', 'temp1b', 'temp2', 'temp3']) if ind + 1 in args.templates]
+    templates = [name for ind, name in enumerate(['temp1', 'temp2', 'temp3']) if ind + 1 in args.templates]
 
     # establish connection and retrieve template and side chain data
     db = Database(host=args.host, port=args.port, db=args.database)
@@ -126,8 +128,8 @@ def main():
     sc_docs = db.find_all('side_chains')
 
     # create SMARTS reaction template between each template and side chain
-    for temp in tqdm(temp_docs, desc='Templates: '):
-        for sc in tqdm(sc_docs, desc='Side chains: '):
+    for temp in tqdm(temp_docs, desc='Templates: ', disable=args.progress):
+        for sc in tqdm(sc_docs, desc='Side chains: ', disable=args.progress):
             rxn = generate_rxn_temp(temp, sc, verbose=args.verbose, show=args.show)
 
             if args.store:

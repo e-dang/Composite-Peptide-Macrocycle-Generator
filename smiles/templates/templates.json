@@ -4,10 +4,6 @@
         "smiles": "CC(C)(C)OC(=O)OC/C=C/c1cccc(CCC(=O)ON2C(=O)CCC2=O)c1"
     },
     {
-        "name": "temp1b",
-        "smiles": "CC(=O)OC/C=C/c1cccc(CCC(=O)ON2C(=O)CCC2=O)c1"
-    },
-    {
         "name": "temp2",
         "smiles": "CC(C)(C)OC(=O)OC/C=C/c1ccc(F)c(C[C@@H](CC2OCCCN2C(=O)OC(C)(C)C)C(=O)O)c1"
     },

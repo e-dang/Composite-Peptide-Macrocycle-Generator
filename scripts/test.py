@@ -8,8 +8,8 @@ import json
 
 # rxn = AllChem.ReactionFromSmarts(
 # '([*:3]Cc1cccc(/C=C/[C:1]OC(=O)OC(C)(C)C)c1.c1oc(C[*:4])c[cH:2]1)>>C(=C/[C:1][c:2]1coc(C[*:4])c1)\\c1cccc(C[*:3])c1')
-# mol = Chem.MolFromSmiles('[CH3][CH2]')
-# mol = Chem.MolFromSmiles('O=c1nc2c(co1)c(C[*:4])c[nH:2]2')
+# mol = Chem.MolFromSmarts('c1c[cH:2]oc1C[*:4]')
+# mol = Chem.MolFromSmiles('O=C(O)[C@@H]1CC2CCC2N1')
 # Draw.MolToImage(mol, size=(1000, 1000), includeAtomNumbers=True).show()
 # Draw.MolToImage(mol, size=(500, 500)).show()
 # Draw.ReactionToImage(rxn, subImgSize=(500, 500)).show()
@@ -28,13 +28,14 @@ import json
 #     if ind >= 12:
 #         write_mols(cand['products'], 'candidates/demo_' + str(ind) + '.sdf')
 
-# with open('/Users/ericdang/Documents/UCLA_Research/macrocycles/smiles/pre_monomers/', 'w') as fout:
-#     mols = read_mols('/Users/ericdang/Documents/UCLA_Research/macrocycles/chemdraw/monomer_backbone.sdf')
+# with open('/Users/ericdang/Documents/UCLA_Research/macrocycles/smiles/monomers/modified_prolines.json', 'w') as fout:
+#     mols = read_mols('/Users/ericdang/Documents/UCLA_Research/macrocycles/chemdraw/monomers/modified_prolines.sdf')
 #     collection = []
 #     for mol in mols:
 #         doc = {}
+#         doc['monomer'] = Chem.MolToSmiles(mol)
 #         doc['type'] = 'alpha_amino_acid'
-#         doc['smiles'] = Chem.MolToSmiles(mol)
+#         doc['side_chain'] = ''
 #         collection.append(doc)
 #     json.dump(collection, fout)
 
@@ -43,8 +44,17 @@ import json
 # for mol in mols:
 #     print(Chem.MolToSmiles(mol))
 
-mols = read_mols('/Users/ericdang/Documents/UCLA_Research/macrocycles/chemdraw/amino_acid_side_chains.sdf')
-for mol in mols:
-    print(Chem.MolToSmiles(mol))
-    Draw.MolToImage(mol).show()
-    l = input()
+# with open('/Users/ericdang/Documents/UCLA_Research/macrocycles/smiles/monomers/modified_prolines_CCW.json', 'r') as f:
+#     for doc in json.load(f):
+#         mol = Chem.MolFromSmiles(doc['monomer'])
+#         print(Chem.MolToSmiles(mol))
+# patt = Chem.MolFromSmarts('NCC(=O)O')
+# matches = mol.GetSubstructMatches(patt, useChirality=False)
+# for pair in matches:
+#     for atom_idx in pair:
+#         atom = Chem.Mol.GetAtomWithIdx(mol, atom_idx)
+#         if atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) != 0:
+#             atom.SetAtomMapNum(1)
+# print(Chem.MolToSmiles(mol))
+# Draw.MolToImage(mol).show()
+# x = input()

@@ -1,4 +1,5 @@
 import argparse
+import json
 from itertools import chain
 from pathlib import Path
 
@@ -19,12 +20,14 @@ def get_side_chains(fp_in):
         fp_in (list): List containing all absolute filepath strings to the input file(s)
 
     Returns:
-        generator: A generator object containing all side chains as rdkit Mols
+        list: A list containing all side chains as rdkit Mols
     """
 
     side_chains = []
     for file in fp_in:
-        side_chains = chain(side_chains, read_mols(file))
+        with open(file, 'r') as f:
+            for doc in json.load(f):
+                side_chains.append(Chem.MolFromSmiles(doc['side_chain']))
 
     return side_chains
 
@@ -41,17 +44,16 @@ def set_atom_map_nums(side_chain):
         side_chain (rdkit Mol): The rdkit Mol representation of the side chain
 
     Returns:
-        list: A list of SMILES strings, where each SMILES string is a different regioisomer or has a different peptide
+        list: A list of tuples containing SMILES strings, and reacting atom index. Where each SMILES string is a different regioisomer or has a different peptide
             backbone attachment point
     """
 
-    smiles = []
+    smiles_idx = []
 
     # assign atom map number for attachment and reacting atom of side chain
     patt = Chem.MolFromSmarts('[CH3]*')  # methyl carbon
     matches = side_chain.GetSubstructMatches(patt, useChirality=False)
     for pairs in matches:   # possibly multiple methyl carbons
-
         old_atom_idx = None
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(side_chain, atom_idx)
@@ -60,16 +62,20 @@ def set_atom_map_nums(side_chain):
                 old_atom_idx = atom_idx
 
         # set atom map numbers for every possible EAS reacting atom
+        atom_idx = None
         for atom in side_chain.GetAtoms():
             valid = False
             if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != 4 and Chem.Atom.GetTotalNumHs(atom) != 0 and Chem.Atom.GetIsAromatic(atom):
                 atom.SetAtomMapNum(RXN_MAP_NUM)
+                atom_idx = atom.GetIdx()
                 valid = True
             elif atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) != 0:
                 atom.SetAtomMapNum(RXN_MAP_NUM)
+                atom_idx = atom.GetIdx()
                 valid = True
-            elif atom.GetSymbol() == 'O' and Chem.Atom.GetTotalNumHs(atom) == 1:
+            elif atom.GetSymbol() == 'O' and Chem.Atom.GetTotalNumHs(atom) == 1 or atom.GetSymbol() == 'S' and Chem.Atom.GetTotalNumHs(atom) == 1:
                 atom.SetAtomMapNum(RXN_MAP_NUM)
+                atom_idx = atom.GetIdx()
                 valid = True
 
             if valid:
@@ -84,14 +90,14 @@ def set_atom_map_nums(side_chain):
 
                 try:
                     Chem.MolFromSmiles(mol_str)
-                    smiles.append(mol_str)
+                    smiles_idx.append((mol_str, atom_idx))
                 except:
                     print('Error: can not convert SMILES string to mol:')
                     print('Side Chain SMILES - ' + Chem.MolFromSmiles(side_chain) + '\nAtom Mapped SMILES - ' + mol_str)
 
         Chem.Mol.GetAtomWithIdx(side_chain, old_atom_idx).SetAtomMapNum(0)  # reset attachment atom map number
 
-    return smiles
+    return smiles_idx
 
 
 def main():
@@ -99,9 +105,9 @@ def main():
                                      ' atom map numbers. Atom map number 2 corresponds to atom that participates in the electrophilic aromatic '
                                      'substitution reaction that closes the macrocycle ring. Atom map number 4 (wildcard atom) corresponds to the '
                                      'connection point between the side chain and the peptide backbone. Stores resulting SMILES strings in MongoDB database by defualt.')
-    parser.add_argument('-i', '--in', dest='fin', nargs='+', default=['sidechains_cust.sdf'],
-                        help='The input sdf file(s) containing side chain structures')
-    parser.add_argument('-fi', '--fp_in', dest='fp_in', default='chemdraw/',
+    parser.add_argument('-i', '--in', dest='fin', nargs='+', default=['side_chains.json'],
+                        help='The input json file(s) containing side chain structures')
+    parser.add_argument('-fi', '--fp_in', dest='fp_in', default='smiles/pre_monomer',
                         help='The filepath to the input files relative to base project directory')
     parser.add_argument('-d', '--db', dest='database', default='rxn_templates',
                         help='The mongoDB database to connect to')
@@ -109,10 +115,6 @@ def main():
                         help='The host MongoDB server to connect to')
     parser.add_argument('-p', '--port', dest='port', type=int, default=27017,
                         help='The port on host server to connect to')
-    parser.add_argument('-o', '--out', dest='fout', default=None,
-                        help='The output text file to write resulting SMILES strings')
-    parser.add_argument('-fo', '--fp_out', dest='fp_out', default='smiles/rxn_templates/',
-                        help='The filepath to the output directory relative to base project directory')
     parser.add_argument('--show_progress', dest='progress', action='store_false',
                         help='Show progress bar. Defaults to False')
 
@@ -122,23 +124,15 @@ def main():
     base_path = Path(__file__).resolve().parents[1]
     fp_in = [str(base_path / args.fp_in / file) for file in args.fin]
 
-    # if specified output file, create full filepath
-    if args.fout is not None:
-        args.fout = str(base_path / args.fp_out / args.fout)
-
-    # establish database connection and open output file is specified
+    # establish database connection
     db = Database(host=args.host, port=args.port, db=args.database)
-    if args.fout is not None:
-        f = open(args.fout, 'w')
 
     # enumerate all regioisomers with atom map numbers and write to output
     for side_chain in tqdm(get_side_chains(fp_in), disable=args.progress):
-        for smiles in set_atom_map_nums(side_chain):
-            db.insert_sidechain(Chem.MolToSmiles(side_chain), smiles, 4, 2)
-
-            if args.fout is not None:
-                record = smiles + ', ' + side_chain + ', 4, 2'
-                f.write(record)
+        for tup in set_atom_map_nums(side_chain):
+            smiles, atom_idx = tup[0], tup[1]
+            db.insert_sidechain(Chem.MolToSmiles(side_chain), smiles, ATT_MAP_NUM,
+                                RXN_MAP_NUM, atom_idx)
 
 
 if __name__ == '__main__':

@@ -22,7 +22,7 @@ def get_backbone(fp_in_bb):
     backbones = []
     with open(fp_in_bb, 'r') as f:
         for doc in json.load(f):
-            backbones.append((Chem.MolFromSmarts(doc['smiles']), doc['type']))
+            backbones.append((Chem.MolFromSmarts(doc['backbone']), doc['type']))
 
     return backbones
 
@@ -42,7 +42,7 @@ def get_side_chains(fp_in_sc):
     for file in fp_in_sc:
         with open(file, 'r') as f:
             for doc in json.load(f):
-                side_chains.append(Chem.MolFromSmiles(doc['smiles']))
+                side_chains.append(Chem.MolFromSmiles(doc['side_chain']))
 
     return side_chains
 
@@ -60,7 +60,6 @@ def create_monomer(backbone, side_chain, stereo):
     """
 
     # set atom map number for attachment point of side chain
-    # TODO: allow for attachment to longer alkyl chains such as ethyl carbons
     patt = Chem.MolFromSmarts('[CH3]')  # attachment point at methyl carbon
     matches = sorted(side_chain.GetSubstructMatches(patt, useChirality=False), key=lambda x: x[0], reverse=True)
 
@@ -96,7 +95,7 @@ def create_monomer(backbone, side_chain, stereo):
         try:
             combo.AddBond(bb_atom, sc_atom, order=Chem.rdchem.BondType.SINGLE)
 
-            if stereo == 'S':
+            if stereo == 'CCW':
                 Chem.Mol.GetAtomWithIdx(combo, bb_atom).SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW)
             else:
                 Chem.Mol.GetAtomWithIdx(combo, bb_atom).SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW)
@@ -121,9 +120,10 @@ def main():
 
     parser = argparse.ArgumentParser(
         description='Generates monomers by attaching side chains to a backbone and outputs result as a SMILES string. '
-        'Sidechains and backbones are defined as sdf files in ../chemdraw/ folder. Output json file is '
-        'written to ../smiles/monomers/ folder')
-    parser.add_argument('stereo', choices=['S', 'R'], help='Stereochemistry of the monomer.')
+        'Need to specify stereochemistry and whether the set of monomers being generated should be added to the set of '
+        'required monomers for a peptide. Sidechains and backbones are defined as json files in ../smiles/pre_monomer/ '
+        'folder. Output json file is written to ../smiles/monomers/ folder')
+    parser.add_argument('stereo', choices=['CW', 'CCW'], help='Stereochemistry of the monomer.')
     parser.add_argument('-sc', dest='sc_file', nargs='+',
                         default=['side_chains.json'], help='The json file containing monomer side chains.')
     parser.add_argument('-bb', dest='bb_file', default='backbones.json',
@@ -135,6 +135,9 @@ def main():
                         help='The ouput filepath relative to script')
     parser.add_argument('--show_progress', dest='progress', action='store_false',
                         help='Show progress bar. Defaults to False')
+    parser.add_argument('--required', dest='required', action='store_true',
+                        help='Designates whether these sets of monomers should be added to the set of required '
+                        'monomers for a peptide. Defaults to False')
 
     args = parser.parse_args()
 
@@ -160,9 +163,11 @@ def main():
 
             for monomer in monomers:
                 doc = {}
-                doc['smiles'] = Chem.MolToSmiles(monomer)
+                doc['monomer'] = Chem.MolToSmiles(monomer)
                 doc['type'] = backbone[1]
+                doc['stereo'] = args.stereo
                 doc['side_chain'] = Chem.MolToSmiles(side_chain)
+                doc['required'] = args.required
                 collection.append(doc)
 
     # write to file

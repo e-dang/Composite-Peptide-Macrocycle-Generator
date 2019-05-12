@@ -1,0 +1,156 @@
+[
+    {
+        "monomer": "O=C(O)[C@@]12CC[C@@H](CN1)C2",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1N[C@@H]2CC[C@H]1C2",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1NCC2CCC21",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1N[C@@H]2CCC[C@H]1C2",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2CCC2N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1N[C@H]2C[C@@H]1C2",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2CCCC2N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CCC2(CC2)N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2CC2N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@@]12CCC1CCN2",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2CCC=CC2N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CCC2(CCC2)N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@@]12CC[C@H](C1)N2",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2CCCCCC2N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CCC2(CCCC2)N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2CCCCC2N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2CC=CC2N1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1CC2C(N1)[C@H]1CC[C@@H]2C1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C1O[C@@H]2CN[C@H]1C2",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "C#CC[C@@]1(C(=O)O)CCCN1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@@]1(Cc2ccc3ccccc3c2)CCCN1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    },
+    {
+        "monomer": "O=C(O)[C@H]1C=CCN1",
+        "type": "alpha_amino_acid",
+        "stereo": "CW",
+        "side_chain": "Proline",
+        "required": false
+    }
+]

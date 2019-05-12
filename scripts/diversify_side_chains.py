@@ -6,7 +6,7 @@ from pathlib import Path
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from utils import read_multiple_sdf
+from utils import read_mols
 
 SIDE_CHAIN_MAP_NUM = 1
 CONNECTION_MAP_NUM = 2
@@ -90,47 +90,52 @@ def transform_connection_point(mols, new_connection, conn_idx, old_connection='[
     return new_smiles
 
 
-def accumulate_mols(mols, collection, parent, modifications):
+def accumulate_mols(mols, collection, parent, modifications, group):
 
     for smiles in mols:
         doc = {}
-        doc['smiles'] = smiles
+        doc['side_chain'] = smiles
         doc['parent'] = parent
         doc['modification'] = modifications
+        doc['group'] = group
         collection.append(doc)
 
 
 def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-i', '--in', dest='input', nargs='+',
-                        default=['side_chains_all.sdf'], help='The sdf file containing monomer side chains.')
+                        default=['side_chains_likely1.sdf'], help='The sdf file containing monomer side chains.')
     parser.add_argument('-o', '--out', dest='out', default='side_chains.json', help='The output json file.')
-    parser.add_argument('-fi', '--fin', dest='fp_in', default='chemdraw/', help='The input filepath relative to script')
+    parser.add_argument('-fi', '--fin', dest='fp_in', default='chemdraw/pre_monomer/',
+                        help='The input filepath relative to script')
     parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/pre_monomer/',
                         help='The ouput filepath relative to script')
 
     args = parser.parse_args()
+
+    # get side_chain group name from input file name
+    groups = [name.split('_')[-1].split('.')[0] for name in args.input]
 
     # get absolute filepath to input and output files
     base_path = Path(__file__).resolve().parents[1]
     fp_in = [str(base_path / args.fp_in / file) for file in args.input]
     fp_out = str(base_path / args.fp_out / args.out)
 
-    # get mols from all files
-    mols = read_multiple_sdf(fp_in)
+    # # get mols from all files
+    # mols = read_multiple_sdf(fp_in)
 
     # diversify
     collection = []
-    for mol in mols:
-        unique_methyl_mols = alternate_connection_point_test(mol, '[CH3:2]')
-        unique_ethyl_mols = alternate_connection_point_test(mol, '[CH3][CH2:2]')
-        unique_propyl_mols = alternate_connection_point_test(mol, '[CH3][CH2][CH2:2]')
-        accumulate_mols(unique_methyl_mols, collection, Chem.MolToSmiles(mol), [0, 3])
-        accumulate_mols(unique_ethyl_mols, collection, Chem.MolToSmiles(mol), [1, 3])
-        accumulate_mols(unique_propyl_mols, collection, Chem.MolToSmiles(mol), [2, 3])
+    for fp, group in zip(fp_in, groups):
+        for mol in read_mols(fp):
+            unique_methyl_mols = alternate_connection_point_test(mol, '[CH3:2]')
+            unique_ethyl_mols = alternate_connection_point_test(mol, '[CH3][CH2:2]')
+            unique_propyl_mols = alternate_connection_point_test(mol, '[CH3][CH2][CH2:2]')
+            accumulate_mols(unique_methyl_mols, collection, Chem.MolToSmiles(mol), [0, 3], group)
+            accumulate_mols(unique_ethyl_mols, collection, Chem.MolToSmiles(mol), [1, 3], group)
+            accumulate_mols(unique_propyl_mols, collection, Chem.MolToSmiles(mol), [2, 3], group)
 
     # write data to json file
-    print(len(collection))
     with open(fp_out, 'w') as f:
         json.dump(collection, f)
 

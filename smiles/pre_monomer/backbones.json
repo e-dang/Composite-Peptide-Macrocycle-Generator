@@ -1,14 +1,14 @@
 [
     {
         "type": "alpha_amino_acid",
-        "smiles": "N[C:1]C(=O)O"
+        "backbone": "N[C:1]C(=O)O"
     },
     {
         "type": "beta3_amino_acid",
-        "smiles": "NC[C:1]C(=O)O"
+        "backbone": "NC[C:1]C(=O)O"
     },
     {
         "type": "beta2_amino_acid",
-        "smiles": "N[C:1]CC(=O)O"
+        "backbone": "N[C:1]CC(=O)O"
     }
 ]
