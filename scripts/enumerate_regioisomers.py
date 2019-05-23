@@ -3,6 +3,7 @@ import json
 from itertools import chain
 from pathlib import Path
 
+from pymongo.errors import DuplicateKeyError
 from rdkit import Chem
 from tqdm import tqdm
 
@@ -10,6 +11,8 @@ from utils import Database, read_mols
 
 RXN_MAP_NUM = 2  # atom map number for atom participating in EAS reaction
 ATT_MAP_NUM = 4  # atom map number for attachment point of side chain to peptide backbone
+ETHYL = 1   # modifcation key
+PROPYL = 2  # modifcation key
 
 
 def get_side_chains(fp_in):
@@ -20,14 +23,15 @@ def get_side_chains(fp_in):
         fp_in (list): List containing all absolute filepath strings to the input file(s)
 
     Returns:
-        list: A list containing all side chains as rdkit Mols
+        list: A list of tuples containing a side chain as rdkit Mols and the modification codes performed on
+        the side chain
     """
 
     side_chains = []
     for file in fp_in:
         with open(file, 'r') as f:
             for doc in json.load(f):
-                side_chains.append(Chem.MolFromSmiles(doc['side_chain']))
+                side_chains.append((Chem.MolFromSmiles(doc['side_chain']), doc['modification']))
 
     return side_chains
 
@@ -44,16 +48,16 @@ def set_atom_map_nums(side_chain):
         side_chain (rdkit Mol): The rdkit Mol representation of the side chain
 
     Returns:
-        list: A list of tuples containing SMILES strings, and reacting atom index. Where each SMILES string is a different regioisomer or has a different peptide
-            backbone attachment point
+        dict: Keys are SMILES strings, and values are reacting atom index. Each SMILES string is a different regioisomer
+            or has a different peptide backbone attachment point
     """
 
-    smiles_idx = []
+    smiles_idx = {}
 
     # assign atom map number for attachment and reacting atom of side chain
     patt = Chem.MolFromSmarts('[CH3]*')  # methyl carbon
     matches = side_chain.GetSubstructMatches(patt, useChirality=False)
-    for pairs in matches:   # possibly multiple methyl carbons
+    for pairs in matches:
         old_atom_idx = None
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(side_chain, atom_idx)
@@ -62,8 +66,8 @@ def set_atom_map_nums(side_chain):
                 old_atom_idx = atom_idx
 
         # set atom map numbers for every possible EAS reacting atom
-        atom_idx = None
         for atom in side_chain.GetAtoms():
+            atom_idx = None
             valid = False
             if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != 4 and Chem.Atom.GetTotalNumHs(atom) != 0 and Chem.Atom.GetIsAromatic(atom):
                 atom.SetAtomMapNum(RXN_MAP_NUM)
@@ -90,7 +94,7 @@ def set_atom_map_nums(side_chain):
 
                 try:
                     Chem.MolFromSmiles(mol_str)
-                    smiles_idx.append((mol_str, atom_idx))
+                    smiles_idx[mol_str] = atom_idx
                 except:
                     print('Error: can not convert SMILES string to mol:')
                     print('Side Chain SMILES - ' + Chem.MolFromSmiles(side_chain) + '\nAtom Mapped SMILES - ' + mol_str)
@@ -101,6 +105,7 @@ def set_atom_map_nums(side_chain):
 
 
 def main():
+    global COUNT
     parser = argparse.ArgumentParser(description='Enumerates all reacting atoms (regioisomers) of each side chain using'
                                      ' atom map numbers. Atom map number 2 corresponds to atom that participates in the electrophilic aromatic '
                                      'substitution reaction that closes the macrocycle ring. Atom map number 4 (wildcard atom) corresponds to the '
@@ -129,10 +134,18 @@ def main():
 
     # enumerate all regioisomers with atom map numbers and write to output
     for side_chain in tqdm(get_side_chains(fp_in), disable=args.progress):
-        for tup in set_atom_map_nums(side_chain):
-            smiles, atom_idx = tup[0], tup[1]
-            db.insert_sidechain(Chem.MolToSmiles(side_chain), smiles, ATT_MAP_NUM,
-                                RXN_MAP_NUM, atom_idx)
+
+        # skip enumeration for ethyl, propyl attachment points, only need to do methyl attachment point
+        if ETHYL in side_chain[1] or PROPYL in side_chain[1]:
+            continue
+
+        for smiles, atom_idx in set_atom_map_nums(side_chain[0]).items():
+            try:
+                db.insert_sidechain(Chem.MolToSmiles(side_chain[0]), smiles, ATT_MAP_NUM,
+                                    RXN_MAP_NUM, atom_idx)
+            except DuplicateKeyError:
+                print('Duplicate:', smiles)
+                continue
 
 
 if __name__ == '__main__':

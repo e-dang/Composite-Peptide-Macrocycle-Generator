@@ -2,7 +2,7 @@
 #$ -cwd
 #$ -o ../output/gen_peptides.txt
 #$ -j y
-#$ -l h_data=12000M,h_rt=15:00:00
+#$ -l h_data=12000M,h_rt=5:00:00
 #$ -pe shared 4
 #$ -t 2-5:1
 
@@ -11,4 +11,4 @@ module load python/anaconda3
 
 source activate rdkit
 
-python ./generate_peptides.py $SGE_TASK_ID
+python ./test_gen_peptide.py $SGE_TASK_ID --mode 0

@@ -1,6 +1,6 @@
 import argparse
 import json
-import random as rand
+from random import sample
 from itertools import chain, product
 from pathlib import Path
 from time import time
@@ -184,7 +184,10 @@ def main():
 
     # get all monomers and create all possible "combinations" (actually cartesian product)
     monomers, length = get_monomers(fp_in)
-    mono_prod = product(monomers, repeat=args.num_monomers)    # cartesian product
+    # mono_prod = product(monomers, repeat=args.num_monomers)    # cartesian product
+    mono_prod = []
+    for n in range(args.num_peptides):
+        mono_prod.append(sample(monomers, args.num_monomers))
 
     # get set of required monomers
     required = get_required(fp_req)

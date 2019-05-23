@@ -84,6 +84,12 @@ def generate_cross_product(num_monomers, num_peptides, fp_in, mode, fp_out, prog
 
             collection.append(monomers_tup)
 
+            # prevent list from getting too large
+            if len(collection) > 500000000:
+                with open(fp_out, 'w') as f:
+                    json.dump(collection, f)
+                    collection = []
+
         with open(fp_out, 'w') as f:
             json.dump(collection, f)
 

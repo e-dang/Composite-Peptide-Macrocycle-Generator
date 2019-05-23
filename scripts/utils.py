@@ -64,6 +64,7 @@ class Database():
         Args:
             collection (str): The collection to search
             query (dict): Dictionary containing the query in attribute: value format
+            projection (dict): Determines which fields to retieve
 
         Returns:
             pymongo cursor: The results of the query
@@ -93,7 +94,7 @@ class Database():
             atom_mapped_smiles (str): The side chain's atom mapped SMILES string to be used for generating reaction templates
             chain_map_num (int): The atom map number of the atom connecting to the peptide backbone
             rxn_map_num (int): The atom map number of the atom reacting in the reaction template
-            atom_ind (int): The atom index of the reacting atom
+            atom_idx (int): The atom index of the reacting atom
             collection (str, optional): A collection name to insert into. Defaults to 'side_chains'.
 
         Returns:
@@ -102,21 +103,22 @@ class Database():
 
         # check if connected to correct database
         if self.db.name != 'rxn_templates':
-            print('Not connected to rxn_templates database.')
-            return
+            print('Not connected to "rxn_templates" database.')
+            return False
 
         return self.db[collection].insert_one({'smiles': smiles, 'atom_mapped_smiles': atom_mapped_smiles,
                                                'chain_map_num': chain_map_num, 'rxn_map_num': rxn_map_num, 'atom_idx': atom_idx})
 
-    def insert_reaction(self, template, side_chain, reaction_smarts, collection='reactions'):
+    def insert_reaction(self, reaction_smarts, template, side_chain, atom_idx, collection='reactions'):
         """
         Insert a new reaction template document into the database's reaction collection
 
         Args:
+            reaction_smarts (str): The reaction SMARTS string
             temp_name (str): The name of the template
             template (str): The template's SMILES string
             side_chain (str): The side chain's SMILES string
-            reaction_smarts (str): The reaction SMARTS string
+            atom_idx (int): The atom index of the reacting side chain atom
             collection (str): The name of the collection to insert into. Defaults to 'reactions'.
 
         Returns:
@@ -125,14 +127,14 @@ class Database():
 
         # check if connected to correct database
         if self.db.name != 'rxn_templates':
-            print('Not connected to rxn_templates database.')
-            return
+            print('Not connected to "rxn_templates" database.')
+            return False
 
-        return self.db[collection].insert_one({'template': template, 'side_chain': side_chain,
-                                               'reaction_smarts': reaction_smarts})
+        return self.db[collection].insert_one({'reaction_smarts': reaction_smarts, 'template': template,
+                                               'side_chain': side_chain, 'atom_idx': atom_idx})
 
     def insert_candidates(self, reactant, products, num_products, template, peptide, monomers,
-                          reacting_side_chains, collection='candidates'):
+                          reacting_side_chains, atom_idx, collection='candidates'):
         """
         Insert the result of applying a reaction template to a reactant into the database's candidates collection
 
@@ -144,6 +146,7 @@ class Database():
             template (str): The template's SMILES string
             peptide (str): The peptide's SMILES string
             monomers (list): A list of the monomers that compose the peptide as SMILES strings
+            atom_idx (list): A list of indices for each reacting atom in the side chains of the reaction templates that produced the corresponding candidates
             collection (str, optional): The collection to insert into. Defaults to 'candidates'.
 
         Returns:
@@ -151,13 +154,21 @@ class Database():
         """
 
         # check if connected to correct database
-        if self.db.name != 'rxn_templates':
-            print('Not connected to rxn_templates database.')
-            return
+        if self.db.name != 'molecules':
+            print('Not connected to "molecules" database.')
+            return False
 
         return self.db[collection].insert_one({'reactant': reactant, 'products': products, 'num_products': num_products,
-                                               'peptide': peptide, 'template': template,
-                                               'monomers': monomers, 'reacting_side_chains': reacting_side_chains})
+                                               'peptide': peptide, 'template': template, 'monomers': monomers,
+                                               'reacting_side_chains': reacting_side_chains, 'atom_idx': atom_idx})
+
+    def insert_regio_filtered_candidates(self, reactant, unique_side_chains, collection='regio_filtered_candidates'):
+
+        if self.db.name != 'molecules':
+            print('Not connected to "molecules" database.')
+            return False
+
+        return self.db[collection].insert_one({'reactant': reactant, 'unique_side_chains': unique_side_chains})
 
 
 def read_mols(filepath=None, verbose=False):
@@ -216,7 +227,7 @@ def create_monomer_requirements(fp='smiles/monomers/required.json'):
     collection = []
     for monomer in required:
         collection.append(monomer)
-    # print(collection)
+
     # write monomers to file
     fp = str(Path(__file__).resolve().parents[1] / fp)
     with open(fp, 'w') as f:

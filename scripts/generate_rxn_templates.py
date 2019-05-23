@@ -43,7 +43,7 @@ def merge(template, side_chain):
 
     # fix hydrogen counts
     atom_react = combo.GetAtomWithIdx(sc_atom)
-    if atom_react.GetSymbol() == 'N' or atom_react.GetSymbol() == 'O':
+    if atom_react.GetSymbol() == 'N' or atom_react.GetSymbol() == 'O' or atom_react.GetSymbol() == 'S':
         atom_react.SetNumExplicitHs(0)
     elif atom_react.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom_react) > 0:
         atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
@@ -134,7 +134,7 @@ def main():
 
             if args.store:
                 new_rxn = rxn.replace('\\', '\\\\')
-                db.insert_reaction(temp['smiles'], sc['smiles'], new_rxn)
+                db.insert_reaction(new_rxn, temp['smiles'], sc['smiles'], sc['atom_idx'])
 
 
 if __name__ == '__main__':

@@ -1,0 +1,11 @@
+[
+    {
+        "peptide": "N[C@@H](Cc1c[nH]c2ccccc12)C(=O)N[C@@H](Cc1c[nH]c2ccccc12)C(=O)N[C@@H](Cc1ccc(O)cc1)C(=O)O",
+        "N-term": "alpha_amino_acid",
+        "monomers": [
+            "N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O",
+            "N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O",
+            "N[C@@H](Cc1ccc(O)cc1)C(=O)O"
+        ]
+    }
+]

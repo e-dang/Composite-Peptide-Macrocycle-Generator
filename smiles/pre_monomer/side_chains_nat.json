@@ -1,0 +1,26 @@
+[
+    {
+        "side_chain": "Cc1c[nH]c2ccccc12",
+        "parent": "None",
+        "modification": [
+            null
+        ],
+        "group": "natural"
+    },
+    {
+        "side_chain": "Cc1ccc(O)cc1",
+        "parent": "None",
+        "modification": [
+            null
+        ],
+        "group": "natural"
+    },
+    {
+        "side_chain": "Cc1c[nH]cn1",
+        "parent": "None",
+        "modification": [
+            null
+        ],
+        "group": "natural"
+    }
+]
