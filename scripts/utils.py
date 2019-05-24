@@ -9,7 +9,7 @@ from rdkit.Chem import AllChem, Draw
 
 class Database():
     """
-    A class to establish a connection to the MongoDB database
+    A class to establish a connection a MongoDB database
 
     Returns:
         Database: An instance of self
@@ -85,7 +85,8 @@ class Database():
 
         return self.db[collection].find({}) if projection is None else self.db[collection].find({}, projection)
 
-    def insert_sidechain(self, smiles, atom_mapped_smiles, chain_map_num, rxn_map_num, atom_idx, collection='side_chains'):
+    def insert_sidechain(self, smiles, atom_mapped_smiles, chain_map_num, rxn_map_num, atom_idx,
+                         collection='side_chains'):
         """
         Insert a new side_chain document into the database's side_chains collection
 
@@ -165,13 +166,13 @@ class Database():
                                                'peptide': peptide, 'template': template, 'monomers': monomers,
                                                'reacting_side_chains': reacting_side_chains, 'atom_idx': atom_idx})
 
-    def insert_filtered_candidates(self, reactant, filter, reacting_side_chains, collection='filtered_candidates'):
+    def insert_filtered_candidates(self, reactant, filter_type, reacting_side_chains, collection='filtered_candidates'):
 
         if self.db.name != 'molecules':
             print('Not connected to "molecules" database.')
             return False
 
-        return self.db[collection].insert_one({'reactant': reactant, 'filter': filter,
+        return self.db[collection].insert_one({'reactant': reactant, 'filter': filter_type,
                                                'reacting_side_chains': reacting_side_chains})
 
 
