@@ -10,3 +10,5 @@
 - Look into using mySQL instead of MongoDB
 - Clean up filter_regio.py
 - Add unit tests
+- fix filepaths within project
+- Use constants for hardcoded values in scripts
