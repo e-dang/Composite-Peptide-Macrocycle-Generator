@@ -1,6 +1,4 @@
-- Switch to storing kekulize smiles strings in DB / Get molecules to render without circle for aromaticity
 - Implement mechanism for tryptophan connection at amide nitrogen
-- Add filter for accepting reactions at hetero atoms in bicyclic (5 merged with 6 membered rings; tryptophan derivatives) rings.
 - 3D rendering; look into pymol and using coordinate matricies from rdkit 3D conformation optimization
 - Spartan / conformational analysis
 - Break up generator objects in generate_peptide and merge_template_peptide into smaller pieces for running on hoffman2. Also look into parallelizing the programs
@@ -12,3 +10,7 @@
 - fix filepaths within project
 - Use constants for hardcoded values in scripts
 - Change heats in regioSQM filter to 3 decimal places
+- Switch to storing kekulize smiles strings in DB / Get molecules to render without circle for aromaticity
+    Kekuleized reaction smarts cant be run with rdkit chemical reactions. Need to store both Kekule smiles and canonical smiles in db. temporary fix is continue to use canonical smiles
+    and kekulize smiles when making presentations. Need to think about how to store kekulize smiles in db (relational db)?
+- Check conditions for indole_hetero_atoms_filter() in apply_filters.py and check conditions for filtering bicyclic 5 membered rings
