@@ -80,7 +80,7 @@ def generate_rxn_temp(template, side_chain, verbose=False, show=False):
     prod = merge(template, side_chain)
 
     # combine SMILES strings to get full reaction template SMARTS string
-    rxn = '(' + temp + '.' + sc + ')>>' + prod
+    rxn = generate_custom_rxn_temp(temp, sc, prod)
 
     if verbose:
         print('SMARTS:', rxn)
@@ -91,6 +91,22 @@ def generate_rxn_temp(template, side_chain, verbose=False, show=False):
         Draw.ReactionToImage(AllChem.ReactionFromSmarts(rxn), subImgSize=(500, 500)).show()
 
     return rxn
+
+
+def generate_custom_rxn_temp(template, side_chain, product):
+    """
+    Generate a reaction SMARTS string from the arugments
+
+    Args:
+        template (str): The template's atom mapped SMILES string
+        side_chain (str): The side chain's atom mapped SMILES string
+        product (str): The product's atom mapped SMILES string
+
+    Returns:
+        str: The reaction SMARTS string
+    """
+
+    return '(' + template + '.' + side_chain + ')>>' + product
 
 
 def main():
