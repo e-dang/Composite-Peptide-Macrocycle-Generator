@@ -12,3 +12,4 @@
 - Add unit tests
 - fix filepaths within project
 - Use constants for hardcoded values in scripts
+- Change heats in regioSQM filter to 3 decimal places
