@@ -122,10 +122,16 @@ def clean_results(filtered_cands):
     """
 
     for key in list(filtered_cands):
+
+        # delete all empty items
         if not filtered_cands[key]:
             del filtered_cands[key]
+
+        # if value is another dictionary, recurse
         elif isinstance(filtered_cands[key], dict):
             filtered_cands[key] = clean_results(filtered_cands[key])
+
+            # delete item if it is empty after cleaning
             if not filtered_cands[key]:
                 del filtered_cands[key]
 
