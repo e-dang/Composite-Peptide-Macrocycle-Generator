@@ -1,0 +1,10 @@
+- Switch to storing kekulize smiles strings in DB / Get molecules to render without circle for aromaticity
+- Implement mechanism for tryptophan connection at amide nitrogen
+- Add filter for accepting reactions at hetero atoms in bicyclic (5 merged with 6 membered rings; tryptophan derivatives) rings.
+- 3D rendering; look into pymol and using coordinate matricies from rdkit 3D conformation optimization
+- Spartan / conformational analysis
+- Break up generator objects in generate_peptide and merge_template_peptide into smaller pieces for running on hoffman2. Also look into parallelizing the programs
+- Add rare amino acids to monomers
+- Add side chains from data to side chain pool (5-fluoro-trp, etc...)
+- Look into using mySQL instead of MongoDB
+- Clean up filter_regio.py
