@@ -12,31 +12,31 @@ INDOLE_FILTER = 'indole'
 INDOLE = '*/C=C/Cn1aaa2aaaaa21'
 
 
-def regioSQM_filter(candidates):
+def regioSQM_filter(collection):
     """
-    For each reactant in candidates, the regioSQM filter is applied to the enumerated products resulting from each
-    unique side chain reacting to close the macrocycle. The filtered products are stored in a dictionary with the
+    For each doc in the collection, the regioSQM filter is applied to the enumerated candidates resulting from each
+    unique side chain reacting to close the macrocycle. The filtered candidates are stored in a dictionary with the
     following hierarchy:
-        - unique side chain
+        - reacting side chain
             - threshold
-                - products
+                - candidates
                 - heats
 
     Args:
-        candidates (iterable): An iterable object containing the candidate data, such as a pymongo cursor on the
+        collection (iterable): An iterable object containing the candidate data, such as a pymongo cursor on the
             candidates collection
 
     Returns:
-        list: A list containing tuples of the reactant and the sorted dictionary of filtered products
+        list: A list containing tuples of the reactant and the sorted dictionary of filtered candidates
     """
 
     db_rxn = Database(db='rxn_templates')
 
     results = []
-    for candidate in candidates:
+    for doc in collection:
 
-        # get all unique side_chains that reacted in the candidate and corresponding regioSQM predictions
-        unique_sc = list(set(candidate['reacting_side_chains']))
+        # get all unique side_chains that reacted in the reactant and corresponding regioSQM predictions
+        unique_sc = list(set(doc['reacting_side_chains']))
         regio_filter = db_rxn.find('regioSQM', {'side_chain': {'$in': unique_sc}}, {'_id': 0})
 
         # initialize thresholds for each unique side_chain
@@ -47,7 +47,7 @@ def regioSQM_filter(candidates):
             filtered_prods[reacting_sc]['threshold_2'] = []
 
         # place enumerated products in appropriate theshold bin
-        for product, side_chain, atom_idx in zip(candidate['products'], candidate['reacting_side_chains'], candidate['atom_idx']):
+        for product, side_chain, atom_idx in zip(doc['products'], doc['reacting_side_chains'], doc['atom_idx']):
             for filt in deepcopy(regio_filter):
                 if side_chain == filt['side_chain']:
                     for tup in filt['threshold_1']:
@@ -58,7 +58,7 @@ def regioSQM_filter(candidates):
                             filtered_prods[side_chain]['threshold_2'].append((product, tup[1]))
 
         # organize dict
-        for top_key in filtered_prods.keys():
+        for top_key in filtered_prods:
             for inner_key in filtered_prods[top_key].keys():
                 prod_heats = list(zip(*sorted(filtered_prods[top_key][inner_key], key=lambda x: x[1]))
                                   ) if filtered_prods[top_key][inner_key] else []
@@ -66,32 +66,32 @@ def regioSQM_filter(candidates):
                 filtered_prods[top_key][inner_key]['products'] = prod_heats[0] if prod_heats else []
                 filtered_prods[top_key][inner_key]['heats'] = prod_heats[1] if prod_heats else []
 
-        results.append((candidate['reactant'], filtered_prods))
+        results.append((doc['reactant'], filtered_prods))
 
     return results
 
 
-def indole_hetero_atom_filter(candidates):
+def indole_hetero_atom_filter(collection):
     """
-    For each reactant in candidates, apply a filter that selects the enumerated products that result from an indole
+    For each reactant in candidates, apply a filter that selects the enumerated candidates that result from an indole
     nitrogen reacting to close the macrocycle. This filter is generalized to any indole derivative. The filtered
-    products are stored in a dictionary with the following hierarchy:
-        - unique side chain
-            - products
+    candidates are stored in a dictionary with the following hierarchy:
+        - reacting side chain
+            - candidates
 
     Args:
-        candidates (iterable): An iterable object containing the candidate data, such as a pymongo cursor on the
+        collection (iterable): An iterable object containing the candidate data, such as a pymongo cursor on the
             candidates collection
 
     Returns:
-        list: A list containing tuples of the reactant and the sorted dictionary of filtered products
+        list: A list containing tuples of the reactant and the sorted dictionary of filtered candidates
     """
 
     results = []
-    for candidate in candidates:
+    for doc in collection:
 
-        # get all unique side_chains that reacted in the candidate
-        unique_sc = list(set(candidate['reacting_side_chains']))
+        # get all unique side_chains that reacted in the reactant
+        unique_sc = list(set(doc['reacting_side_chains']))
 
         # initialize dict
         filtered_prods = {}
@@ -99,12 +99,12 @@ def indole_hetero_atom_filter(candidates):
             filtered_prods[reacting_sc] = []
 
         # apply filter
-        for product, side_chain in zip(candidate['products'], candidate['reacting_side_chains']):
+        for product, side_chain in zip(doc['products'], doc['reacting_side_chains']):
             product = Chem.MolFromSmiles(product)
             if product.HasSubstructMatch(Chem.MolFromSmarts(INDOLE)):
                 filtered_prods[side_chain].append(Chem.MolToSmiles(product))
 
-        results.append((candidate['reactant'], filtered_prods))
+        results.append((doc['reactant'], filtered_prods))
 
     return results
 
@@ -112,7 +112,7 @@ def indole_hetero_atom_filter(candidates):
 def main():
 
     parser = argparse.ArgumentParser(description='Apply a set of filters to all candidates within the database and '
-                                     'store the filtered products in the filtered_molecules collection')
+                                     'store the filtered candidates in the filtered_molecules collection')
     parser.add_argument('filter', choices=[REGIOSQM_FILTER, INDOLE_FILTER], nargs='+',
                         help='the filter to apply to candidate molecules.')
     parser.add_argument('--db', dest='database', default='molecules',
@@ -132,13 +132,13 @@ def main():
 
     # apply appropriate filters
     if REGIOSQM_FILTER in args.filter:
-        for reactant, filtered_prods in tqdm(regioSQM_filter(candidates), disable=args.progress):
-            Database(db='molecules').insert_regio_filtered_candidates(reactant, filtered_prods)
+        for reactant, filtered_prods in tqdm(regioSQM_filter(candidates), desc='regioSQM: ', disable=args.progress):
+            Database(db='molecules').insert_filtered_candidates(reactant, REGIOSQM_FILTER, filtered_prods)
 
     if INDOLE_FILTER in args.filter:
-        for reactant, filtered_prods in tqdm(indole_hetero_atom_filter(candidates), disable=args.progress):
-            print(reactant)
-            print(filtered_prods)
+        for reactant, filtered_prods in tqdm(indole_hetero_atom_filter(candidates), desc='indole: ',
+                                             disable=args.progress):
+            Database(db='molecules').insert_filtered_candidates(reactant, INDOLE_FILTER, filtered_prods)
 
 
 if __name__ == '__main__':

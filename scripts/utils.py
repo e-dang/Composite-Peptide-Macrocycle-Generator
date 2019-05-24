@@ -91,7 +91,8 @@ class Database():
 
         Args:
             smiles (str): The side chain's SMILES string
-            atom_mapped_smiles (str): The side chain's atom mapped SMILES string to be used for generating reaction templates
+            atom_mapped_smiles (str): The side chain's atom mapped SMILES string to be used for generating reaction
+                templates
             chain_map_num (int): The atom map number of the atom connecting to the peptide backbone
             rxn_map_num (int): The atom map number of the atom reacting in the reaction template
             atom_idx (int): The atom index of the reacting atom
@@ -107,7 +108,8 @@ class Database():
             return False
 
         return self.db[collection].insert_one({'smiles': smiles, 'atom_mapped_smiles': atom_mapped_smiles,
-                                               'chain_map_num': chain_map_num, 'rxn_map_num': rxn_map_num, 'atom_idx': atom_idx})
+                                               'chain_map_num': chain_map_num, 'rxn_map_num': rxn_map_num,
+                                               'atom_idx': atom_idx})
 
     def insert_reaction(self, reaction_smarts, template, side_chain, atom_idx, collection='reactions'):
         """
@@ -146,7 +148,8 @@ class Database():
             template (str): The template's SMILES string
             peptide (str): The peptide's SMILES string
             monomers (list): A list of the monomers that compose the peptide as SMILES strings
-            atom_idx (list): A list of indices for each reacting atom in the side chains of the reaction templates that produced the corresponding candidates
+            atom_idx (list): A list of indices for each reacting atom in the side chains of the reaction templates that
+                produced the corresponding candidates
             collection (str, optional): The collection to insert into. Defaults to 'candidates'.
 
         Returns:
@@ -162,13 +165,14 @@ class Database():
                                                'peptide': peptide, 'template': template, 'monomers': monomers,
                                                'reacting_side_chains': reacting_side_chains, 'atom_idx': atom_idx})
 
-    def insert_regio_filtered_candidates(self, reactant, unique_side_chains, collection='regio_filtered_candidates'):
+    def insert_filtered_candidates(self, reactant, filter, reacting_side_chains, collection='filtered_candidates'):
 
         if self.db.name != 'molecules':
             print('Not connected to "molecules" database.')
             return False
 
-        return self.db[collection].insert_one({'reactant': reactant, 'unique_side_chains': unique_side_chains})
+        return self.db[collection].insert_one({'reactant': reactant, 'filter': filter,
+                                               'reacting_side_chains': reacting_side_chains})
 
 
 def read_mols(filepath=None, verbose=False):
