@@ -72,7 +72,7 @@ class Database():
 
         return self.db[collection].find(query) if projection is None else self.db[collection].find(query, projection)
 
-    def find_all(self, collection):
+    def find_all(self, collection, projection=None):
         """
         Fetches all documents in a collection
 
@@ -83,7 +83,7 @@ class Database():
             pymongo cursor: The results of the query
         """
 
-        return self.db[collection].find({})
+        return self.db[collection].find({}) if projection is None else self.db[collection].find({}, projection)
 
     def insert_sidechain(self, smiles, atom_mapped_smiles, chain_map_num, rxn_map_num, atom_idx, collection='side_chains'):
         """
