@@ -9,3 +9,4 @@
 - Let primary amines in general form connection between template and peptide (not just N-terminus)
 - Look into using mySQL instead of MongoDB
 - Clean up filter_regio.py
+- Add unit tests
