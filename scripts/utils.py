@@ -96,7 +96,7 @@ class Database():
                 templates
             chain_map_num (int): The atom map number of the atom connecting to the peptide backbone
             rxn_map_num (int): The atom map number of the atom reacting in the reaction template
-            atom_idx (int): The atom index of the reacting atom
+            atom_idx (int): The atom index of the reacting atom (need for regioSQM filter)
             collection (str, optional): A collection name to insert into. Defaults to 'side_chains'.
 
         Returns:
