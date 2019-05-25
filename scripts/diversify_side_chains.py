@@ -4,13 +4,33 @@ from pathlib import Path
 
 from rdkit import Chem
 
-from utils import read_mols
+from utils import Database, read_mols
 
 SIDE_CHAIN_MAP_NUM = 1
 CONNECTION_MAP_NUM = 2
+ALKYL = ['[CH3:2]', '[CH3][CH2:2]', '[CH3][CH2][CH2:2]']
+
+# TODO: allow for side chains with methyl group already attached, such as 5-methyl indole.
 
 
 def alternate_connection_point_test(mol, connection):
+    """
+    Creates a set of new molecules by attaching an alkyl chain (which becomes the attachment point to peptide backbone)
+    to every eligble position on the side chain. Eligiblity of an atom is defined as:
+        Carbon - Must have 1 or 2 hydrogens
+        Nitrogen, Oxygen, Sulfur - Must have > 0 hydrogens
+
+    Args:
+        mol (rdkit Mol): The side chain molecule
+        connection (str): The atom mapped smarts SMARTS string of the alkyl attachment chain
+
+    Raises:
+        SystemExit: If connection is not atom mapped
+
+    Returns:
+        set: A set of unique SMILES strings representing the side chain with alkyl chains attached at different
+            positions
+    """
 
     mols = set()
     attached = set()
@@ -33,7 +53,7 @@ def alternate_connection_point_test(mol, connection):
             atom_idx = atom.GetIdx()
             attached.add(atom_idx)
             found = True
-        elif (atom.GetSymbol() == 'N' or atom.GetSymbol() == 'O' or atom.GetSymbol() == 'S') and atom.GetTotalNumHs() != 0:
+        elif atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0:
             atom.SetAtomMapNum(SIDE_CHAIN_MAP_NUM)
             atom_idx = atom.GetIdx()
             attached.add(atom_idx)
@@ -61,7 +81,7 @@ def alternate_connection_point_test(mol, connection):
 
         # fix hydrogen counts
         atom_react = combo.GetAtomWithIdx(mol_atom)
-        if atom_react.GetSymbol() == 'N' or atom_react.GetSymbol() == 'O' or atom_react.GetSymbol() == 'S':
+        if atom_react.GetSymbol() in ('N', 'O', 'S'):
             atom_react.SetNumExplicitHs(0)
         elif atom_react.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom_react) > 0:
             atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
@@ -70,7 +90,8 @@ def alternate_connection_point_test(mol, connection):
             Chem.SanitizeMol(combo)
             mols.add(Chem.MolToSmiles(combo))
         except ValueError:
-            print("Can't sanitize mol:", Chem.MolToSmiles(mol))
+            print('Error!')
+            print('Side Chain:', Chem.MolToSmiles(mol) + '\n')
 
     return mols
 
@@ -100,14 +121,23 @@ def accumulate_mols(mols, collection, parent, modifications, group):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='')
+    parser = argparse.ArgumentParser(description='Creates a unique set of molecules by attaching varying length alkyl '
+                                     'chains to all elgible positions on the side chain molecule. Alkyl chains include '
+                                     "methyl, ethyl, and propyl. The last word in the input files' name dictates which "
+                                     'group the side_chain belongs to.')
     parser.add_argument('-i', '--in', dest='input', nargs='+',
-                        default=['side_chains_likely1.sdf'], help='The sdf file containing monomer side chains.')
+                        default=['side_chains_likely1.sdf'], help='The sdf file(s) containing monomer side chains.')
     parser.add_argument('-o', '--out', dest='out', default='side_chains.json', help='The output json file.')
     parser.add_argument('--fp_in', dest='fp_in', default='chemdraw/pre_monomer/',
                         help='The input filepath relative to script')
     parser.add_argument('--fp_out', dest='fp_out', default='smiles/pre_monomer/',
                         help='The ouput filepath relative to script')
+    parser.add_argument('--db', dest='database', default='molecules',
+                        help='The mongoDB database to connect to')
+    parser.add_argument('--host', dest='host', default='localhost',
+                        help='The host MongoDB server to connect to')
+    parser.add_argument('--port', dest='port', type=int, default=27017,
+                        help='The port on host server to connect to')
 
     args = parser.parse_args()
 
@@ -133,6 +163,8 @@ def main():
     # write data to json file
     with open(fp_out, 'w') as f:
         json.dump(collection, f)
+
+    db = Database(host=args.host, port=args.port, db=args.database)
 
 
 if __name__ == '__main__':
