@@ -1,6 +1,7 @@
 import argparse
 import json
 import multiprocessing
+from contextlib import closing
 from itertools import islice, product
 from pathlib import Path
 from random import sample
@@ -87,6 +88,7 @@ def parallelize(mono_prod):
     Yields:
         tuple: The peptide's SMILES string, a list of monomers' SMILES strings, and the backbone type on the N-terminus
     """
+
     with multiprocessing.Pool() as pool:
         for peptide, monomers, n_term in pool.imap_unordered(connect_monomers, mono_prod):
             yield peptide, monomers, n_term
@@ -190,7 +192,7 @@ def connect_monomers(monomer_data):
     return Chem.MolToSmiles(peptide), monomers, n_term
 
 
-def write_data(peptide_generator, num_peptides, job_num, fp_out, show_progress=False):
+def write_data(peptide_generator, num_peptides, num_monomers, job_num, fp_out, show_progress=False):
     """
     Parses data from peptide generator object and writes it to file. File names are based on num_peptides,
     template type, job_num, and dump_count. This function dumps data into a file when either num_peptides is reached,
@@ -200,6 +202,7 @@ def write_data(peptide_generator, num_peptides, job_num, fp_out, show_progress=F
         peptide_generator (generator): Generator object containing peptide SMILES strings, a list of monomers' SMILES
             strings, and backbone type on N-terminus
         num_peptides (int): The number of peptides being created
+        num_monomers (int): The number of monomers per peptide
         job_num (int): The job number or ID
         fp_out (str): The filepath to the output file, where the file name is incomplete (it is finished during
             execution of this function)
@@ -215,10 +218,9 @@ def write_data(peptide_generator, num_peptides, job_num, fp_out, show_progress=F
 
     collection = []
     dump_count = 1
-    # for data in peptide_generator:
-    for count, data in enumerate(tqdm(peptide_generator, total=ITERATIONS, desc='Peptides: ', disable=show_progress)):
+    count = 0   # multiprocessing messing up call to enumerate in for loop; quick fix is to use count
+    for peptide, monomers, n_term in tqdm(peptide_generator, total=ITERATIONS, desc='Peptides: ', disable=show_progress):
 
-        peptide, monomers, n_term = data[0], data[1], data[2]
         # result from peptide without any required monomers
         if None in (peptide, monomers, n_term):
             continue
@@ -227,6 +229,7 @@ def write_data(peptide_generator, num_peptides, job_num, fp_out, show_progress=F
         doc = {}
         doc['peptide'], doc['monomers'], doc['N-term'] = peptide, monomers, n_term
         collection.append(doc)
+        count += 1
 
         if num_peptides is not None and len(collection) >= num_peptides:  # early break
             break
@@ -234,11 +237,11 @@ def write_data(peptide_generator, num_peptides, job_num, fp_out, show_progress=F
             write_json(collection, fp_out, dump_count)
             collection = []
             dump_count += 1
-            print('Dump:', dump_count, 'Job Num:', job_num)
+            print('Dump:', dump_count, 'Num Monomers:', num_monomers, 'Job Num:', job_num)
 
     # write SMILES to json
     write_json(collection, fp_out, dump_count)
-    print('Complete! Job Num:', job_num)
+    print('Complete! Num Monomers:', num_monomers, 'Job Num:', job_num)
 
     return True
 
@@ -286,7 +289,7 @@ def main():
     # generate peptides and write to file
     peptide_generator = generate_peptides(args.num_monomers, args.num_peptides, fp_in, args.num_jobs, args.job_num,
                                           args.random_sample)
-    write_data(peptide_generator, args.num_peptides, args.job_num, fp_out, args.progress)
+    write_data(peptide_generator, args.num_peptides, args.num_monomers, args.job_num, fp_out, args.progress)
 
 
 if __name__ == '__main__':
