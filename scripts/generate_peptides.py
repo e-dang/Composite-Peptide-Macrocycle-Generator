@@ -54,29 +54,6 @@ def generate_peptides(num_monomers, num_peptides, fp_in, num_jobs, job_num, rand
         for peptide, monomers, n_term in pool.imap_unordered(connect_monomers, mono_prod):
             yield peptide, monomers, n_term
 
-    # skipped = 0
-    # length = stop - start if num_peptides is None else num_peptides
-    # for group in tqdm(mono_prod, total=length, desc='Peptides: ', disable=show_progress):
-
-    #     monomers, types, required = zip(*group)
-
-    #     # specified number of peptides has been produced or reached near list capacity
-    #     if (num_peptides is not None and len(collection) >= num_peptides) or len(collection) >= CAPACITY:
-    #         break
-
-    #     # check to see if list of monomers has at least one required monomer
-    #     if True not in required:
-    #         skipped += 1
-    #         continue
-
-    #     # create peptide and accumulate data
-    #     doc = {}
-    #     doc['peptide'], doc['N-term'] = connect_monomers(zip(monomers, types))
-    #     doc['monomers'] = monomers
-    #     collection.append(doc)
-
-    # return collection
-
 
 def connect_monomers(monomer_data):
     """
@@ -248,50 +225,6 @@ def main():
     with open(fp_out, 'w') as f:
         json.dump(collection, f)
         print('Complete! Job Num:', args.job_num)
-
-    # # get all monomers and create all possible "combinations" (actually cartesian product)
-    # monomers, length = get_monomers(fp_in)
-    # mono_prod = product(monomers, repeat=args.num_monomers)    # cartesian product
-
-    # # get set of required monomers
-    # required = get_required(fp_req)
-
-    # # create peptides
-    # collection = []
-    # count = 0
-    # skipped = 0
-    # length = length ** args.num_monomers if args.num_peptides is None else args.num_peptides
-    # for monomers_tup in tqdm(mono_prod, total=length, disable=args.progress):
-
-    #     # only produce num_peptides peptides
-    #     if args.num_peptides is not None and count >= args.num_peptides:
-    #         break
-
-    #     # check to see if list of monomers has at least one required monomer
-    #     monomers = [tup[0] for tup in monomers_tup]
-    #     mono_set = set(monomers)
-    #     if not mono_set.intersection(required):
-    #         skipped += 1
-    #         continue
-
-    #     # create peptide and accumulate data
-    #     doc = {}
-    #     doc['peptide'], doc['N-term'] = connect_monomers(monomers_tup)
-    #     doc['monomers'] = monomers
-    #     collection.append(doc)
-    #     count += 1
-
-    #     # prevent list from getting too large
-    #     if len(collection) > 500000000:
-    #         with open(fp_out, 'w') as f:
-    #             json.dump(collection, f)
-    #             collection = []
-
-    # # write SMILES to json
-    # print('# Invalid Seqs:', skipped)
-    # with open(fp_out, 'w') as f:
-    #     json.dump(collection, f)
-    #     print('Complete!')
 
 
 if __name__ == '__main__':
