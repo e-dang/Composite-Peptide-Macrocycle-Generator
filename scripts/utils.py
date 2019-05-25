@@ -237,3 +237,8 @@ def create_monomer_requirements(fp='smiles/monomers/required.json'):
     fp = str(Path(__file__).resolve().parents[1] / fp)
     with open(fp, 'w') as f:
         json.dump(collection, f)
+
+
+def ranges(total, chunks):
+    step = total / chunks
+    return [(round(step*i), round(step*(i+1))) for i in range(chunks)]
