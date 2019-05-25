@@ -254,7 +254,7 @@ def main():
                         'product of all monomers')
     parser.add_argument('-i', '--in', dest='in_file', nargs='+',
                         default=['custom_CCW.json', 'custom_CW.json', 'natural_D.json',
-                                 'natural_L.json'],
+                                 'natural_L.json', 'modified_prolines_CCW.json', 'modified_prolines_CW.json'],
                         help='The input json file(s) containing monomer SMILES strings')
     parser.add_argument('-o', '--out', dest='out_file', default='length',
                         help='The output json file to write the peptide SMILES strings')
