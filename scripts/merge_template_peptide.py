@@ -11,6 +11,12 @@ ALPHA = 'alpha_amino_acid'
 BETA2 = 'beta2_amino_acid'
 BETA3 = 'beta3_amino_acid'
 
+SUCCINIMIDE = 'O=C1CCC(=O)N1O'  # has extra oxygen
+CARBONYL = '[CH]=O'
+
+TEMP_ATOM_MAP_NUM = 1
+PEP_ATOM_MAP_NUM = 2
+
 
 def get_template(fp_in_t, temp_ind):
     """
@@ -49,9 +55,9 @@ def modify_template(template, ind):
     """
 
     # TODO: Need to implement same process for templates 2 and 3
-    if ind == 1 or ind == 2:    # temp 1a or 1b
-        patt1 = Chem.MolFromSmiles('O=C1CCC(=O)N1O')  # succinimide + extra oxygen atom
-        patt2 = Chem.MolFromSmarts('[CH]=O')    # carbonyl that will form amide with peptide
+    if ind == 1:    # temp 1
+        patt1 = Chem.MolFromSmiles(SUCCINIMIDE)
+        patt2 = Chem.MolFromSmarts(CARBONYL)    # carbonyl that will form amide with peptide
 
     # remove reaction point substruct
     template_mod = AllChem.DeleteSubstructs(template, patt1)
@@ -62,7 +68,7 @@ def modify_template(template, ind):
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(template_mod, atom_idx)
             if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 1:
-                atom.SetAtomMapNum(1)
+                atom.SetAtomMapNum(TEMP_ATOM_MAP_NUM)
 
     return template_mod
 
@@ -83,7 +89,7 @@ def combine(template, peptide, n_term):
     # portion of peptide backbone containing n-term
     if n_term == ALPHA:
         patt = Chem.MolFromSmarts('[NH2]CC(=O)')
-    elif n_term == BETA2 or n_term == BETA3:
+    elif n_term in (BETA2, BETA3):
         patt = Chem.MolFromSmarts('[NH2]CCC(=O)')
 
     # find n-term nitrogen and assign atom map number
@@ -91,8 +97,8 @@ def combine(template, peptide, n_term):
     for pairs in matches:
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
-            if atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) == 2:
-                atom.SetAtomMapNum(2)
+            if atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) == 2:  # primary amines only
+                atom.SetAtomMapNum(PEP_ATOM_MAP_NUM)
 
     # prep for modification
     combo = Chem.RWMol(Chem.CombineMols(peptide, template))
@@ -101,16 +107,22 @@ def combine(template, peptide, n_term):
     pep_atom = None
     temp_atom = None
     for atom in combo.GetAtoms():
-        if atom.GetAtomMapNum() == 1:
+        if atom.GetAtomMapNum() == TEMP_ATOM_MAP_NUM:
             temp_atom = atom.GetIdx()
             atom.SetAtomMapNum(0)
-        elif atom.GetAtomMapNum() == 2:
+        elif atom.GetAtomMapNum() == PEP_ATOM_MAP_NUM:
             pep_atom = atom.GetIdx()
             atom.SetAtomMapNum(0)
 
-    # create bond and sanitize
+    # create bond
     combo.AddBond(temp_atom, pep_atom, order=Chem.rdchem.BondType.SINGLE)
-    Chem.SanitizeMol(combo)
+
+    try:
+        Chem.SanitizeMol(combo)
+    except ValueError:
+        print('Error!')
+        print('Template:', Chem.MolToSmiles(template))
+        print('Peptide:', Chem.MolToSmiles(peptide) + '\n')
 
     return Chem.MolToSmiles(combo)
 
