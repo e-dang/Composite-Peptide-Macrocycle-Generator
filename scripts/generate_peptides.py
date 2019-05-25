@@ -1,14 +1,14 @@
 import argparse
 import json
-from random import sample
-from itertools import chain, product, islice
-from pathlib import Path
-from time import time
-from utils import ranges
 import multiprocessing
+from itertools import islice, product
+from pathlib import Path
+from random import sample
 
 from rdkit import Chem
 from tqdm import tqdm
+
+from utils import ranges
 
 NITROGEN_MAP_NUM = 1
 CARBON_MAP_NUM = 2
