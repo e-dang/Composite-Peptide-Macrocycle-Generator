@@ -126,13 +126,6 @@
         "required": false
     },
     {
-        "monomer": "O=C1O[C@@H]2CN[C@H]1C2",
-        "type": "alpha_amino_acid",
-        "stereo": "CW",
-        "side_chain": "Proline",
-        "required": false
-    },
-    {
         "monomer": "C#CC[C@@]1(C(=O)O)CCCN1",
         "type": "alpha_amino_acid",
         "stereo": "CW",
