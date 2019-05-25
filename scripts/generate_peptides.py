@@ -258,9 +258,9 @@ def main():
                         help='The input json file(s) containing monomer SMILES strings')
     parser.add_argument('-o', '--out', dest='out_file', default='length',
                         help='The output json file to write the peptide SMILES strings')
-    parser.add_argument('-fi', '--fin', dest='fp_in', default='smiles/monomers',
+    parser.add_argument('--fp_in', dest='fp_in', default='smiles/monomers',
                         help='The filepath to the input files relative to base project directory')
-    parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/peptides',
+    parser.add_argument('--fp_out', dest='fp_out', default='smiles/peptides',
                         help='The filepath to the output file relative to base project directory')
     parser.add_argument('--num_jobs', dest='num_jobs', default=1, type=int,
                         help='The number of jobs to run on a job array.')
