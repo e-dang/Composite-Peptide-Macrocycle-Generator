@@ -41,6 +41,26 @@ def get_monomers(fp_in):
 
 
 def generate_peptides(num_monomers, num_peptides, fp_in, num_jobs, job_num, random_sample=False):
+    """
+    Top level function that initiates peptide generation. Breaks up monomer cross product set into num_jobs number of
+    chunks and passes the corresponding chunk to parallelize() for further processing.
+
+    Args:
+        num_monomers (int): The number of monomers per peptide
+        num_peptides (int): The number of peptides to make
+        fp_in (list): A list of filepaths to input files containing monomers
+        num_jobs (int): The totoal number of jobs used to generate peptides
+        job_num (int): The job number or ID that identifies which chunk of monomer cross product set to convert into
+            peptides
+        random_sample (bool, optional): Generate peptides randomly from monomer cross procut set with replacement.
+            Defaults to False.
+
+    Returns:
+        generator: A generator of tuples containing the peptides SMILES string, the monomers' SMILES strings, and the
+            type of backbone on N-terminus
+    """
+
+    global ITERATIONS
 
     # specified number of sets of monomers to form into peptide
     monomers, total_monomers = get_monomers(fp_in)
@@ -50,6 +70,23 @@ def generate_peptides(num_monomers, num_peptides, fp_in, num_jobs, job_num, rand
         start, stop = ranges(total_monomers ** num_monomers, num_jobs)[job_num - 1]
         mono_prod = islice(product(monomers, repeat=num_monomers), start, stop)  # create cartesian product
 
+    ITERATIONS = stop - start if num_peptides is None else num_peptides
+
+    return parallelize(mono_prod)
+
+
+def parallelize(mono_prod):
+    """
+    Makes parallel calls to connect_monomers() and returns the results in a single generator. Helper function of
+        generate_peptides().
+
+    Args:
+        mono_prod (iterable): An iterable of lists containing num_monomers number of tuples, each of which monomer
+            SMILES strings, the backbone type, and the monomer's required flag
+
+    Yields:
+        tuple: The peptide's SMILES string, a list of monomers' SMILES strings, and the backbone type on the N-terminus
+    """
     with multiprocessing.Pool() as pool:
         for peptide, monomers, n_term in pool.imap_unordered(connect_monomers, mono_prod):
             yield peptide, monomers, n_term
@@ -153,6 +190,59 @@ def connect_monomers(monomer_data):
     return Chem.MolToSmiles(peptide), monomers, n_term
 
 
+def write_data(peptide_generator, num_peptides, job_num, fp_out, show_progress=False):
+    """
+    Parses data from peptide generator object and writes it to file. File names are based on num_peptides,
+    template type, job_num, and dump_count. This function dumps data into a file when either num_peptides is reached,
+    generator object has been depleted, or length of list containing parsed data reaches CAPACITY .
+
+    Args:
+        peptide_generator (generator): Generator object containing peptide SMILES strings, a list of monomers' SMILES
+            strings, and backbone type on N-terminus
+        num_peptides (int): The number of peptides being created
+        job_num (int): The job number or ID
+        fp_out (str): The filepath to the output file, where the file name is incomplete (it is finished during
+            execution of this function)
+        show_progress (bool, optional): Show progress bar. Defaults to False.
+
+    Returns:
+        Bool: True if function completes
+    """
+
+    def write_json(collection, fp_out, dump_count):
+        with open(fp_out + str(dump_count) + '.json', 'w') as f:
+            json.dump(collection, f)
+
+    collection = []
+    dump_count = 1
+    # for data in peptide_generator:
+    for count, data in enumerate(tqdm(peptide_generator, total=ITERATIONS, desc='Peptides: ', disable=show_progress)):
+
+        peptide, monomers, n_term = data[0], data[1], data[2]
+        # result from peptide without any required monomers
+        if None in (peptide, monomers, n_term):
+            continue
+
+        # combine data
+        doc = {}
+        doc['peptide'], doc['monomers'], doc['N-term'] = peptide, monomers, n_term
+        collection.append(doc)
+
+        if num_peptides is not None and len(collection) >= num_peptides:  # early break
+            break
+        elif len(collection) >= CAPACITY or count > ITERATIONS:  # early dump due to large list
+            write_json(collection, fp_out, dump_count)
+            collection = []
+            dump_count += 1
+            print('Dump:', dump_count, 'Job Num:', job_num)
+
+    # write SMILES to json
+    write_json(collection, fp_out, dump_count)
+    print('Complete! Job Num:', job_num)
+
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Connects specified number of monomers to form a peptide. Takes input file(s) containing '
@@ -186,45 +276,17 @@ def main():
     if args.out_file == 'length':
         args.out_file += str(args.num_monomers)
         args.out_file += '_all' if args.num_peptides is None else '_' + str(args.num_peptides)
-        args.out_file += '_' + args.job_num
+        args.out_file += '_' + str(args.job_num) + '_'
 
     # get full filepath to input, output, and requirement files
     base_path = Path(__file__).resolve().parents[1]
     fp_in = [str(base_path / args.fp_in / file) for file in args.in_file]
-    fp_out = str(base_path / args.fp_out / args.out_file + args.job_num)
+    fp_out = str(base_path / args.fp_out / args.out_file)
 
-    generator = generate_peptides(args.num_monomers, args.num_peptides, fp_in, args.num_jobs, args.job_num,
-                                  args.random_sample)
-
-    # parse data and write to file
-    collection = []
-    dump_count = 1
-    for peptide, monomers, n_term in tqdm(generator, desc='Peptides: ', disable=args.progress):
-
-        # result from peptide without any required monomers
-        if None in (peptide, monomers, n_term):
-            continue
-
-        # combine data
-        doc = {}
-        doc['peptide'], doc['monomers'], doc['N-term'] = peptide, monomers, n_term
-        collection.append(doc)
-
-        if args.num_peptides is not None and len(collection) >= args.num_peptides:  # early break
-            break
-        elif len(collection) >= CAPACITY:  # early dump due to large list
-            collection = []
-            dump_count += 1
-
-            with open(fp_out + str(dump_count) + '.json', 'w') as f:
-                json.dump(collection, f)
-                dump_count += 1
-                print('Dump:', dump_count, 'Job Num:', args.job_num)
-
-    # write SMILES to json
-    with open(fp_out, 'w') as f:
-        json.dump(collection, f)
-        print('Complete! Job Num:', args.job_num)
+    # generate peptides and write to file
+    peptide_generator = generate_peptides(args.num_monomers, args.num_peptides, fp_in, args.num_jobs, args.job_num,
+                                          args.random_sample)
+    write_data(peptide_generator, args.num_peptides, args.job_num, fp_out, args.progress)
 
 
 if __name__ == '__main__':
