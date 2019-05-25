@@ -5,7 +5,7 @@
 # scp ~/Documents/UCLA_Research/macrocycles/scripts/utils.py ericdang@hoffman2.idre.ucla.edu:~/macrocycles/scripts/
 # scp ~/Documents/UCLA_Research/macrocycles/scripts/test_gen_peptide.py ericdang@hoffman2.idre.ucla.edu:~/macrocycles/scripts/
 
-# scp -r ~/Documents/UCLA_Research/macrocycles/smiles/monomers ericdang@hoffman2.idre.ucla.edu:~/macrocycles/smiles/
+scp -r ~/Documents/UCLA_Research/macrocycles/smiles/monomers ericdang@hoffman2.idre.ucla.edu:~/macrocycles/smiles/
 # scp -r ~/Documents/UCLA_Research/macrocycles/smiles/templates ericdang@hoffman2.idre.ucla.edu:~/macrocycles/smiles/
 
 # scp ~/Documents/UCLA_Research/macrocycles/scripts/hoffman2/generate_peptides.sh ericdang@hoffman2.idre.ucla.edu:~/macrocycles/scripts/
