@@ -1,4 +1,8 @@
-- Implement mechanism for tryptophan connection at amide nitrogen
+- Allow for custom reaction templates to be built. To do this need to be able to generate atom mapped product (generalized version of merge())
+    IDEA: can store reacting atom map numbers as dicts where keys = 'other' or 'self' where other means that it reacts with another
+    molecule and 'self' means it is an intra molecular reaction and values are pairs of numbers. If pair is under 'other' then first number reprsents atom map number of self's reacting atom
+    and the second number is the map number of the other molecules reacting atom. If pair is under 'self' both numbers correspond to reacting atoms on self.
+    Pairs of numbers along with side chain and template would be stored in anotehr collection possibly.
 - 3D rendering; look into pymol and using coordinate matricies from rdkit 3D conformation optimization
 - Spartan / conformational analysis
 - Break up generator objects in generate_peptide and merge_template_peptide into smaller pieces for running on hoffman2. Also look into parallelizing the programs
