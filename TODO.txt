@@ -6,7 +6,8 @@
 - 3D rendering; look into pymol and using coordinate matricies from rdkit 3D conformation optimization
 - Spartan / conformational analysis
 - Break up generator objects in merge_template_peptide into smaller pieces for running on hoffman2.
-    Check how gen_peptides.py ran on hoffman2 with parallelized code.
+    Parallel code causing non-fatal errors. Look into implementing parallel code with generators. Might want to implement a class to parallelize things.
+    Also might want to parallelize writing to file, since for loop doesnt look like it is going fast enough.
 - Add rare amino acids to monomers
 - Add database connections to diversify_side_chains.py and generate_monomers.py
 - Add side chains from data to side chain pool (5-fluoro-trp, etc...)
