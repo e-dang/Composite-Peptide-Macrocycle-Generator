@@ -157,7 +157,7 @@ def connect_monomers(monomer_data):
                 atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
                 if atom.GetSymbol() == 'O' and Chem.Atom.GetTotalNumHs(atom) == 1:
                     peptide.RemoveAtom(atom_idx)
-                elif atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 0:
+                elif atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 0 and Chem.Atom.GetHybridization(atom) == Chem.rdchem.HybridizationType.SP2:
                     atom.SetAtomMapNum(CARBON_MAP_NUM)
                     pep_old_attach_idx = atom_idx
 
