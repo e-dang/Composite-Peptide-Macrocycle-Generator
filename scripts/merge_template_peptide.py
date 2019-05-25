@@ -86,14 +86,14 @@ def combine(template, peptide, n_term):
         str: The SMILES string of the molecule resulting from merging the template with the peptide
     """
 
-    # portion of peptide backbone containing n-term
-    if n_term == ALPHA:
-        patt = Chem.MolFromSmarts('[NH2]CC(=O)')
-    elif n_term in (BETA2, BETA3):
-        patt = Chem.MolFromSmarts('[NH2]CCC(=O)')
+    # # portion of peptide backbone containing n-term
+    # if n_term == ALPHA:
+    #     patt = Chem.MolFromSmarts('[NH2]CC(=O)')
+    # elif n_term in (BETA2, BETA3):
+    #     patt = Chem.MolFromSmarts('[NH2]CCC(=O)')
 
     # find n-term nitrogen and assign atom map number
-    matches = peptide.GetSubstructMatches(patt, useChirality=False)
+    matches = peptide.GetSubstructMatches(Chem.MolFromSmiles('[NH2]'), useChirality=False)
     for pairs in matches:
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
