@@ -1,10 +1,8 @@
 import argparse
 import json
-from copy import copy
 from pathlib import Path
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
 
 from utils import read_mols
 
@@ -106,9 +104,9 @@ def main():
     parser.add_argument('-i', '--in', dest='input', nargs='+',
                         default=['side_chains_likely1.sdf'], help='The sdf file containing monomer side chains.')
     parser.add_argument('-o', '--out', dest='out', default='side_chains.json', help='The output json file.')
-    parser.add_argument('-fi', '--fin', dest='fp_in', default='chemdraw/pre_monomer/',
+    parser.add_argument('--fp_in', dest='fp_in', default='chemdraw/pre_monomer/',
                         help='The input filepath relative to script')
-    parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/pre_monomer/',
+    parser.add_argument('--fp_out', dest='fp_out', default='smiles/pre_monomer/',
                         help='The ouput filepath relative to script')
 
     args = parser.parse_args()
@@ -120,9 +118,6 @@ def main():
     base_path = Path(__file__).resolve().parents[1]
     fp_in = [str(base_path / args.fp_in / file) for file in args.input]
     fp_out = str(base_path / args.fp_out / args.out)
-
-    # # get mols from all files
-    # mols = read_multiple_sdf(fp_in)
 
     # diversify
     collection = []
