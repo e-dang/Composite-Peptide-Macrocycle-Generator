@@ -155,15 +155,6 @@ def main():
             mod_rxn = rxn.replace('\\', '\\\\')
             db.insert_reaction(mod_rxn, template['smiles'], side_chain['smiles'], side_chain['atom_idx'])
 
-    # # create SMARTS reaction template between each template and side chain
-    # for temp in tqdm(temp_docs, desc='Templates: ', disable=args.progress):
-    #     for sc in tqdm(sc_docs, desc='Side chains: ', disable=args.progress):
-    #         rxn = generate_rxn_temp(temp, sc)
-
-    #         if args.store:
-    #             new_rxn = rxn.replace('\\', '\\\\')
-    #             db.insert_reaction(new_rxn, temp['smiles'], sc['smiles'], sc['atom_idx'])
-
 
 if __name__ == '__main__':
     main()
