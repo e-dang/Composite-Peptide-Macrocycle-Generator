@@ -182,6 +182,7 @@ def read_mols(filepath=None, verbose=False):
     if filepath is None:
         filepath = str(Path(__file__).resolve().parents[1] / 'chemdraw/test_rxn.sdf')
 
+    print(filepath)
     mols = Chem.SDMolSupplier(filepath)
 
     if verbose:
@@ -242,3 +243,14 @@ def create_monomer_requirements(fp='smiles/monomers/required.json'):
 def ranges(total, chunks):
     step = total / chunks
     return [(round(step*i), round(step*(i+1))) for i in range(chunks)]
+
+
+def kekulize_smiles(smiles):
+
+    if isinstance(smiles, str):
+        smiles = [smiles]
+
+    mols = [Chem.MolFromSmiles(mol) for mol in smiles]
+    [Chem.Kekulize(mol) for mol in mols]
+    [print(Chem.MolToSmiles(mol, kekuleSmiles=True)) for mol in mols]
+    return True
