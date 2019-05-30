@@ -1,10 +1,11 @@
 import json
+import re
 from itertools import chain
 from pathlib import Path
 
 from pymongo import MongoClient
 from rdkit import Chem
-from rdkit.Chem import AllChem, Draw
+from rdkit.Chem import AllChem, Draw, rdmolfiles
 
 
 class Database():
@@ -175,6 +176,14 @@ class Database():
         return self.db[collection].insert_one({'reactant': reactant, 'filter': filter_type,
                                                'reacting_side_chains': reacting_side_chains})
 
+    def insert_conformers(self, candidate, conformers, collection='conformers'):
+
+        if self.db.name != 'molecules':
+            print('Not connected to "molecules" database.')
+            return False
+
+        return self.db[collection].insert_one({'candidate': candidate, 'num_conformers': len(conformers), 'conformers': conformers})
+
 
 def read_mols(filepath=None, verbose=False):
 
@@ -253,4 +262,31 @@ def kekulize_smiles(smiles):
     mols = [Chem.MolFromSmiles(mol) for mol in smiles]
     [Chem.Kekulize(mol) for mol in mols]
     [print(Chem.MolToSmiles(mol, kekuleSmiles=True)) for mol in mols]
+    return True
+
+# TODO: try pickling
+
+
+def conformers_to_pdb(candidates=None):
+
+    if candidates is None:
+        cursor = Database(db='molecules').find_all('conformers')
+    else:
+        cursor = Database(db='molecules').find('conformers', {'candidate': candidates})
+    # else:
+        # if isinstance(candidates, str):
+        #     candidates = [candidates]
+        #     for candidate in candidates:
+        #     confs = Database(db='molecules').find({'candidate': candidate}, {'conformers': 1})
+
+    for ind, mols in enumerate(cursor):
+        mol = Chem.MolFromSmiles(mols['candidate'])
+        for conf in mols['conformers']:
+            print([re.split(r'Energy: \d+\.\d+', conf)[1]])
+            mol = Chem.MolFromMolBlock(re.split(r'Energy: \d+\.\d+\s', conf)[1])
+            print(Chem.MolToSmiles(mol))
+            exit()
+        # [mol.AddConformer(Chem.MolFromMolBlock(conf)) for conf in mols['conformers']]
+        # rdmolfiles.MolToPDBFile(mol, 'test' + str(ind) + '.pdb')
+
     return True
