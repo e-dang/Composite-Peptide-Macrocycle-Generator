@@ -11,7 +11,7 @@
 - Add rare amino acids to monomers
 - Add database connections to diversify_side_chains.py and generate_monomers.py
 - Add side chains from data to side chain pool (5-fluoro-trp, etc...)
-- Let primary amines in general form connection between template and peptide (not just N-terminus)
+- Let primary amines in general form connection between template and peptide (not just N-terminus) and add a save function for writing data in merge_temp_peptide.py
 - Look into using mySQL instead of MongoDB
 - Add unit tests
 - fix filepaths within project
