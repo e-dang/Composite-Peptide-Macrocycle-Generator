@@ -89,8 +89,6 @@ def combine(template, peptide, n_term):
         str: The SMILES string of the molecule resulting from merging the template with the peptide
     """
 
-    # print('template', template)
-    # print('peptide', peptide)
     # # portion of peptide backbone containing n-term
     # if n_term == ALPHA:
     #     patt = Chem.MolFromSmarts('[NH2]CC(=O)')
@@ -99,7 +97,6 @@ def combine(template, peptide, n_term):
 
     # find n-term nitrogen and assign atom map number
     matches = peptide.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'), useChirality=False)
-    # print('matches', matches)
     for pairs in matches:
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
@@ -120,8 +117,6 @@ def combine(template, peptide, n_term):
             pep_atom = atom.GetIdx()
             atom.SetAtomMapNum(0)
 
-    # print('pep_atom', pep_atom)
-    # print('temp_atom', temp_atom)
     # create bond
     combo.AddBond(temp_atom, pep_atom, order=Chem.rdchem.BondType.SINGLE)
 
