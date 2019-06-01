@@ -1,7 +1,6 @@
 import argparse
 import json
 import multiprocessing
-from contextlib import closing
 from itertools import islice, product
 from pathlib import Path
 from random import sample
