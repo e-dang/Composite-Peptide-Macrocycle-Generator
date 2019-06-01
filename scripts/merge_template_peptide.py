@@ -17,28 +17,31 @@ CARBONYL = '[CH]=O'
 TEMP_ATOM_MAP_NUM = 1
 PEP_ATOM_MAP_NUM = 2
 
+TEMPLATE_NAMES = ['_temp1', '_temp2', '_temp3']
 
-def get_template(fp_in_t, temp_ind):
+
+def get_templates(fp_temp, temp_inds):
     """
-    Retrieves the template based on the value of temp_ind passed into the function and passes the template to a
+    Retrieves the template based on the value of temp_inds passed into the function and passes the template to a
     helper function that modifies it in preparation for merging with peptide
 
     Args:
-        fp_in_t (str): The filepath to the json file containing the template SMILES strings
-        temp_ind (int): Index indicating which template to retrieve, 1 - temp1a, 2 - temp2, 3 - temp3
+        fp_temp (str): The filepath to the json file containing the template SMILES strings
+        temp_inds (int): Indicies indicating which templates to retrieve; 1 - temp1, 2 - temp2, 3 - temp3
 
     Returns:
-        rdkit Mol: The modified template
+        list: Contains tuples, each of which contain the modified template as an rdkit Mol and the unmodified template
+            SMILES string
     """
 
-    template = None
-    with open(fp_in_t, 'r') as f:
-        for ind, doc in enumerate(json.load(f)):
-            if ind + 1 == temp_ind:
-                smiles = doc['smiles']
-                template = modify_template(Chem.MolFromSmiles(smiles), ind + 1)
+    template_data = []
+    with open(fp_temp, 'r') as f:
+        for temp_ind in temp_inds:
+            for i, doc in enumerate(json.load(f), start=1):
+                if i == temp_ind:
+                    template_data.append((modify_template(Chem.MolFromSmiles(doc['smiles']), i), doc['smiles']))
 
-    return template, smiles
+    return template_data
 
 
 def modify_template(template, ind):
@@ -86,6 +89,8 @@ def combine(template, peptide, n_term):
         str: The SMILES string of the molecule resulting from merging the template with the peptide
     """
 
+    # print('template', template)
+    # print('peptide', peptide)
     # # portion of peptide backbone containing n-term
     # if n_term == ALPHA:
     #     patt = Chem.MolFromSmarts('[NH2]CC(=O)')
@@ -93,7 +98,8 @@ def combine(template, peptide, n_term):
     #     patt = Chem.MolFromSmarts('[NH2]CCC(=O)')
 
     # find n-term nitrogen and assign atom map number
-    matches = peptide.GetSubstructMatches(Chem.MolFromSmiles('[NH2]'), useChirality=False)
+    matches = peptide.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'), useChirality=False)
+    # print('matches', matches)
     for pairs in matches:
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
@@ -114,6 +120,8 @@ def combine(template, peptide, n_term):
             pep_atom = atom.GetIdx()
             atom.SetAtomMapNum(0)
 
+    # print('pep_atom', pep_atom)
+    # print('temp_atom', temp_atom)
     # create bond
     combo.AddBond(temp_atom, pep_atom, order=Chem.rdchem.BondType.SINGLE)
 
@@ -127,67 +135,70 @@ def combine(template, peptide, n_term):
     return Chem.MolToSmiles(combo)
 
 
+def merge_templates_peptides(temp_inds, fp_temp, fp_peps, fp_out, show_progress=False):
+
+    template_data = get_templates(fp_temp, temp_inds)
+    for i, template in tqdm(enumerate(template_data), desc='Templates:', disable=show_progress):
+        for fp_pep in tqdm(fp_peps, desc='Peptide Files:', disable=show_progress):
+
+            # create output filepath based on template and peptide lengths
+            outfile = fp_pep.split('/')[-1].strip('.json') + TEMPLATE_NAMES[i] + '.json'
+
+            merged_data = merge_template_peptide(template, fp_pep, show_progress)
+            write_data(merged_data, fp_out, outfile)
+
+
+def merge_template_peptide(template, fp_pep, show_progress=False):
+
+    collection = []
+    with open(fp_pep, 'r') as f:
+        for doc in tqdm(json.load(f), desc='Peptides:', disable=show_progress):
+            doc['template'] = template[1]
+            doc['template-peptide'] = combine(template[0], Chem.MolFromSmiles(doc['peptide']), doc['N-term'])
+            del doc['N-term']
+            collection.append(doc)
+
+    return collection
+
+
+def write_data(merged_data, fp_out, outfile):
+
+    fp_out = str(fp_out / outfile)
+
+    with open(fp_out, 'w') as f:
+        json.dump(merged_data, f)
+
+    print('Complete!')
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description='Connects each peptide defined in the input file to a template and '
                                      'write the resulting molecule to file as a SMILES string')
-    parser.add_argument('-t', '--temp', dest='template', choices=[1, 2, 3], type=int, default=[1], nargs='+',
-                        help='The template(s) to be used; 1 - temp1a,, 2 - temp2, 3 - temp3')
-    parser.add_argument('-tin', '--temp_in', dest='temp_in', default='templates.json',
+    parser.add_argument('templates', choices=[1, 2, 3], type=int, nargs='+',
+                        help='The template(s) to be used; 1 - temp1,, 2 - temp2, 3 - temp3')
+    parser.add_argument('--f_temp', dest='f_temp', default='templates.json',
                         help='The json file containing template SMILES strings')
-    parser.add_argument('-pin', '--pep_in', dest='pep_in', default=['length3_all.json'], nargs='+',
+    parser.add_argument('--f_pep', dest='f_pep', default=['length3_all.json'], nargs='+',
                         help='The json file(s) containing peptide SMILES strings')
-    parser.add_argument('-o', '--out', dest='out', default=None, nargs='+',
-                        help='The output json file(s) to write the resulting SMILES strings; default will out assign '
-                        'file names')
-    parser.add_argument('-fit', '--fin_t', dest='fp_in_t', default='smiles/templates',
+    parser.add_argument('--fp_temp', dest='fp_temp', default='smiles/templates',
                         help='The filepath to the template json file relative to the base project directory')
-    parser.add_argument('-fip', '--fin_p', dest='fp_in_p', default='smiles/peptides',
+    parser.add_argument('--fp_pep', dest='fp_pep', default='smiles/peptides',
                         help='The filepath to the peptide json file(s) relative to the base project directory')
-    parser.add_argument('-fo', '--fout', dest='fp_out', default='smiles/template_peptide/c_term',
+    parser.add_argument('--fp_out', dest='fp_out', default='smiles/template_peptide/c_term',
                         help='The filepath for the output json file relative to the base project directory')
     parser.add_argument('--show_progress', dest='progress', action='store_false',
                         help='Show progress bar. Defaults to False')
 
     args = parser.parse_args()
 
-    # if output file(s) specified then check for proper number of specified files
-    if args.out is not None:
-        num_output = len(args.out)
-        num_temp = len(args.template)
-        num_pep = len(args.pep_in)
-        if num_output != num_temp * num_pep:
-            print('Number of output files needs to be equal to number of templates * number of peptide files')
-            raise SystemExit
-
     # get full filepath to input files
     base_path = Path(__file__).resolve().parents[1]
-    fp_in_t = str(base_path / args.fp_in_t / args.temp_in)
-    fp_in_p = [str(base_path / args.fp_in_p / file) for file in args.pep_in]
+    fp_temp = str(base_path / args.fp_temp / args.f_temp)
+    fp_peps = [str(base_path / args.fp_pep / file) for file in args.f_pep]
+    fp_out = base_path / args.fp_out
 
-    # connect all peptides in each peptide group to each template and write to correct output file
-    template_names = ['_temp1', '_temp2', '_temp3']
-    for i, peptide_fp in tqdm(enumerate(fp_in_p), disable=args.progress):
-        for j, temp_ind in tqdm(enumerate(args.template), disable=args.progress):
-
-            # create output filepath based on template and peptide lengths if output file(s) not specified
-            outfile_name = args.pep_in[i].split('_')[0] + template_names[j] + '.json'
-            fp_out = str(base_path / args.fp_out /
-                         outfile_name) if args.out is None else str(args.out[i * len(args.template) + j])
-
-            # prep corresponding template and peptides
-            template, smiles = get_template(fp_in_t, temp_ind)
-
-            # connect and write to file
-            collection = []
-            with open(fp_out, 'w') as fout, open(peptide_fp, 'r') as f_pep:
-                for doc in tqdm(json.load(f_pep), disable=args.progress):
-                    doc['template'] = smiles
-                    doc['template-peptide'] = combine(template, Chem.MolFromSmiles(doc['peptide']), doc['N-term'])
-                    del doc['N-term']
-                    collection.append(doc)
-
-                json.dump(collection, fout)
-                print('Complete!')
+    merge_templates_peptides(args.templates, fp_temp, fp_peps, fp_out, args.progress)
 
 
 if __name__ == '__main__':
