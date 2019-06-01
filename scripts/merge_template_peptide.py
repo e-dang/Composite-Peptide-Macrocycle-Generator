@@ -136,6 +136,21 @@ def combine(template, peptide, n_term):
 
 
 def merge_templates_peptides(temp_inds, fp_temp, fp_peps, fp_out, show_progress=False):
+    """
+    Top level function that calls merge_template_peptide() with every combination of specified templates and peptide
+    files.
+
+    Args:
+        temp_inds (list): Contains ints which specify which templates to use
+        fp_temp (str): The filepath to the file containing the templates
+        fp_peps (list): Contains the filepath(s) to the file(s) containing the peptides
+        fp_out (str): The incomplete filepath to the output file. Filepath is completed inside this function
+        show_progress (bool, optional): Show progress bar. Defaults to False.
+
+    Yields:
+        list: A list containing dictionaries of the data associated with the merged template_peptide molecule
+        str: The corresponding output file name for the data
+    """
 
     template_data = get_templates(fp_temp, temp_inds)
     for i, template in tqdm(enumerate(template_data), desc='Templates:', disable=show_progress):
@@ -145,10 +160,22 @@ def merge_templates_peptides(temp_inds, fp_temp, fp_peps, fp_out, show_progress=
             outfile = fp_pep.split('/')[-1].strip('.json') + TEMPLATE_NAMES[i] + '.json'
 
             merged_data = merge_template_peptide(template, fp_pep, show_progress)
-            write_data(merged_data, fp_out, outfile)
+            yield merged_data, outfile
 
 
 def merge_template_peptide(template, fp_pep, show_progress=False):
+    """
+    Helper function to merge_templates_peptides(). Gets peptide data from file and calls combine() on each peptide - template
+    combination.
+
+    Args:
+        template (tuple): Contains the template as an rdkit Mol and the SMILES string of the unmodified template
+        fp_pep (str): The filepath to the file containing the peptides
+        show_progress (bool, optional): Show progress bar. Defaults to False.
+
+    Returns:
+        list: A list containing dictionaries of the associated merged template_peptide data
+    """
 
     collection = []
     with open(fp_pep, 'r') as f:
@@ -161,10 +188,17 @@ def merge_template_peptide(template, fp_pep, show_progress=False):
     return collection
 
 
-def write_data(merged_data, fp_out, outfile):
+def write_data(merged_data, fp_out):
+    """
+    Writes the merged data to a json file.
 
-    fp_out = str(fp_out / outfile)
+    Args:
+        merged_data (list): A list containing dictionaries of the associated merged template_peptide data
+        fp_out (str): The filepath to the output file
 
+    Returns:
+        bool: True if successful
+    """
     with open(fp_out, 'w') as f:
         json.dump(merged_data, f)
 
@@ -198,7 +232,8 @@ def main():
     fp_peps = [str(base_path / args.fp_pep / file) for file in args.f_pep]
     fp_out = base_path / args.fp_out
 
-    merge_templates_peptides(args.templates, fp_temp, fp_peps, fp_out, args.progress)
+    merged_data, outfile = merge_templates_peptides(args.templates, fp_temp, fp_peps, fp_out, args.progress)
+    write_data(merged_data, str(fp_out / outfile))
 
 
 if __name__ == '__main__':
