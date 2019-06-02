@@ -80,7 +80,7 @@ class Database():
         return self.db[collection].find({}) if projection is None else self.db[collection].find({}, projection)
 
 
-class Rxn_Db(Database):
+class RxnDatabase(Database):
 
     def __init__(self, database='rxn_templates', host='localhost', port=27017):
         super().__init__(database, host, port)
@@ -127,7 +127,7 @@ class Rxn_Db(Database):
                                                'side_chain': side_chain, 'atom_idx': atom_idx})
 
 
-class Mol_Db(Database):
+class MolDatabase(Database):
 
     def __init__(self, database='molecules', host='localhost', port=27017):
         super().__init__(database, host, port)

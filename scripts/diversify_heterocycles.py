@@ -8,9 +8,9 @@ import argparse
 
 from rdkit import Chem
 
-from utils import read_mols
-from database import Mol_Db
 from base import Base
+from database import MolDatabase
+from utils import read_mols
 
 # TODO: allow for side chains with methyl group already attached, such as 5-methyl indole.
 
@@ -22,7 +22,7 @@ class Diversify_Heterocycles(Base):
     Attributes:
         fp_in (list): Contains all filepaths to input files containing the parent heterocycles.
         fp_out (str): The filepath to the output json file.
-        mol_db (Mol_Db): An instance of Mol_Db.
+        mol_db (MolDatabase): An instance of MolDatabase.
         groups (list): Contains the groups from which each set of heterocycles comes from.
         connections (list): Contains tuples, each of which contain atom mapped SMARTS strings of the alkyl attachment
             chain and the corresponding modification array.
@@ -31,8 +31,8 @@ class Diversify_Heterocycles(Base):
         db_flag (bool): Determines whether to write data to the database.
     """
 
-    SIDE_CHAIN_MAP_NUM = 1
-    CONNECTION_MAP_NUM = 2
+    HETERO_MN = 1
+    CONN_MN = 2
 
     def __init__(self, fp_in, fp_out, groups, database='molecules', host='localhost', port=27017, json_flag=True,
                  db_flag=True):
@@ -53,9 +53,10 @@ class Diversify_Heterocycles(Base):
         super().__init__()
         self.fp_in = [str(self.project_dir / file) for file in fp_in]
         self.fp_out = str(self.project_dir / fp_out)
-        self.mol_db = Mol_Db(database=database, host=host, port=port)
+        self.mol_db = MolDatabase(database=database, host=host, port=port)
         self.groups = groups
-        self.connections = [('[CH3:2]', [0, 3]), ('[CH3][CH2:2]', [1, 3]), ('[CH3][CH2][CH2:2]', [2, 3])]
+        self.connections = [(f'[CH3:{self.CONN_MN}]', [0, 3]), (f'[CH3][CH2:{self.CONN_MN}]', [1, 3]),
+                            (f'[CH3][CH2][CH2:{self.CONN_MN}]', [2, 3])]
         self.data = []
         self.json_flag = json_flag
         self.db_flag = db_flag
@@ -120,7 +121,7 @@ class Diversify_Heterocycles(Base):
 
         # check if connecting atom is atom mapped
         map_nums = [atom.GetAtomMapNum() for atom in connection.GetAtoms()]
-        if self.CONNECTION_MAP_NUM not in map_nums:
+        if self.CONN_MN not in map_nums:
             print('Need to specifiy connecting atom with atom map number')
             raise SystemExit
 
@@ -131,12 +132,12 @@ class Diversify_Heterocycles(Base):
             atom_idx = None
             found = False
             if atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0 and atom.GetTotalNumHs() < 3:
-                atom.SetAtomMapNum(self.SIDE_CHAIN_MAP_NUM)
+                atom.SetAtomMapNum(self.HETERO_MN)
                 atom_idx = atom.GetIdx()
                 attached.add(atom_idx)
                 found = True
             elif atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0:
-                atom.SetAtomMapNum(self.SIDE_CHAIN_MAP_NUM)
+                atom.SetAtomMapNum(self.HETERO_MN)
                 atom_idx = atom.GetIdx()
                 attached.add(atom_idx)
                 found = True
@@ -150,11 +151,11 @@ class Diversify_Heterocycles(Base):
             mol_atom = None
             conn_atom = None
             for combo_atom in combo.GetAtoms():
-                if combo_atom.GetAtomMapNum() == self.SIDE_CHAIN_MAP_NUM:
+                if combo_atom.GetAtomMapNum() == self.HETERO_MN:
                     mol_atom = combo_atom.GetIdx()
                     combo_atom.SetAtomMapNum(0)
                     Chem.Mol.GetAtomWithIdx(mol, atom_idx).SetAtomMapNum(0)
-                elif combo_atom.GetAtomMapNum() == self.CONNECTION_MAP_NUM:
+                elif combo_atom.GetAtomMapNum() == self.CONN_MN:
                     conn_atom = combo_atom.GetIdx()
                     combo_atom.SetAtomMapNum(0)
 
