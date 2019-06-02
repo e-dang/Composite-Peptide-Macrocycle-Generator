@@ -1,10 +1,10 @@
 import argparse
 import json
-from itertools import chain
+from copy import deepcopy
 from pathlib import Path
 
 from rdkit import Chem
-from rdkit.Chem import AllChem, Draw
+from rdkit.Chem import AllChem
 from tqdm import tqdm
 
 ALPHA = 'alpha_amino_acid'
@@ -86,48 +86,62 @@ def combine(template, peptide, n_term):
         peptide (rdkit Mol): The peptide to be attached to the template
 
     Returns:
-        str: The SMILES string of the molecule resulting from merging the template with the peptide
+        list: Contains the SMILES strings of the molecule resulting from merging the template with the peptide
     """
 
-    # # portion of peptide backbone containing n-term
-    # if n_term == ALPHA:
-    #     patt = Chem.MolFromSmarts('[NH2]CC(=O)')
-    # elif n_term in (BETA2, BETA3):
-    #     patt = Chem.MolFromSmarts('[NH2]CCC(=O)')
+    # portion of peptide backbone containing n-term
+    if n_term == ALPHA:
+        patt = Chem.MolFromSmarts('[NH;R]CC(=O)')
+    elif n_term in (BETA2, BETA3):
+        patt = Chem.MolFromSmarts('[NH;R]CCC(=O)')
 
-    # find n-term nitrogen and assign atom map number
-    matches = peptide.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'), useChirality=False)
+    # find any primary amine (not amide) or proline n-terminus
+    matches = list(peptide.GetSubstructMatches(Chem.MolFromSmarts('[$([NH2]);!$([NH2]C(=O)*)]'), useChirality=False))
+    matches.extend(list(peptide.GetSubstructMatches(patt, useChirality=False)))
+
+    # for each eligible nitrogen form a connection
+    results = []
     for pairs in matches:
+
+        # assign atom map number
+        mapped_atom = None
         for atom_idx in pairs:
             atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
-            if atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) == 2:  # primary amines only
+            if atom.GetSymbol() == 'N':  # primary amines only
                 atom.SetAtomMapNum(PEP_ATOM_MAP_NUM)
+                mapped_atom = atom
+                break
 
-    # prep for modification
-    combo = Chem.RWMol(Chem.CombineMols(peptide, template))
+        # prep for modification
+        combo = Chem.RWMol(Chem.CombineMols(deepcopy(peptide), deepcopy(template)))
+        mapped_atom.SetAtomMapNum(0)
 
-    # get reacting atom's indices in combo mol and remove atom map numbers
-    pep_atom = None
-    temp_atom = None
-    for atom in combo.GetAtoms():
-        if atom.GetAtomMapNum() == TEMP_ATOM_MAP_NUM:
-            temp_atom = atom.GetIdx()
-            atom.SetAtomMapNum(0)
-        elif atom.GetAtomMapNum() == PEP_ATOM_MAP_NUM:
-            pep_atom = atom.GetIdx()
-            atom.SetAtomMapNum(0)
+        # get reacting atom's indices in combo mol and remove atom map numbers
+        pep_atom = None
+        temp_atom = None
+        for atom in combo.GetAtoms():
+            if atom.GetAtomMapNum() == TEMP_ATOM_MAP_NUM:
+                temp_atom = atom.GetIdx()
+                atom.SetAtomMapNum(0)
+            elif atom.GetAtomMapNum() == PEP_ATOM_MAP_NUM:
+                pep_atom = atom.GetIdx()
+                atom.SetAtomMapNum(0)
 
-    # create bond
-    combo.AddBond(temp_atom, pep_atom, order=Chem.rdchem.BondType.SINGLE)
+        # merge
+        try:
+            combo.AddBond(temp_atom, pep_atom, order=Chem.rdchem.BondType.SINGLE)
+            Chem.SanitizeMol(combo)
+            results.append(Chem.MolToSmiles(combo))
+        except ValueError:
+            print('Sanitize Error!')
+            print('Template:', Chem.MolToSmiles(template))
+            print('Peptide:', Chem.MolToSmiles(peptide) + '\n')
+        except Exception:
+            print('Bond Addition Error!')
+            print('Template:', Chem.MolToSmiles(template))
+            print('Peptide:', Chem.MolToSmiles(peptide) + '\n')
 
-    try:
-        Chem.SanitizeMol(combo)
-    except ValueError:
-        print('Error!')
-        print('Template:', Chem.MolToSmiles(template))
-        print('Peptide:', Chem.MolToSmiles(peptide) + '\n')
-
-    return Chem.MolToSmiles(combo)
+    return results
 
 
 def merge_templates_peptides(temp_inds, fp_temp, fp_peps, show_progress=False):
