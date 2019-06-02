@@ -4,14 +4,12 @@
     and the second number is the map number of the other molecules reacting atom. If pair is under 'self' both numbers correspond to reacting atoms on self.
     Pairs of numbers along with side chain and template would be stored in anotehr collection possibly.
 - 3D rendering; look into pymol and using coordinate matricies from rdkit 3D conformation optimization
-- Spartan / conformational analysis
 - Break up generator objects in merge_template_peptide into smaller pieces for running on hoffman2.
     Parallel code causing non-fatal errors. Look into implementing parallel code with generators. Might want to implement a class to parallelize things.
     Also might want to parallelize writing to file, since for loop doesnt look like it is going fast enough.
 - Add rare amino acids to monomers
 - Add database connections to diversify_side_chains.py and generate_monomers.py
 - Add side chains from data to side chain pool (5-fluoro-trp, etc...)
-- Let primary amines in general form connection between template and peptide (not just N-terminus) and add a save function for writing data in merge_temp_peptide.py
 - Look into using mySQL instead of MongoDB
 - Add unit tests
 - fix filepaths within project
