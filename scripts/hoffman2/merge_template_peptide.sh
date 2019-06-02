@@ -10,4 +10,4 @@ module load python/anaconda3
 
 source activate rdkit
 
-python ./merge_template_peptide.py --fp_pep /u/scratch/e/ericdang/peptides/ --f_pep length2_all_${SGE_TASK_ID}*.json --fp_out /u/scratch/e/ericdang/template_peptides/
+python ./merge_template_peptide.py 1 --fp_pep /u/scratch/e/ericdang/peptides/ --f_pep length2_all_${SGE_TASK_ID}_1.json --fp_out /u/scratch/e/ericdang/template_peptides/
