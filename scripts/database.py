@@ -23,9 +23,23 @@ class Database():
         self.client = MongoClient(host, port) if client is None else client
         self.db = self.client[database]
 
+    def __enter__(self):
+        """
+        Open connection in context manager.
+        """
+
+        return self
+
     def __del__(self):
         """
-        Destructor - properly close connection
+        Close connection
+        """
+
+        self.client.close()
+
+    def __exit__(self, e_type, e_val, traceback):
+        """
+        Close connection in context manager
         """
 
         self.client.close()
@@ -36,7 +50,7 @@ class Database():
 
         Args:
             collection (str): The collection to insert the document into
-            document (dict): Dictionary containing the data in attribute: value format
+            document (dict, list): List or Dictionary containing the data in attribute: value format
 
         Returns:
             bool: True if successful
@@ -157,9 +171,9 @@ class MolDatabase(Database):
                                                'peptide': peptide, 'template': template, 'monomers': monomers,
                                                'reacting_side_chains': reacting_side_chains, 'atom_idx': atom_idx})
 
-    def insert_heterocycles(self, data, collection='heterocycles'):
+    def insert_side_chains(self, data, collection='side_chains'):
 
-        return self.db[collection].insert_many(data)
+        return self.db[collection].insert(data)
 
     def insert_filtered_candidates(self, reactant, filter_type, reacting_side_chains, collection='filtered_candidates'):
 

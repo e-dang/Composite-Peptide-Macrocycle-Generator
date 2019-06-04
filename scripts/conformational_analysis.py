@@ -4,6 +4,8 @@ from pathlib import Path
 import argparse
 from utils import Database
 from tqdm import tqdm
+from rdkit.Chem import rdmolfiles
+from time import time
 
 COLLECTION = 'filtered_candidates'
 FILTER_REGIO = 'regioSQM'
@@ -60,22 +62,28 @@ def embed_conformers(products, num_confs):
 
     # embed molecule
     for mol in products:
-        conf_ids = AllChem.EmbedMultipleConfs(mol, numConfs=num_confs)
+        conf_ids = AllChem.EmbedMultipleConfs(mol, numConfs=num_confs, numThreads=0, randomSeed=int(time()))
         return (mol, conf_ids)
-
-    return True
 
 
 def optimize_conformers(conformers):
 
     for mol, conf_ids in conformers:
-        convergence, energy = zip(*AllChem.MMFFOptimizeMoleculeConfs(mol, maxIters=1000))
+        convergence, energy = zip(*AllChem.MMFFOptimizeMoleculeConfs(mol, maxIters=1000, numThreads=0))
+
+        # sort confomers based on energy for proper alignment
+        sorted_confs = sorted(zip(energy, conf_ids), key=lambda x: x[0])
+        energy, conf_ids = zip(*sorted_confs)
+
+        # align
+        rms = []
+        AllChem.AlignMolConformers(mol, confIds=conf_ids, maxIters=1000, RMSlist=rms)
 
         # check if every conformer converged
         if len(set(convergence)) != 1:
             analyze_convergence(mol, conf_ids, convergence)
 
-        yield (mol, conf_ids, convergence, energy)
+        yield (mol, conf_ids, rms, convergence, energy)
 
 
 def analyze_convergence(mol, conf_ids, convergence):
@@ -90,14 +98,17 @@ def analyze_convergence(mol, conf_ids, convergence):
 def save_conformers(confs, **kwargs):
 
     db = Database(host=kwargs['host'], port=kwargs['port'], db=kwargs['database'])
-    for mol, conf_ids, convergences, energies in confs:
-        conf_data = []
-        for conf_id, convergence, energy in zip(conf_ids, convergences, energies):
-            info = 'Conf_ID: ' + str(conf_id) + '\nConvergence: ' + str(convergence) + '\nEnergy: ' + str(energy)
-            mol.SetProp('_Name', info)
-            conf_data.append(Chem.MolToMolBlock(mol, confId=conf_id))
+    for mol, conf_ids, rms, convergences, energies in confs:
+        db.insert_conformers(Chem.MolToSmiles(mol), mol.ToBinary(), convergences, energies)
 
-        db.insert_conformers(Chem.MolToSmiles(mol), conf_data)
+        if Chem.MolToSmiles(mol) == 'O=C1CCc2cccc(c2)/C=C/Cc2nn3c(c2CCC[C@H](C(=O)N[C@@H](CCCc2csc4ncsc24)C(=O)NC[C@@H](CCc2csc4ncsc24)C(=O)O)CN1)NC=N3':
+            rdmolfiles.MolToPDBFile(mol, 'GT.pdb')
+            print(rms)
+            print(energies)
+            # for i, conf in enumerate(Chem.rdchem.Mol.GetConformers(mol)):
+            #     print(rms)
+            #     rdmolfiles.MolToPDBFile(mol, f'GT{i}.pdb', confId=i)
+            exit()
 
 
 def main():
