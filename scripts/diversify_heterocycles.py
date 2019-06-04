@@ -5,6 +5,8 @@ email: erickdang@g.ucla.edu
 """
 
 import argparse
+from collections import Iterable
+from os.path import join
 
 from rdkit import Chem
 
@@ -15,20 +17,19 @@ from utils import read_mols
 # TODO: allow for side chains with methyl group already attached, such as 5-methyl indole.
 
 
-class DiversifyHeterocycles(Base):
+class SideChainModifier(Base):
     """
-    Class for attaching varying length alkyl chains / attachment points to heterocycles.
+    Class for attaching varying length alkyl chains / attachment points to side_chain.
 
     Attributes:
-        fp_in (list): Contains all filepaths to input files containing the parent heterocycles.
-        fp_out (str): The filepath to the output json file.
-        mol_db (MolDatabase): An instance of MolDatabase.
-        groups (list): Contains the groups from which each set of heterocycles comes from.
-        connections (list): Contains tuples, each of which contain atom mapped SMARTS strings of the alkyl attachment
+        _fp_in (list): Contains all filepaths to input files containing the parent side_chain.
+        _fp_out (str): The filepath to the output json file.
+        _mol_db (MolDatabase): An instance of MolDatabase.
+        _groups (list): Contains the groups from which each set of side_chains comes from.
+        _connections (list): Contains tuples, each of which contain atom mapped SMARTS strings of the alkyl attachment
             chain and the corresponding modification array.
-        data (list): Contains the dictionaries associated with the modified heterocycles.
-        json_flag (bool): Determines whether to write data to the json file.
-        db_flag (bool): Determines whether to write data to the database.
+        _data (list): Contains the dictionaries associated with the modified side_chain.
+        _side_chains (list): Contains the parent side_chains as rdkit Mols
     """
 
     HETERO_MN = 1
@@ -39,9 +40,9 @@ class DiversifyHeterocycles(Base):
         Constructor.
 
         Args:
-            fp_in (list): Contains all filepaths to input files containing the parent heterocycles.
+            fp_in (list): Contains all filepaths to input files containing the parent side_chain.
             fp_out (str): The filepath to the output json file.
-            groups (list): Contains the groups from which each set of heterocycles comes from.
+            groups (list): Contains the groups from which each set of side_chains comes from.
             database (str, optional): The database to store data in. Defaults to MolDatabase
             json_flag (bool): Determines whether to write data to the json file.
             db_flag (bool): Determines whether to write data to the database.
@@ -56,7 +57,7 @@ class DiversifyHeterocycles(Base):
 
         # data
         self.data = []
-        self.heterocycles = []
+        self.side_chains = []
         self.connections = [(f'[CH3:{self.CONN_MN}]', [0, 3]), (f'[CH3][CH2:{self.CONN_MN}]', [1, 3]),
                             (f'[CH3][CH2][CH2:{self.CONN_MN}]', [2, 3])]
 
@@ -64,16 +65,89 @@ class DiversifyHeterocycles(Base):
         self.json_flag = json_flag
         self.db_flag = db_flag
 
+    @property
+    def fp_in(self):
+        return self._fp_in
+
+    @property
+    def fp_out(self):
+        return self._fp_out
+
+    @property
+    def mol_db(self):
+        return self._mol_db
+
+    @property
+    def groups(self):
+        return self._groups
+
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def side_chains(self):
+        return self._side_chains
+
+    @property
+    def connections(self):
+        return self._connections
+
+    @fp_in.setter
+    def fp_in(self, val):
+        if not isinstance(val, Iterable) and not all(isinstance(fp, str) for fp in val):
+            raise TypeError('fp_in must be iterable containing all strings.')
+        self._fp_in = val
+
+    @fp_out.setter
+    def fp_out(self, val):
+        if not isinstance(val, str):
+            raise TypeError('fp_out must be a string.')
+        self._fp_out = val
+
+    @mol_db.setter
+    def mol_db(self, val):
+        if not isinstance(val, MolDatabase):
+            raise TypeError('mol_db must be an instance of MolDatabase.')
+        self._mol_db = val
+
+    @groups.setter
+    def groups(self, val):
+        if not isinstance(val, Iterable) and not all(isinstance(group, str) for group in val):
+            raise TypeError('groups must be an iterable containing all strings.')
+        self._groups = val
+
+    @data.setter
+    def data(self, val):
+        if not isinstance(val, Iterable) and not all(isinstance(d, dict) and d.values() == [
+                'heterocycle', 'parent', 'modifications', 'group'] for d in val):
+            raise TypeError('data must be an iterable containing dictionaries with proper field names.')
+        self._data = val
+
+    @side_chains.setter
+    def side_chains(self, val):
+        if not isinstance(val, Iterable) and not all(isinstance(mol, Chem.Mol) for mol in val):
+            raise TypeError('side_chains must be an iterable containing all rdkit Mols.')
+        self._side_chains = val
+
+    @connections.setter
+    def connections(self, val):
+        if not isinstance(val, Iterable) and not all(isinstance(tup, tuple) and isinstance(tup[0], str) and isinstance(
+                tup[1], Iterable) and all(isinstance(key, int) for key in tup[1]) for tup in val):
+            raise TypeError('connections must be an iterable containing all tuples with strings and iterable '
+                            'of intergers.')
+        self._connections = val
+
     def diversify(self):
         """
         Public instance method. Main driver of class functionality. Calls self.alternate_connection_point() on each
-        molecule in self.heterocycles with each connection type in self.connections and stores results in self.data.
+        molecule in self.side_chains with each connection type in self.connections and stores results in self.data.
 
         Returns:
             bool: True if successful
         """
 
-        for mol, group in self.heterocycles:
+        for mol, group in self.side_chains:
             for connection, modification in self.connections:
                 unique_mols = self.alternate_connection_point(mol, connection)
                 self.accumulate_mols(unique_mols, Chem.MolToSmiles(mol), modification, group)
@@ -83,7 +157,7 @@ class DiversifyHeterocycles(Base):
     def save_data(self):
         """
         Public instance method. Writes data defined in self.data to json file defined by self.fp_out and to 'molecules'
-        database in the 'heterocycles' collection. Must have corresponding flags set to True (self.json_flag
+        database in the 'side_chains' collection. Must have corresponding flags set to True (self.json_flag
         and self.db_flag).
 
         Returns:
@@ -94,13 +168,13 @@ class DiversifyHeterocycles(Base):
             self.write_json(self.data, self.fp_out)
 
         if self.db_flag:
-            self.mol_db.insert_heterocycles(self.data)
+            self.mol_db.insert_side_chains(self.data)
 
         return True
 
-    def get_heterocycles(self):
+    def get_side_chains(self):
         """
-        Reads all heterocycles from files in self.fp_in into self.heterocycles.
+        Reads all side_chains from files in self.fp_in into self.side_chains.
 
         Returns:
             bool: True if successful
@@ -108,7 +182,7 @@ class DiversifyHeterocycles(Base):
 
         for fp, group in zip(self.fp_in, self.groups):
             for mol in read_mols(fp):
-                self.heterocycles.append((mol, group))
+                self.side_chains.append((mol, group))
 
         return True
 
@@ -195,10 +269,10 @@ class DiversifyHeterocycles(Base):
 
     def accumulate_mols(self, mols, parent, modifications, group):
         """
-        Stores all data associated with the modified heterocycles in a dictionary and appends it to self.data.
+        Stores all data associated with the modified side_chain in a dictionary and appends it to self.data.
 
         Args:
-            mols (iterable): A set containing the unique SMILES strings of the modified heterocycles
+            mols (iterable): A set containing the unique SMILES strings of the modified side_chain
             parent (rdkit Mol): The parent heterocycle from which the modified heterocycle was derived
             modifications (list): A list containing indicators of the modifications that were made to the heterocycle
             group (str): The group (sdf file) the parent heterocycle came from
@@ -208,7 +282,7 @@ class DiversifyHeterocycles(Base):
             doc = {}
             doc['heterocycle'] = smiles
             doc['parent'] = parent
-            doc['modification'] = modifications
+            doc['modifications'] = modifications
             doc['group'] = group
             self.data.append(doc)
 
@@ -238,15 +312,15 @@ def main():
 
     args = parser.parse_args()
 
-    # get absolute filepath to input and output files
-    fp_in = [args.fp_in + '/' + file for file in args.input]
-    fp_out = args.fp_out + '/' + args.output
+    # get to input and output files
+    fp_in = [join(args.fp_in, file) for file in args.input]
+    fp_out = join(args.fp_out, args.output)
 
     # create classes and perform operations
     mol_db = MolDatabase(database=args.database, host=args.host, port=args.port)
-    diversifier = DiversifyHeterocycles(fp_in, fp_out, database=mol_db)
-    if diversifier.get_heterocycles() and diversifier.diversify():
-        return diversifier.save_data()
+    modifier = SideChainModifier(fp_in, fp_out, database=mol_db)
+    if modifier.get_side_chains() and modifier.diversify():
+        return modifier.save_data()
 
     return False
 
