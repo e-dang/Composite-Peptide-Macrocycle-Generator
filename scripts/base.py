@@ -11,8 +11,15 @@ class Base():
 
     def write_json(self, data, fp_out):
 
-        with open(fp_out, 'w') as f:
-            json.dump(data, f)
+        try:
+            with open(fp_out, 'w') as f:
+                json.dump(data, f)
+        except OSError:
+            print('File does not exist:', fp_out)
+            return False
+        except TypeError:
+            print('Object contains invalid types')
+            return False
 
         return True
 
