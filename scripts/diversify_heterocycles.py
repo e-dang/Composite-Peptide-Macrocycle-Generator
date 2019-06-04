@@ -15,7 +15,7 @@ from utils import read_mols
 # TODO: allow for side chains with methyl group already attached, such as 5-methyl indole.
 
 
-class Diversify_Heterocycles(Base):
+class DiversifyHeterocycles(Base):
     """
     Class for attaching varying length alkyl chains / attachment points to heterocycles.
 
@@ -34,8 +34,7 @@ class Diversify_Heterocycles(Base):
     HETERO_MN = 1
     CONN_MN = 2
 
-    def __init__(self, fp_in, fp_out, groups, database='molecules', host='localhost', port=27017, json_flag=True,
-                 db_flag=True):
+    def __init__(self, fp_in, fp_out, groups=None, database=None, json_flag=True, db_flag=True):
         """
         Constructor.
 
@@ -43,38 +42,41 @@ class Diversify_Heterocycles(Base):
             fp_in (list): Contains all filepaths to input files containing the parent heterocycles.
             fp_out (str): The filepath to the output json file.
             groups (list): Contains the groups from which each set of heterocycles comes from.
-            database (str, optional): The database to connect to. Defaults to 'molecules'.
-            host (str, optional): The host containing the database to connect to. Defaults to 'localhost'.
-            port (int, optional): The port to connect to. Defaults to 27017.
+            database (str, optional): The database to store data in. Defaults to MolDatabase
             json_flag (bool): Determines whether to write data to the json file.
             db_flag (bool): Determines whether to write data to the database.
         """
 
+        # I/O
         super().__init__()
         self.fp_in = [str(self.project_dir / file) for file in fp_in]
         self.fp_out = str(self.project_dir / fp_out)
-        self.mol_db = MolDatabase(database=database, host=host, port=port)
-        self.groups = groups
+        self.mol_db = MolDatabase() if database is None else database
+        self.groups = [name.split('_')[-1].split('.')[0] for name in self.fp_in] if groups is None else groups
+
+        # data
+        self.data = []
+        self.heterocycles = []
         self.connections = [(f'[CH3:{self.CONN_MN}]', [0, 3]), (f'[CH3][CH2:{self.CONN_MN}]', [1, 3]),
                             (f'[CH3][CH2][CH2:{self.CONN_MN}]', [2, 3])]
-        self.data = []
+
+        # flags
         self.json_flag = json_flag
         self.db_flag = db_flag
 
-    def diversify_heterocycles(self):
+    def diversify(self):
         """
-        Public instance method. Main driver of class functionality. Reads in molecules in self.fp_in and calls
-        __alternate_connection_point() on each one with each connection type and stores results in self.data.
+        Public instance method. Main driver of class functionality. Calls self.alternate_connection_point() on each
+        molecule in self.heterocycles with each connection type in self.connections and stores results in self.data.
 
         Returns:
             bool: True if successful
         """
 
-        for fp, group in zip(self.fp_in, self.groups):
-            for mol in read_mols(fp):
-                for connection, modification in self.connections:
-                    unique_mols = self.__alternate_connection_point(mol, connection)
-                    self.__accumulate_mols(unique_mols, Chem.MolToSmiles(mol), modification, group)
+        for mol, group in self.heterocycles:
+            for connection, modification in self.connections:
+                unique_mols = self.alternate_connection_point(mol, connection)
+                self.accumulate_mols(unique_mols, Chem.MolToSmiles(mol), modification, group)
 
         return True
 
@@ -96,10 +98,24 @@ class Diversify_Heterocycles(Base):
 
         return True
 
-    def __alternate_connection_point(self, mol, connection):
+    def get_heterocycles(self):
         """
-        Private instance method. Creates a set of new molecules by attaching an alkyl chain (which becomes the attachment
-        point to peptide backbone) to every eligble position on the side chain. Eligiblity of an atom is defined as:
+        Reads all heterocycles from files in self.fp_in into self.heterocycles.
+
+        Returns:
+            bool: True if successful
+        """
+
+        for fp, group in zip(self.fp_in, self.groups):
+            for mol in read_mols(fp):
+                self.heterocycles.append((mol, group))
+
+        return True
+
+    def alternate_connection_point(self, mol, connection):
+        """
+        Creates a set of new molecules by attaching an alkyl chain (which becomes the attachment point to peptide
+        backbone) to every eligble position on the side chain. Eligiblity of an atom is defined as:
             Carbon - Must have 1 or 2 hydrogens
             Nitrogen, Oxygen, Sulfur - Must have > 0 hydrogens
 
@@ -122,8 +138,7 @@ class Diversify_Heterocycles(Base):
         # check if connecting atom is atom mapped
         map_nums = [atom.GetAtomMapNum() for atom in connection.GetAtoms()]
         if self.CONN_MN not in map_nums:
-            print('Need to specifiy connecting atom with atom map number')
-            raise SystemExit
+            raise SystemExit('Need to specifiy connecting atom with atom map number')
 
         # try to make attachment at each atom
         for atom in mol.GetAtoms():
@@ -178,10 +193,9 @@ class Diversify_Heterocycles(Base):
 
         return mols
 
-    def __accumulate_mols(self, mols, parent, modifications, group):
+    def accumulate_mols(self, mols, parent, modifications, group):
         """
-        Private instance method. Stores all data associated with the modified heterocycles in a dictionary and appends
-        it to self.data.
+        Stores all data associated with the modified heterocycles in a dictionary and appends it to self.data.
 
         Args:
             mols (iterable): A set containing the unique SMILES strings of the modified heterocycles
@@ -210,7 +224,7 @@ def main():
                                      'group the heterocycle belongs to.')
     parser.add_argument('--f_in', dest='input', nargs='+',
                         default=['side_chains_likely1.sdf'], help='The sdf file(s) containing monomer side chains.')
-    parser.add_argument('--f_out', dest='out', default='side_chains.json', help='The output json file.')
+    parser.add_argument('--f_out', dest='output', default='side_chains.json', help='The output json file.')
     parser.add_argument('--fp_in', dest='fp_in', default='chemdraw/pre_monomer/',
                         help='The input filepath relative to script')
     parser.add_argument('--fp_out', dest='fp_out', default='smiles/pre_monomer/',
@@ -224,16 +238,14 @@ def main():
 
     args = parser.parse_args()
 
-    # get side_chain group name from input file name
-    groups = [name.split('_')[-1].split('.')[0] for name in args.input]
-
     # get absolute filepath to input and output files
     fp_in = [args.fp_in + '/' + file for file in args.input]
-    fp_out = args.fp_out + '/' + args.out
+    fp_out = args.fp_out + '/' + args.output
 
-    # create class and perform operations
-    diversifier = Diversify_Heterocycles(fp_in, fp_out, groups, args.database, args.host, args.port)
-    if diversifier.diversify_heterocycles():
+    # create classes and perform operations
+    mol_db = MolDatabase(database=args.database, host=args.host, port=args.port)
+    diversifier = DiversifyHeterocycles(fp_in, fp_out, database=mol_db)
+    if diversifier.get_heterocycles() and diversifier.diversify():
         return diversifier.save_data()
 
     return False
