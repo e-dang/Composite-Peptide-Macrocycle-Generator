@@ -176,13 +176,15 @@ class Database():
         return self.db[collection].insert_one({'reactant': reactant, 'filter': filter_type,
                                                'reacting_side_chains': reacting_side_chains})
 
-    def insert_conformers(self, candidate, conformers, collection='conformers'):
+    def insert_conformers(self, candidate, binary, convergences, energies, rmsd, collection='conformers'):
 
         if self.db.name != 'molecules':
             print('Not connected to "molecules" database.')
             return False
 
-        return self.db[collection].insert_one({'candidate': candidate, 'num_conformers': len(conformers), 'conformers': conformers})
+        return self.db[collection].insert_one({'candidate': candidate, 'binary': binary,
+                                               'num_conformers': len(convergences), 'convergences': convergences,
+                                               'energies': energies, 'avg_rmsd': rmsd})
 
 
 def read_mols(filepath=None, verbose=False):
@@ -280,13 +282,13 @@ def conformers_to_pdb(candidates=None):
         #     confs = Database(db='molecules').find({'candidate': candidate}, {'conformers': 1})
 
     for ind, mols in enumerate(cursor):
-        mol = Chem.MolFromSmiles(mols['candidate'])
-        for conf in mols['conformers']:
-            print([re.split(r'Energy: \d+\.\d+', conf)[1]])
-            mol = Chem.MolFromMolBlock(re.split(r'Energy: \d+\.\d+\s', conf)[1])
-            print(Chem.MolToSmiles(mol))
-            exit()
+        mol = Chem.Mol(mols['binary'])
+        # for conf in mols['conformers']:
+        #     print([re.split(r'Energy: \d+\.\d+', conf)[1]])
+        #     mol = Chem.MolFromMolBlock(re.split(r'Energy: \d+\.\d+\s', conf)[1])
+        #     print(Chem.MolToSmiles(mol))
+        #     exit()
         # [mol.AddConformer(Chem.MolFromMolBlock(conf)) for conf in mols['conformers']]
-        # rdmolfiles.MolToPDBFile(mol, 'test' + str(ind) + '.pdb')
+        rdmolfiles.MolToPDBFile(mol, 'test' + str(ind) + '.pdb')
 
     return True
