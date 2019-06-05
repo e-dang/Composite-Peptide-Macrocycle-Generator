@@ -58,9 +58,9 @@ def modify_template(template, ind):
     """
 
     # TODO: Need to implement same process for templates 2 and 3
-    if ind == 1:    # temp 1
-        patt1 = Chem.MolFromSmiles(SUCCINIMIDE)
-        patt2 = Chem.MolFromSmarts(CARBONYL)    # carbonyl that will form amide with peptide
+    # if ind == 1:    # temp 1
+    patt1 = Chem.MolFromSmiles(SUCCINIMIDE)
+    patt2 = Chem.MolFromSmarts(CARBONYL)    # carbonyl that will form amide with peptide
 
     # remove reaction point substruct
     template_mod = AllChem.DeleteSubstructs(template, patt1)
@@ -161,11 +161,11 @@ def merge_templates_peptides(temp_inds, fp_temp, fp_peps, show_progress=False):
     """
 
     template_data = get_templates(fp_temp, temp_inds)
-    for i, template in tqdm(enumerate(template_data), desc='Templates:', disable=show_progress):
+    for temp_ind, template in tqdm(zip(temp_inds, template_data), desc='Templates:', disable=show_progress):
         for fp_pep in tqdm(fp_peps, desc='Peptide Files:', disable=show_progress):
 
             # create output filepath based on template and peptide lengths
-            outfile = fp_pep.split('/')[-1].strip('.json') + TEMPLATE_NAMES[i] + '.json'
+            outfile = fp_pep.split('/')[-1].strip('.json') + TEMPLATE_NAMES[temp_ind - 1] + '.json'
 
             template_peptide = merge_template_peptide(template, fp_pep, show_progress)
             yield template_peptide, outfile
