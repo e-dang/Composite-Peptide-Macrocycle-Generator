@@ -274,7 +274,7 @@ def conformers_to_pdb(candidates=None):
     if candidates is None:
         cursor = Database(db='molecules').find_all('conformers')
     else:
-        cursor = Database(db='molecules').find('conformers', {'candidate': candidates})
+        cursor = Database(db='molecules').find('conformers', {'candidate': candidates, 'num_conformers': 500})
     # else:
         # if isinstance(candidates, str):
         #     candidates = [candidates]
@@ -289,6 +289,6 @@ def conformers_to_pdb(candidates=None):
         #     print(Chem.MolToSmiles(mol))
         #     exit()
         # [mol.AddConformer(Chem.MolFromMolBlock(conf)) for conf in mols['conformers']]
-        rdmolfiles.MolToPDBFile(mol, 'test' + str(ind) + '.pdb')
+        rdmolfiles.MolToPDBFile(mol, '500.pdb')
 
     return True

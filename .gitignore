@@ -1,6 +1,5 @@
 .vscode
-json
-chemdraw
+backup
+data
 __pycache__
-scripts/test.py
-peptides2
+macrocycles/test.py

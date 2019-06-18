@@ -14,7 +14,7 @@ conda env create -f environment.yml
 # if successful load environemnt variable setup and tear down scripts
 if [ $? -eq 0 ]; then
 
-    PROJECT_DIR="`pwd`"
+    PROJECT_DIR="`pwd`/"
     PYTHONPATH=$PYTHONPATH
 
     conda activate $1

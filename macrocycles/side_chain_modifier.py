@@ -1,18 +1,17 @@
 """
 Written by Eric Dang.
 github: https://github.com/e-dang
-email: erickdang@g.ucla.edu
+email: edang830@gmail.com
 """
 
 import argparse
-from collections import Iterable
 from os.path import join
 
 from rdkit import Chem
 
-from base import Base
-from database import MolDatabase
-from utils import read_mols
+from macrocycles.utils.base import Base
+from macrocycles.utils.database import MolDatabase
+from macrocycles.utils.utils import read_mols
 
 # TODO: allow for side chains with methyl group already attached, such as 5-methyl indole.
 
@@ -50,10 +49,10 @@ class SideChainModifier(Base):
 
         # I/O
         super().__init__()
-        self.fp_in = [str(self.project_dir / file) for file in fp_in]
+        self.fp_in = fp_in
         self.fp_out = str(self.project_dir / fp_out)
         self.mol_db = MolDatabase() if database is None else database
-        self.groups = [name.split('_')[-1].split('.')[0] for name in self.fp_in] if groups is None else groups
+        self.groups = groups
 
         # data
         self.data = []
@@ -70,73 +69,17 @@ class SideChainModifier(Base):
         return self._fp_in
 
     @property
-    def fp_out(self):
-        return self._fp_out
-
-    @property
-    def mol_db(self):
-        return self._mol_db
-
-    @property
     def groups(self):
         return self._groups
 
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def side_chains(self):
-        return self._side_chains
-
-    @property
-    def connections(self):
-        return self._connections
-
     @fp_in.setter
     def fp_in(self, val):
-        if not isinstance(val, Iterable) and not all(isinstance(fp, str) for fp in val):
-            raise TypeError('fp_in must be iterable containing all strings.')
-        self._fp_in = val
-
-    @fp_out.setter
-    def fp_out(self, val):
-        if not isinstance(val, str):
-            raise TypeError('fp_out must be a string.')
-        self._fp_out = val
-
-    @mol_db.setter
-    def mol_db(self, val):
-        if not isinstance(val, MolDatabase):
-            raise TypeError('mol_db must be an instance of MolDatabase.')
-        self._mol_db = val
+        self._fp_in = [str(self.project_dir / file) for file in val]
+        self.groups = None
 
     @groups.setter
     def groups(self, val):
-        if not isinstance(val, Iterable) and not all(isinstance(group, str) for group in val):
-            raise TypeError('groups must be an iterable containing all strings.')
-        self._groups = val
-
-    @data.setter
-    def data(self, val):
-        if not isinstance(val, Iterable) and not all(isinstance(d, dict) and d.values() == [
-                'heterocycle', 'parent', 'modifications', 'group'] for d in val):
-            raise TypeError('data must be an iterable containing dictionaries with proper field names.')
-        self._data = val
-
-    @side_chains.setter
-    def side_chains(self, val):
-        if not isinstance(val, Iterable) and not all(isinstance(mol, Chem.Mol) for mol in val):
-            raise TypeError('side_chains must be an iterable containing all rdkit Mols.')
-        self._side_chains = val
-
-    @connections.setter
-    def connections(self, val):
-        if not isinstance(val, Iterable) and not all(isinstance(tup, tuple) and isinstance(tup[0], str) and isinstance(
-                tup[1], Iterable) and all(isinstance(key, int) for key in tup[1]) for tup in val):
-            raise TypeError('connections must be an iterable containing all tuples with strings and iterable '
-                            'of intergers.')
-        self._connections = val
+        self._groups = [name.split('_')[-1].split('.')[0] for name in self.fp_in] if val is None else val
 
     def diversify(self):
         """
@@ -279,11 +222,10 @@ class SideChainModifier(Base):
         """
 
         for smiles in mols:
-            doc = {}
-            doc['heterocycle'] = smiles
-            doc['parent'] = parent
-            doc['modifications'] = modifications
-            doc['group'] = group
+            doc = {'side_chain': smiles,
+                   'parent': parent,
+                   'modifications': modifications,
+                   'group': group}
             self.data.append(doc)
 
 

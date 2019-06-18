@@ -1,5 +1,0 @@
-None-No modification made
-0-Add_attachment_point_methyl
-1-Add_attachment_point_ethyl
-2-Add_attachment_point_propyl
-3-Alternate_attachment_point
