@@ -5,129 +5,97 @@ email: edang830@gmail.com
 """
 
 import argparse
-from os.path import join
+import os
+import sys
+from collections import OrderedDict
+from logging import INFO
 
 from rdkit import Chem
 
-from macrocycles.utils.base import Base
-from macrocycles.utils.database import MolDatabase
-from macrocycles.utils.utils import read_mols
+from macrocycles.config import (COL1, CONN_MAP_NUM, HETERO_MAP_NUM,
+                                SCM_DOC_TYPE, SCM_INPUT_DIR, SCM_OUTPUT_DIR,
+                                Connections)
+from macrocycles.exceptions import MissingMapNumberError
+from macrocycles.utils import (Base, IOPaths, Mongo, Smiles,
+                               create_logger, set_flags)
 
-# TODO: allow for side chains with methyl group already attached, such as 5-methyl indole.
+LOGGER = create_logger(name=__name__, level=INFO)
 
 
 class SideChainModifier(Base):
     """
-    Class for attaching varying length alkyl chains / attachment points to side_chain.
+    Class for attaching varying length alkyl chains / attachment points to side chain. Inherits from Base.
 
     Attributes:
-        _fp_in (list): Contains all filepaths to input files containing the parent side_chain.
-        _fp_out (str): The filepath to the output json file.
-        _mol_db (MolDatabase): An instance of MolDatabase.
-        _groups (list): Contains the groups from which each set of side_chains comes from.
-        _connections (list): Contains tuples, each of which contain atom mapped SMARTS strings of the alkyl attachment
-            chain and the corresponding modification array.
-        _data (list): Contains the dictionaries associated with the modified side_chain.
-        _side_chains (list): Contains the parent side_chains as rdkit Mols
+        parent_side_chains (list): Contains the parent_side_chains and associated data as dictionaries.
+        connections (list): Contains the atom mapped SMARTS strings of the alkyl attachment chain and the corresponding
+            modification array as a Connections named tuple.
     """
 
-    HETERO_MN = 1
-    CONN_MN = 2
-
-    def __init__(self, fp_in, fp_out, groups=None, database=None, json_flag=True, db_flag=True):
+    def __init__(self, f_in, f_out, input_flags, output_flags):
         """
         Constructor.
 
         Args:
-            fp_in (list): Contains all filepaths to input files containing the parent side_chain.
-            fp_out (str): The filepath to the output json file.
-            groups (list): Contains the groups from which each set of side_chains comes from.
-            database (str, optional): The database to store data in. Defaults to MolDatabase
-            json_flag (bool): Determines whether to write data to the json file.
-            db_flag (bool): Determines whether to write data to the database.
+            f_in (str): The file name containing the input data, if input data has been specified to be in file format.
+            f_out (str): The file name that the result_data will be written to, if specified to do so.
+            input_flags (Flags): A namedtuple containing the flags indicating which format to get input data from.
+            output_flags (Flags): A namedtuple containing the flags indicating which format to output data to.
         """
 
         # I/O
-        super().__init__()
-        self.fp_in = fp_in
-        self.fp_out = str(self.project_dir / fp_out)
-        self.mol_db = MolDatabase() if database is None else database
-        self.groups = groups
+        f_in = os.path.join(SCM_INPUT_DIR, f_in)
+        f_out = os.path.join(SCM_OUTPUT_DIR, f_out)
+        super().__init__(IOPaths(f_in, f_out), mongo_setup=Mongo(COL1, SCM_DOC_TYPE),
+                         logger=LOGGER, input_flags=input_flags, output_flags=output_flags)
 
         # data
-        self.data = []
-        self.side_chains = []
-        self.connections = [(f'[CH3:{self.CONN_MN}]', [0, 3]), (f'[CH3][CH2:{self.CONN_MN}]', [1, 3]),
-                            (f'[CH3][CH2][CH2:{self.CONN_MN}]', [2, 3])]
-
-        # flags
-        self.json_flag = json_flag
-        self.db_flag = db_flag
-
-    @property
-    def fp_in(self):
-        return self._fp_in
-
-    @property
-    def groups(self):
-        return self._groups
-
-    @fp_in.setter
-    def fp_in(self, val):
-        self._fp_in = [str(self.project_dir / file) for file in val]
-        self.groups = None
-
-    @groups.setter
-    def groups(self, val):
-        self._groups = [name.split('_')[-1].split('.')[0] for name in self.fp_in] if val is None else val
+        self.parent_side_chains = []
+        self.connections = [Connections(con, mod) for con, mod in [(f'[CH3:{CONN_MAP_NUM}]', [0, 3]),
+                                                                   (f'[CH3][CH2:{CONN_MAP_NUM}]', [1, 3]),
+                                                                   (f'[CH3][CH2][CH2:{CONN_MAP_NUM}]', [2, 3])]]
 
     def diversify(self):
         """
-        Public instance method. Main driver of class functionality. Calls self.alternate_connection_point() on each
-        molecule in self.side_chains with each connection type in self.connections and stores results in self.data.
+        Main driver of class functionality. Calls self.alternate_connection_point() on each
+        molecule in self.parent_side_chains with each connection type in self.connections and calls
+        self.accumulate_mols() on the resulting data.
 
         Returns:
-            bool: True if successful
+            bool: True if successful.
         """
 
-        for mol, group in self.side_chains:
+        for doc in self.parent_side_chains:
+            unique_mols = []
             for connection, modification in self.connections:
-                unique_mols = self.alternate_connection_point(mol, connection)
-                self.accumulate_mols(unique_mols, Chem.MolToSmiles(mol), modification, group)
+                try:
+                    unique_mols.extend(self.alternate_connection_point(doc['smiles'], connection))
+                except MissingMapNumberError:
+                    self.logger.exception(f'Connection missing map numbers! connection: {connection}')
+                    break
+            else:
+                self.accumulate_mols(unique_mols, doc, modification)
+                continue
+            break
+        else:
+            return True
 
-        return True
+        return False
 
-    def save_data(self):
+    def load_data(self):
         """
-        Public instance method. Writes data defined in self.data to json file defined by self.fp_out and to 'molecules'
-        database in the 'side_chains' collection. Must have corresponding flags set to True (self.json_flag
-        and self.db_flag).
+        Overloaded method for loading input data.
 
         Returns:
-            bool: True if successful
+            bool: True if successful.
         """
 
-        if self.json_flag:
-            self.write_json(self.data, self.fp_out)
-
-        if self.db_flag:
-            self.mol_db.insert_side_chains(self.data)
-
-        return True
-
-    def get_side_chains(self):
-        """
-        Reads all side_chains from files in self.fp_in into self.side_chains.
-
-        Returns:
-            bool: True if successful
-        """
-
-        for fp, group in zip(self.fp_in, self.groups):
-            for mol in read_mols(fp):
-                self.side_chains.append((mol, group))
-
-        return True
+        try:
+            self.parent_side_chains = super().load_data()
+        except Exception:
+            return False
+        else:
+            return True
 
     def alternate_connection_point(self, mol, connection):
         """
@@ -137,39 +105,45 @@ class SideChainModifier(Base):
             Nitrogen, Oxygen, Sulfur - Must have > 0 hydrogens
 
         Args:
-            mol (rdkit Mol): The side chain molecule
-            connection (str): The atom mapped smarts SMARTS string of the alkyl attachment chain
+            mol (rdkit Mol / str): The side chain molecule.
+            connection (rdkit Mol / str): The atom mapped alkyl attachment chain. If in string format, must be a valid
+                SMARTS string.
 
         Raises:
-            SystemExit: If connection is not atom mapped
+            MissingMapNumberError: If connection is not atom mapped.
 
         Returns:
             set: A set of unique SMILES strings representing the side chain with alkyl chains attached at different
-                positions
+                positions.
         """
 
         mols = set()
         attached = set()
-        connection = Chem.MolFromSmarts(connection)
+
+        # convert strings to rdkit Mol
+        if isinstance(connection, str):
+            connection = Chem.MolFromSmarts(connection)
+        if isinstance(mol, str):
+            mol = Chem.MolFromSmiles(mol)
 
         # check if connecting atom is atom mapped
         map_nums = [atom.GetAtomMapNum() for atom in connection.GetAtoms()]
-        if self.CONN_MN not in map_nums:
-            raise SystemExit('Need to specifiy connecting atom with atom map number')
+        if CONN_MAP_NUM not in map_nums:
+            raise MissingMapNumberError('Need to specifiy connecting atom with atom map number')
 
-        # try to make attachment at each atom
+        # make attachment at each atom
         for atom in mol.GetAtoms():
 
             # detetmine atom eligibility
             atom_idx = None
             found = False
             if atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0 and atom.GetTotalNumHs() < 3:
-                atom.SetAtomMapNum(self.HETERO_MN)
+                atom.SetAtomMapNum(HETERO_MAP_NUM)
                 atom_idx = atom.GetIdx()
                 attached.add(atom_idx)
                 found = True
             elif atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0:
-                atom.SetAtomMapNum(self.HETERO_MN)
+                atom.SetAtomMapNum(HETERO_MAP_NUM)
                 atom_idx = atom.GetIdx()
                 attached.add(atom_idx)
                 found = True
@@ -183,15 +157,14 @@ class SideChainModifier(Base):
             mol_atom = None
             conn_atom = None
             for combo_atom in combo.GetAtoms():
-                if combo_atom.GetAtomMapNum() == self.HETERO_MN:
+                if combo_atom.GetAtomMapNum() == HETERO_MAP_NUM:
                     mol_atom = combo_atom.GetIdx()
                     combo_atom.SetAtomMapNum(0)
                     Chem.Mol.GetAtomWithIdx(mol, atom_idx).SetAtomMapNum(0)
-                elif combo_atom.GetAtomMapNum() == self.CONN_MN:
+                elif combo_atom.GetAtomMapNum() == CONN_MAP_NUM:
                     conn_atom = combo_atom.GetIdx()
                     combo_atom.SetAtomMapNum(0)
 
-            # create bond
             combo.AddBond(mol_atom, conn_atom, order=Chem.rdchem.BondType.SINGLE)
 
             # fix hydrogen counts
@@ -203,30 +176,34 @@ class SideChainModifier(Base):
 
             try:
                 Chem.SanitizeMol(combo)
-                mols.add(Chem.MolToSmiles(combo))
+                Chem.Kekulize(combo)
             except ValueError:
-                print('Sanitize Error!')
-                print('Side Chain:', Chem.MolToSmiles(mol) + '\n')
+                self.logger.exception(f'Sanitize error! Side Chain: {Chem.MolToSmiles(mol)}')
+            else:
+                mols.add(Smiles(Chem.MolToSmiles(combo), Chem.MolToSmiles(combo, kekuleSmiles=True)))
+                self.logger.debug(f'Success! Side Chain: {Chem.MolToSmiles(mol)}')
 
-        return mols
+        return list(mols)
 
-    def accumulate_mols(self, mols, parent, modifications, group):
+    def accumulate_mols(self, unique_mols, parent, modifications):
         """
-        Stores all data associated with the modified side_chain in a dictionary and appends it to self.data.
+        Stores all data associated with the modified side chain in a dictionary and appends it to self.result_data.
 
         Args:
-            mols (iterable): A set containing the unique SMILES strings of the modified side_chain
-            parent (rdkit Mol): The parent heterocycle from which the modified heterocycle was derived
-            modifications (list): A list containing indicators of the modifications that were made to the heterocycle
-            group (str): The group (sdf file) the parent heterocycle came from
+            mols (iterable): A set containing the unique SMILES strings of the modified side chain.
+            parent (rdkit Mol): The parent side chain from which the modified side chain was derived.
+            modifications (iterable): A list containing ids of the modifications that were made to the side chain.
+            group (str): The group name that the parent side chain came from.
         """
 
-        for smiles in mols:
-            doc = {'side_chain': smiles,
-                   'parent': parent,
-                   'modifications': modifications,
-                   'group': group}
-            self.data.append(doc)
+        for i, smiles in enumerate(unique_mols):
+            doc = OrderedDict([('ID', parent['ID'] + str(i)),
+                               ('type', 'side_chain'),
+                               ('smiles', smiles.smiles),
+                               ('kekule', smiles.kekule),
+                               ('modifications', modifications),
+                               ('parent', parent)])
+            self.result_data.append(doc)
 
 
 def main():
@@ -235,33 +212,34 @@ def main():
     """
 
     parser = argparse.ArgumentParser(description='Creates a unique set of molecules by attaching varying length alkyl '
-                                     'chains to all elgible positions on the heterocycle. Alkyl chains include '
+                                     'chains to all elgible positions on the side chain. Alkyl chains include '
                                      "methyl, ethyl, and propyl. The last word in the input files' name dictates which "
-                                     'group the heterocycle belongs to.')
-    parser.add_argument('--f_in', dest='input', nargs='+',
-                        default=['side_chains_likely1.sdf'], help='The sdf file(s) containing monomer side chains.')
-    parser.add_argument('--f_out', dest='output', default='side_chains.json', help='The output json file.')
-    parser.add_argument('--fp_in', dest='fp_in', default='chemdraw/pre_monomer/',
-                        help='The input filepath relative to script')
-    parser.add_argument('--fp_out', dest='fp_out', default='smiles/pre_monomer/',
-                        help='The ouput filepath relative to script')
-    parser.add_argument('--db', dest='database', default='molecules',
-                        help='The mongoDB database to connect to')
-    parser.add_argument('--host', dest='host', default='localhost',
-                        help='The host MongoDB server to connect to')
-    parser.add_argument('--port', dest='port', type=int, default=27017,
-                        help='The port on host server to connect to')
+                                     'group the side chain belongs to.')
+    parser.add_argument('input', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies the format that the input data is in.')
+    parser.add_argument('output', nargs='+', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies what format to output the result data in.')
+    parser.add_argument('--f_in', dest='f_in', required='json' in sys.argv or 'txt' in sys.argv,
+                        help='The input file relative to default input directory defined in config.py.')
+    parser.add_argument('--f_out', dest='f_out', default='side_chains',
+                        help='The output file relative to the default output directory defined in config.py.')
 
     args = parser.parse_args()
 
-    # get to input and output files
-    fp_in = [join(args.fp_in, file) for file in args.input]
-    fp_out = join(args.fp_out, args.output)
+    # check for proper file specifications
+    if args.input in ['json', 'txt']:
+        extension = args.f_in.split('.')[-1]
+        if args.input != extension:
+            LOGGER.error('File extension of the input file does not match the specified format')
+            raise OSError('File extension of the input file does not match the specified format')
 
-    # create classes and perform operations
-    mol_db = MolDatabase(database=args.database, host=args.host, port=args.port)
-    modifier = SideChainModifier(fp_in, fp_out, database=mol_db)
-    if modifier.get_side_chains() and modifier.diversify():
+    # configure I/O
+    input_flags, output_flags = set_flags(args.input, args.output)
+    f_in = args.f_in if args.input in ['json', 'txt'] else '/'
+
+    # create class and perform operations
+    modifier = SideChainModifier(f_in, args.f_out, input_flags=input_flags, output_flags=output_flags)
+    if modifier.load_data() and modifier.diversify():
         return modifier.save_data()
 
     return False

@@ -19,3 +19,4 @@
     Kekuleized reaction smarts cant be run with rdkit chemical reactions. Need to store both Kekule smiles and canonical smiles in db. temporary fix is continue to use canonical smiles
     and kekulize smiles when making presentations. Need to think about how to store kekulize smiles in db (relational db)?
 - Check conditions for indole_hetero_atoms_filter() in apply_filters.py and check conditions for filtering bicyclic 5 membered rings
+- Allow for side chains with methyl group already attached, such as 5-methyl indole when diversifying.
