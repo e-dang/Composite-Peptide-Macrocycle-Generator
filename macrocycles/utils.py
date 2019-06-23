@@ -12,6 +12,8 @@ import os
 from collections import OrderedDict, namedtuple
 from itertools import chain
 from pathlib import Path
+from copy import deepcopy
+from bson import json_util, errors
 
 from pymongo import ASCENDING, MongoClient
 from pymongo.errors import (BulkWriteError, CollectionInvalid,
@@ -21,7 +23,7 @@ from rdkit import Chem
 from rdkit.Chem import rdmolfiles
 
 from macrocycles.config import (COLLECTIONS, DATA_DIR, MONGO_SETTINGS,
-                                PROJECT_DIR, LOG_DIR, VALIDATORS, INDEX)
+                                PROJECT_DIR, LOG_DIR, VALIDATORS, INDEX, DI_INPUT_DIR)
 from macrocycles.exceptions import (SavingMongoError, SavingSQLError,
                                     WritingJsonError, WritingTxtError)
 
@@ -31,7 +33,7 @@ from macrocycles.exceptions import (SavingMongoError, SavingSQLError,
 Flags = namedtuple('Flags', ['json_flag', 'txt_flag', 'mongo_flag', 'sql_flag'])
 Smiles = namedtuple('Smiles', ['smiles', 'kekule'])
 IOPaths = namedtuple('IOPaths', ['input', 'output'])
-Mongo = namedtuple('MongoAccess', ['collection', 'doc_type'])
+MongoParams = namedtuple('MongoParameters', ['input_cols', 'input_types', 'output_col'])
 
 
 class CustomFormatter(logging.Formatter):
@@ -95,7 +97,8 @@ def create_logger(name, level, path=None):
     file_handler = logging.handlers.RotatingFileHandler(path, maxBytes=1000000, backupCount=5)
     file_handler.setLevel(logging.DEBUG)
     file_formatter = CustomFormatter(
-        '[%(asctime)-19s] [%(levelname)-8s] [%(name)s] -- %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        '[%(asctime)-19s] [%(levelname)-8s] [%(name)s - %(funcName)s - %(lineno)d] -- %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
 
@@ -274,13 +277,21 @@ class MongoDataBase():
         Returns:
             iterable: An iterable containing the modified documents.
         """
+
         # get latest count and prefixes
         counter = self.find(COLLECTIONS.counter, {'type': 'parent_side_chain'}, {'count': 1, 'prefix': 1})[0]
         count, prefix = counter['count'], counter['prefix']
 
         # assign ID
         for doc in docs:
-            doc['ID'], count, prefix = generate_id(count, prefix)
+            unique_id, count, prefix = generate_id(count, prefix)
+
+            # new monomers will have 'm' in ID field
+            if doc['ID'] is not None:
+                doc['ID'] += unique_id
+            else:
+                doc['ID'] = unique_id
+            # print('unique id', unique_id)
 
         # update count and prefix
         self[COLLECTIONS.counter].find_one_and_update({'type': 'parent_side_chain'},
@@ -376,11 +387,11 @@ class Base():
     Attributes:
         project_dir: The filepath to the root project directory.
         data_dir: The filepath to the data directory.
-        fp_in: The filepath to the input file.
+        fp_in: The filepath(s) to the input file(s).
         fp_out: The filepath to the output file.
         mongo_db: A connection to the MongoDB where the result_data will be stored.
-        collection: The collection in the MongoDB that result_data will be inserted into.
-        doc_type: The value held within the field 'type' in the documents to be loaded.
+        mongo_params: A MongoParams namedtuple containing the collection name(s) and value(s) held within the
+            'type' field of the documents to be retrieved, as well as the output collection name.
         sql_db: A connection to the SQL database where the result_data will be stored.
         logger: The logger of the child classes' module.
         result_data: A list to contain the result_data.
@@ -392,27 +403,26 @@ class Base():
                 **Note: Data can only be loaded from one format**
     """
 
-    def __init__(self, paths, mongo_setup, logger, output_flags=Flags(False, False, False, False),
-                 input_flags=Flags(False, False, True, False)):
+    def __init__(self, paths, mongo_params, logger, input_flags, output_flags):
         """
         Constructor.
 
         Args:
             paths (IOPaths): A namedtuple containing the I/O paths relative to DATA_DIR.
-            mongo_setup (Mongo): A namedtuple containing the collection and doc_type names.
+            mongo_params (MongoParams): A namedtuple containing the collection name(s) and value(s) held within the
+                    'type' field of the documents to be retrieved, as well as the output collection name.
             logger (Logger): The logger to be used by this class.
             output_flags (Flags, optional): A namedtuple specifying output formats.
-                Defaults to Flags(False, False, False, False).
             input_flags (Flags, optional): A namedtuple specifying the input format.
-                Defaults to Flags(False, False, True, False).
         """
+
         # I/O
         self.project_dir = PROJECT_DIR
         self.data_dir = DATA_DIR
-        self.fp_in = os.path.join(DATA_DIR, paths.input)
+        self.fp_in = [os.path.join(DATA_DIR, path) for path in paths.input]
         self.fp_out = os.path.join(DATA_DIR, paths.output)
-        self.mongo_db = MongoDataBase(logger=logger)
-        self.collection, self.doc_type = mongo_setup.collection, mongo_setup.doc_type
+        self.mongo_db = MongoDataBase(logger=logger) if mongo_params is not None else None
+        self.mongo_params = mongo_params
         self.sql_db = None
         self.logger = logger
 
@@ -435,13 +445,12 @@ class Base():
         try:
             self.save_all_formats()
         except (WritingJsonError, WritingTxtError, SavingMongoError, SavingSQLError):
-            pass
+            return False
         else:
             if True not in self.output_flags:
                 self.logger.warning('No data saved. Please set a data flag specifying which data format to save to.')
+                return False
             return True
-
-        return False
 
     def save_all_formats(self):
         """
@@ -460,39 +469,46 @@ class Base():
             try:
                 self.write_json()
             except TypeError:
-                self.logger.exception('Failed to write result_data to a json file')
+                self.logger.exception(
+                    f'Failed to write result_data to a json file. self.result_data = {self.result_data}')
                 raise WritingJsonError
             else:
                 self.logger.info(
-                    f'Successfully wrote {len(self.result_data)} data points to {self.fp_out.split("/")[-1]}.json!')
+                    f'Successfully wrote {len(self.result_data)} data points to file {self.fp_out}.json!')
 
         if self.output_flags.txt_flag:
             try:
                 self.write_txt()
             except TypeError:
-                self.logger.exception('Failed to write result_data to a txt file')
+                self.logger.exception(
+                    f'Failed to write result_data to a txt file. self.result_data = {self.result_data}')
                 raise WritingTxtError
             else:
                 self.logger.info(
-                    f'Successfully wrote {len(self.result_data)} data points to {self.fp_out.split("/")[-1]}.txt!')
+                    f'Successfully wrote {len(self.result_data)} data points to file {self.fp_out}.txt!')
 
         if self.output_flags.mongo_flag:
             try:
                 self.save_mongo_db()
-            except (DuplicateKeyError, ValueError, TypeError):
-                self.logger.exception('Failed to save result_data to the Mongo database')
+            except (DuplicateKeyError, ValueError, TypeError, errors.InvalidDocument):
+                self.logger.exception(
+                    f'Failed to save result_data to the Mongo database. self.result_data = {self.result_data}')
                 raise SavingMongoError
             except BulkWriteError as err:
-                self.logger.exception(f'Failed to save result_data to the Mongo database\n{err.details}')
+                self.logger.exception(
+                    f'Failed to save result_data to the Mongo database. self.result_data = {self.result_data}'
+                    f'\n{err.details}')
                 raise SavingMongoError
             else:
-                self.logger.info(f'Successfully saved {len(self.result_data)} data points to the Mongo database!')
+                self.logger.info(f'Successfully saved {len(self.result_data)} data points to the collection '
+                                 f'\'{self.mongo_params.output_col}\' on {self.mongo_db}')
 
         if self.output_flags.sql_flag:
             try:
                 self.save_sql_db()
             except Exception:
-                self.logger.exception('Failed to save result_data to the SQL database')
+                self.logger.exception(
+                    f'Failed to save result_data to the SQL database. self.result_data = {self.result_data}')
                 raise SavingSQLError
             else:
                 self.logger.info(f'Successfully saved {len(self.result_data)} data points to the SQL database!')
@@ -503,7 +519,7 @@ class Base():
         """
 
         with open(self.fp_out + '.json', 'w') as f:
-            json.dump(self.result_data, f)
+            json.dump(json.loads(json_util.dumps(self.result_data)), f)
 
     def write_txt(self):
         """
@@ -520,15 +536,16 @@ class Base():
                 data_string = [str(field) for field in data_point.values()]
                 f.write(','.join(data_string) + '\n')
 
-    def save_mongo_db(self):
+    def save_mongo_db(self, create_id=False):
         """
-        Saves data stored in self.result_data to the Mongo database specified by self.mongo_db.
+        Saves data stored in self.result_data to the collection defined by self.mongo_params.output_col in the data base
+        self.mongo_db.
 
         Returns:
             bool: True if successful.
         """
 
-        return self.mongo_db.insert(self.collection, self.result_data)
+        return self.mongo_db.insert(self.mongo_params.output_col, self.result_data, create_id=create_id)
 
     def save_sql_db(self):
         """
@@ -542,11 +559,12 @@ class Base():
 
     def load_data(self):
         """
-        Method to be overloaded by derived classes. Loads data from format specified by self.input_flags and returns
-        the results as a generator.
+        Method to be overloaded by derived classes. Loads data from format specified by self.input_flags in generator
+        form. Derived class should unpack the returned list in the overloaded version of this method according to the
+        order of files stored in self.fp_in.
 
         Returns:
-            generator: Contains the data.
+            list: A list of generators, where each generator corresponds to data stored in one file.
         """
 
         if sum(self.input_flags) > 1:
@@ -556,10 +574,11 @@ class Base():
             self.logger.warning(f'No data loaded. No input flags were set, please specify one. self.input_flags: '
                                 f'{self.input_flags}')
 
-        data = None
+        data = []
         if self.input_flags.json_flag:
             try:
-                data = self.load_json()
+                for filepath in self.fp_in:
+                    data.append(load_json(filepath))
             except (OSError, json.JSONDecodeError):
                 self.logger.exception(f'Failed to load the json file(s) \'{self.fp_in}\'')
             else:
@@ -567,7 +586,8 @@ class Base():
 
         if self.input_flags.txt_flag:
             try:
-                data = self.load_txt()
+                for filepath in self.fp_in:
+                    data.append(load_txt(filepath))
             except OSError:
                 self.logger.exception(f'Failed to load the txt file(s) \'{self.fp_in}\'')
             else:
@@ -575,17 +595,19 @@ class Base():
 
         if self.input_flags.mongo_flag:
             try:
-                data = self.load_mongo()
-                count = data.count()
+                for input_col, doc_type in zip(*[self.mongo_params.input_cols, self.mongo_params.input_types]):
+                    data.append(self.load_mongo_db(input_col, doc_type))
+                counts = [cursor.count() for cursor in data]
             except TypeError:
-                self.logger.exception(f'Failed to load the data in collection \'{self.collection}\' on {self.mongo_db}')
+                self.logger.exception(f'Failed to load the data in collection \'{self.mongo_params.input_cols}\' '
+                                      f'on {self.mongo_db}')
             else:
-                self.logger.info(f'Successfully loaded {count} data points from collection \'{self.collection}\' on '
-                                 f'{self.mongo_db}')
+                self.logger.info(f'Successfully loaded {counts} data points from collection '
+                                 f'\'{self.mongo_params.input_cols}\' on {self.mongo_db}')
 
         if self.input_flags.sql_flag:
             try:
-                self.load_sql()
+                self.load_sql_db()
             except TypeError:
                 self.logger.exception(f'Failed to load the data in SQL database')
             else:
@@ -593,46 +615,22 @@ class Base():
 
         return data
 
-    def load_json(self):
+    def load_mongo_db(self, input_col, doc_type):
         """
-        Loads the data defined by the file in self.fp_in and returns a generator object containing the data.
+        Queries the collection in the database defined by self.mongo_db and retrieves the documents whose 'type' field
+        equals taht of doc_type.
 
-        Yields:
-            (dict): A single data point.
-        """
-
-        with open(self.fp_in, 'r') as f:
-            for doc in json.load(f):
-                yield doc
-
-    def load_txt(self):
-        """
-        Loads the data defined by the file in self.fp_in and returns a generator object containing the data.
-
-        Yields:
-            (str): A single data point.
-        """
-
-        with open(self.fp_in, 'r') as f:
-            while True:
-                line = f.readline().rstrip('\n')
-                if not line:
-                    break
-
-                yield line
-
-    def load_mongo(self):
-        """
-        Queries the collection defined by self.collection in the database defined by self.mongo_db for all documents
-        of the type = self.doc_type.
+        Args:
+            input_col (str): The name of the collection.
+            doc_type (str): The value of the 'type' field of the documents to retrieve.
 
         Returns:
             pymongo cursor: The cursor containing the data.
         """
 
-        return self.mongo_db[self.collection].find({'type': self.doc_type})
+        return self.mongo_db[input_col].find({'type': doc_type})
 
-    def load_sql(self):
+    def load_sql_db(self):
         """
         Loads the data in the SQL database.
         """
@@ -647,41 +645,146 @@ class Base():
 class DataInitializer(Base):
     """
     A class for converting data stored in chemdraw files (.sdf) into the proper formats to be operated on. The data is
-    then stored in the specified file or database. Inherits from Base.
+    then stored in the specified file or database. The data stored in chemdraw files should be the starting point for
+    generating macrocyles, such as the templates, parent side chains, backbones, and monomers that won't be derived from
+    combinations of side chains and backbones such as natural amino acids and modified prolines. Inherits from Base.
     """
 
-    def __init__(self, f_in, collection, doc_type, logger=LOGGER, mongo_flag=True, sql_flag=False):
-
-        super().__init__(IOPaths(f_in, '/'), Mongo(collection, doc_type), logger,
-                         Flags(False, False, mongo_flag, sql_flag))
-
-    def load_files(self, group=None):
+    def __init__(self, f_in, f_out, logger=LOGGER, output_flags=Flags(True, False, True, False)):
         """
-        Reads in all molecules in the sdf file defined by self.fp_in, formats the data, and stores the results in
-        self.result_data.
+        Constructor.
+
+        Args:
+            f_in (str): The input filepath relative to DI_INPUT_DIR. Should only be a single file.
+            f_out (str): The output filepath relative to DATA_DIR. Should only be a single file.
+            logger (Logger, optional): The logger. Defaults to LOGGER.
+            output_flags (Flags, optional): A namedtuple containing the flags indicating which format to output data to.
+                Defaults to Flags(True, False, True, False).
+        """
+
+        # conver to list
+        if not isinstance(f_in, list):
+            f_in = [f_in]
+
+        # I/O
+        f_in = [os.path.join(DI_INPUT_DIR, file) for file in f_in]
+        input_flags = Flags(False, False, False, False)
+        super().__init__(IOPaths(f_in, f_out), MongoParams(None, None, COLLECTIONS.mols), logger, input_flags,
+                         output_flags)
+
+    def load_files(self, template_doc):
+        """
+        Helper function that reads in all molecules in the sdf file defined by self.fp_in, stores the mol's SMILES
+        string and kekule SMILES string into the template document, and stores the result in self.result_data.
+
+        Args:
+            template_doc (OrderedDict): The dictionary that will contain the SMILES strings.
+
+        Returns:
+            bool: True if successful
+        """
+
+        try:
+            for mol in read_mols(self.fp_in[0]):
+                doc = deepcopy(template_doc)
+                Chem.Kekulize(mol)
+                doc['smiles'] = Chem.MolToSmiles(mol)
+                doc['kekule'] = Chem.MolToSmiles(mol, kekuleSmiles=True)
+                self.result_data.append(doc)
+        except (OSError, Exception):
+            self.result_data = []
+            self.logger.exception(
+                f'Variables: self.fp_in = {self.fp_in}, mol = {Chem.MolToSmiles(mol)}')
+            return False
+
+        return True
+
+    def load_parent_side_chains(self, group=None):
+        """
+        Top level function that sets up a template document for parent side chains to be stored in, and passes it to
+        self.load_files() for filling. If call to self.load_files() is successful then makes call to self.save_data().
 
         Args:
             group (str, optional): The group name assigned to each molecule in file. Defaults to the last word in the
                 file name when split by '_' character.
 
         Returns:
-            bool: True if successful
+            bool: True if successful.
         """
 
-        group = self.fp_in.split('_')[-1].split('.')[0] if group is None else group
+        group = self.fp_in[0].split('_')[-1].split('.')[0] if group is None else group
+        template_doc = OrderedDict([('ID', None), ('type', 'parent_side_chain'),
+                                    ('smiles', None), ('kekule', None), ('group', group)])
+        if self.load_files(template_doc):
+            return self.save_data(create_id=True)
 
-        try:
-            for mol in read_mols(self.fp_in):
-                Chem.Kekulize(mol)
-                doc = OrderedDict([('ID', None), ('type', self.doc_type), ('smiles', Chem.MolToSmiles(mol)),
-                                   ('kekule', Chem.MolToSmiles(mol, kekuleSmiles=True)), ('group', group)])
-                self.result_data.append(doc)
-        except (OSError, Exception):
-            self.result_data = []
-            self.logger.exception(f'Variables: self.fp_in = {self.fp_in}, group = {group}')
-            return False
+        return False
 
-        return True
+    def load_monomers(self, group=None, required=False, backbone=None):
+        """
+        Top level function that sets up template document for monomers (that are not derived from modified side chains
+        and backbones) to be stored in and passes it to self.load_files() for filling. If call to self.load_files() is
+        successful then makes call to self.save_data().
+
+        Args:
+            group (str, optional): The group name assigned to each molecule in file. Defaults to the last word in the
+                file name when split by '_' character.
+            required (bool, optional): The value of 'required' stored in the documents. This value determines if the
+                peptides these monomers are present in are valid if no other required monomers are present. Defaults to
+                False.
+            backbone (str, optional): The backbone type these monomers are made of. Defaults to None.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        group = self.fp_in[0].split('_')[-1].split('.')[0] if group is None else group
+        template_doc = OrderedDict([('ID', 'm'), ('type', 'monomer'), ('smiles', None), ('kekule', None),
+                                    ('backbone', backbone), ('side_chain', None), ('group', group), ('required', required)])
+        if self.load_files(template_doc):
+            return self.save_data(create_id=True)
+
+        return False
+
+    def load_templates(self, ID=['temp1', 'temp2', 'temp3']):
+        """
+        Top level function that sets up template documents for the template molecules to be stored in and passes it to
+        self.load_files() for filling. If call to self.load_files() is successful then makes call to self.save_data().
+
+        Args:
+            ID (list, optional): A list of strings to be used as IDs. Defaults to ['temp1', 'temp2', 'temp3'].
+
+        Returns:
+            bool: True if successful.
+        """
+
+        template_doc = OrderedDict([('ID', None), ('type', 'template'), ('smiles', None), ('kekule', None)])
+        if self.load_files(template_doc):
+            for doc, id_val in zip(self.result_data, ID):
+                doc['ID'] = id_val
+            return self.save_data(create_id=False)
+
+        return False
+
+    def load_backbones(self, ID=['alpha', 'beta2', 'beta3']):
+        """
+        Top level function that sets up template documents for the backbone molecules to be stored in and passes it to
+        self.load_files() for filling. If call to self.load_files() is successful then makes call to self.save_data().
+
+        Args:
+            ID (list, optional): A list of strings to be used as IDs. Defaults to ['temp1', 'temp2', 'temp3'].
+
+        Returns:
+            bool: True if successful.
+        """
+
+        template_doc = OrderedDict([('ID', None), ('type', 'backbone'), ('smiles', None), ('kekule', None)])
+        if self.load_files(template_doc):
+            for doc, id_val in zip(self.result_data, ID):
+                doc['ID'] = id_val
+            return self.save_data(create_id=False)
+
+        return False
 
     def save_data(self, create_id=False):
         """
@@ -691,35 +794,70 @@ class DataInitializer(Base):
             create_id (bool, optional): Determines whether to create new ID values for the data. Should only be used
                 when inserting data into the database that is not derived. Defaults to False.
 
-        Raises:
-            SavingMongoError: Failure to save data to the Mongo database.
-            SavingSQLError: Failure to save data to the SQL database.
+        Returns:
+            bool: True if successful.
         """
 
-        if self.output_flags.mongo_flag:
-            try:
-                self.mongo_db.insert(self.collection, self.result_data, create_id=create_id)
-            except (DuplicateKeyError, ValueError):
-                self.logger.exception('Failed to save result_data to the Mongo database')
-                raise SavingMongoError
-            except BulkWriteError as err:
-                self.logger.exception(f'Failed to save result_data to the Mongo database\n{err.details}')
-                raise SavingMongoError
-            else:
-                self.logger.info(f'Successfully saved {len(self.result_data)} data points to the Mongo database!')
+        # save to Mongo database first to create new IDs
+        try:
+            self.save_mongo_db(create_id=create_id)
+        except (DuplicateKeyError, ValueError, TypeError):
+            self.logger.exception('Failed to save result_data to the Mongo database')
+            return False
+        except BulkWriteError as err:
+            self.logger.exception(f'Failed to save result_data to the Mongo database\n{err.details}')
+            return False
+        else:
+            self.logger.info(f'Successfully saved {len(self.result_data)} data points to the Mongo database!')
 
-        if self.output_flags.sql_flag:
-            try:
-                self.sql_db.insert()
-            except Exception:
-                self.logger.exception('Failed to save result_data to the SQL database')
-                raise SavingSQLError
-            else:
-                self.logger.info(f'Successfully saved {len(self.result_data)} data points to the SQL database!')
+            # get doc_type and reset flags
+            doc_type = self.result_data[0]['type']
+            flag = self.output_flags
+            self.output_flags = Flags(flag.json_flag, flag.txt_flag, False, flag.sql_flag)
+
+            # load data just written with assigned IDs, and write to remaining formats
+            self.result_data = list(self.load_mongo_db(COLLECTIONS.mols, doc_type))
+            return super().save_data()
 
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
+
+
+def load_json(filepath):
+    """
+    Loads the data defined by the file in filepath and returns a generator object containing the data.
+
+    Args:
+        filepath (str): The filepath to the json file.
+
+    Yields:
+        (dict): A single data point.
+    """
+
+    with open(filepath, 'r') as f:
+        for doc in json_util.loads(json_util.dumps(json.load(f))):  # need to convert _id back to ObjectID()
+            yield doc
+
+
+def load_txt(filepath):
+    """
+    Loads the data defined by the file in filepath and returns a generator object containing the data.
+
+    Args:
+        filepath (str): The filepath to the txt file.
+
+    Yields:
+        (str): A single data point.
+    """
+
+    with open(filepath, 'r') as f:
+        while True:
+            line = f.readline().rstrip('\n')
+            if not line:
+                break
+
+            yield line
 
 
 def read_mols(filepath=None, verbose=False):

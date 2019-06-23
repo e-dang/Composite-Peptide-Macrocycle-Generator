@@ -16,7 +16,7 @@ from macrocycles.config import (COL1, CONN_MAP_NUM, HETERO_MAP_NUM,
                                 SCM_DOC_TYPE, SCM_INPUT_DIR, SCM_OUTPUT_DIR,
                                 Connections)
 from macrocycles.exceptions import MissingMapNumberError
-from macrocycles.utils import (Base, IOPaths, Mongo, Smiles,
+from macrocycles.utils import (Base, IOPaths, Flags, MongoParams, Smiles,
                                create_logger, set_flags)
 
 LOGGER = create_logger(name=__name__, level=INFO)
@@ -32,22 +32,30 @@ class SideChainModifier(Base):
             modification array as a Connections named tuple.
     """
 
-    def __init__(self, f_in, f_out, input_flags, output_flags):
+    def __init__(self, logger=LOGGER, input_flags=Flags(False, False, True, False),
+                 output_flags=Flags(False, False, False, False), no_db=False, **kwargs):
         """
         Constructor.
 
         Args:
-            f_in (str): The file name containing the input data, if input data has been specified to be in file format.
-            f_out (str): The file name that the result_data will be written to, if specified to do so.
             input_flags (Flags): A namedtuple containing the flags indicating which format to get input data from.
             output_flags (Flags): A namedtuple containing the flags indicating which format to output data to.
+            no_db (bool): If True, ensures that no default connection is made to the database. Defaults to False.
+            **kwargs:
+                f_in (str): The file name(s) containing the input data, if input data has been specified to be retrieved
+                    from a file.
+                f_out (str): The file name that the result_data will be written to, if specified to do so.
+                mongo_params (MongoParams): A namedtuple containing the collection name(s) and value(s) held within the
+                    'type' field of the documents to be retrieved, as well as the output collection name.
+                no_db (bool): If True, ensures that no default connection is made to the database.
         """
 
         # I/O
-        f_in = os.path.join(SCM_INPUT_DIR, f_in)
-        f_out = os.path.join(SCM_OUTPUT_DIR, f_out)
-        super().__init__(IOPaths(f_in, f_out), mongo_setup=Mongo(COL1, SCM_DOC_TYPE),
-                         logger=LOGGER, input_flags=input_flags, output_flags=output_flags)
+        f_in = [os.path.join(SCM_INPUT_DIR, file) for file in kwargs['f_in']] if 'f_in' in kwargs else ['']
+        f_out = os.path.join(SCM_OUTPUT_DIR, kwargs['f_out']) if 'f_out' in kwargs else ''
+        mongo_params = kwargs['mongo_params'] if 'mongo_params' in kwargs else MongoParams([COL1], [SCM_DOC_TYPE], COL1)
+        mongo_params = mongo_params if not no_db else None
+        super().__init__(IOPaths(f_in, f_out), mongo_params, LOGGER, input_flags, output_flags)
 
         # data
         self.parent_side_chains = []
@@ -78,6 +86,7 @@ class SideChainModifier(Base):
                 continue
             break
         else:
+            self.logger.info(f'Successfully modified parent side chains into {len(self.result_data)} side chains')
             return True
 
         return False
@@ -91,7 +100,7 @@ class SideChainModifier(Base):
         """
 
         try:
-            self.parent_side_chains = super().load_data()
+            self.parent_side_chains = super().load_data()[0]  # return is list of generators
         except Exception:
             return False
         else:
@@ -113,7 +122,7 @@ class SideChainModifier(Base):
             MissingMapNumberError: If connection is not atom mapped.
 
         Returns:
-            set: A set of unique SMILES strings representing the side chain with alkyl chains attached at different
+            list: A list of unique SMILES strings representing the side chain with alkyl chains attached at different
                 positions.
         """
 
@@ -190,10 +199,9 @@ class SideChainModifier(Base):
         Stores all data associated with the modified side chain in a dictionary and appends it to self.result_data.
 
         Args:
-            mols (iterable): A set containing the unique SMILES strings of the modified side chain.
-            parent (rdkit Mol): The parent side chain from which the modified side chain was derived.
-            modifications (iterable): A list containing ids of the modifications that were made to the side chain.
-            group (str): The group name that the parent side chain came from.
+            unique_mols (iterable): A list containing the unique SMILES strings of the modified side chain.
+            parent (dict): The assocaited data of parent side chain from which the modified side chain was derived.
+            modifications (list): A list containing ids of the modifications that were made to the parent side chain.
         """
 
         for i, smiles in enumerate(unique_mols):
@@ -212,33 +220,35 @@ def main():
     """
 
     parser = argparse.ArgumentParser(description='Creates a unique set of molecules by attaching varying length alkyl '
-                                     'chains to all elgible positions on the side chain. Alkyl chains include '
-                                     "methyl, ethyl, and propyl. The last word in the input files' name dictates which "
-                                     'group the side chain belongs to.')
+                                     'chains to all elgible positions on the parent side chain. Alkyl chains include '
+                                     'methyl, ethyl, and propyl.')
     parser.add_argument('input', choices=['json', 'txt', 'mongo', 'sql'],
                         help='Specifies the format that the input data is in.')
     parser.add_argument('output', nargs='+', choices=['json', 'txt', 'mongo', 'sql'],
                         help='Specifies what format to output the result data in.')
-    parser.add_argument('--f_in', dest='f_in', required='json' in sys.argv or 'txt' in sys.argv,
+    parser.add_argument('--f_in', dest='f_in', required='json' in sys.argv or 'txt' in sys.argv, nargs='+',
                         help='The input file relative to default input directory defined in config.py.')
     parser.add_argument('--f_out', dest='f_out', default='side_chains',
                         help='The output file relative to the default output directory defined in config.py.')
+    parser.add_argument('--no_db', dest='no_db', action='store_true',
+                        help='Turns off default connection that is made to the database.')
 
     args = parser.parse_args()
 
     # check for proper file specifications
     if args.input in ['json', 'txt']:
-        extension = args.f_in.split('.')[-1]
-        if args.input != extension:
+        extensions = [file.split('.')[-1] for file in args.f_in]
+        if not all([args.input == extension for extension in extensions]):
             LOGGER.error('File extension of the input file does not match the specified format')
             raise OSError('File extension of the input file does not match the specified format')
 
     # configure I/O
     input_flags, output_flags = set_flags(args.input, args.output)
-    f_in = args.f_in if args.input in ['json', 'txt'] else '/'
+    f_in = args.f_in if args.input in ['json', 'txt'] else ['']
 
     # create class and perform operations
-    modifier = SideChainModifier(f_in, args.f_out, input_flags=input_flags, output_flags=output_flags)
+    modifier = SideChainModifier(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
+                                 output_flags=output_flags, no_db=args.no_db)
     if modifier.load_data() and modifier.diversify():
         return modifier.save_data()
 
