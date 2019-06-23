@@ -22,7 +22,7 @@ from pymongo.errors import (BulkWriteError, CollectionInvalid,
 from rdkit import Chem
 from rdkit.Chem import rdmolfiles
 
-from macrocycles.config import (COLLECTIONS, DATA_DIR, MONGO_SETTINGS,
+from macrocycles.config import (COLLECTIONS, DATA_DIR, MONGO_SETTINGS, BB_MAP_NUM,
                                 PROJECT_DIR, LOG_DIR, VALIDATORS, INDEX, DI_INPUT_DIR)
 from macrocycles.exceptions import (SavingMongoError, SavingSQLError,
                                     WritingJsonError, WritingTxtError)
@@ -470,7 +470,7 @@ class Base():
                 self.write_json()
             except TypeError:
                 self.logger.exception(
-                    f'Failed to write result_data to a json file. self.result_data = {self.result_data}')
+                    f'Failed to write result_data to a json file. self.result_data = {self.result_data[:10]}')
                 raise WritingJsonError
             else:
                 self.logger.info(
@@ -481,7 +481,7 @@ class Base():
                 self.write_txt()
             except TypeError:
                 self.logger.exception(
-                    f'Failed to write result_data to a txt file. self.result_data = {self.result_data}')
+                    f'Failed to write result_data to a txt file. self.result_data = {self.result_data[:10]}')
                 raise WritingTxtError
             else:
                 self.logger.info(
@@ -492,11 +492,11 @@ class Base():
                 self.save_mongo_db()
             except (DuplicateKeyError, ValueError, TypeError, errors.InvalidDocument):
                 self.logger.exception(
-                    f'Failed to save result_data to the Mongo database. self.result_data = {self.result_data}')
+                    f'Failed to save result_data to the Mongo database. self.result_data = {self.result_data[:10]}')
                 raise SavingMongoError
             except BulkWriteError as err:
                 self.logger.exception(
-                    f'Failed to save result_data to the Mongo database. self.result_data = {self.result_data}'
+                    f'Failed to save result_data to the Mongo database. self.result_data = {self.result_data[:10]}'
                     f'\n{err.details}')
                 raise SavingMongoError
             else:
@@ -508,7 +508,7 @@ class Base():
                 self.save_sql_db()
             except Exception:
                 self.logger.exception(
-                    f'Failed to save result_data to the SQL database. self.result_data = {self.result_data}')
+                    f'Failed to save result_data to the SQL database. self.result_data = {self.result_data[:10]}')
                 raise SavingSQLError
             else:
                 self.logger.info(f'Successfully saved {len(self.result_data)} data points to the SQL database!')
@@ -782,9 +782,26 @@ class DataInitializer(Base):
         if self.load_files(template_doc):
             for doc, id_val in zip(self.result_data, ID):
                 doc['ID'] = id_val
+                doc = self.set_backbone_atom_maps(doc)
             return self.save_data(create_id=False)
 
         return False
+
+    def set_backbone_atom_maps(self, doc):
+
+        mol = Chem.MolFromSmiles(doc['smiles'])
+        for atom in mol.GetAtoms():
+            neighbors = [neighbor.GetSymbol() for neighbor in atom.GetNeighbors()]
+            if doc['ID'] in ('alpha', 'beta2') and (neighbors in (['C', 'N'], ['N', 'C'])):
+                atom.SetAtomMapNum(BB_MAP_NUM)
+                doc['smiles'] = Chem.MolToSmiles(mol)
+                break
+            elif doc['ID'] == 'beta3' and neighbors == ['C', 'C']:
+                atom.SetAtomMapNum(BB_MAP_NUM)
+                doc['smiles'] = Chem.MolToSmiles(mol)
+                break
+
+        return doc
 
     def save_data(self, create_id=False):
         """

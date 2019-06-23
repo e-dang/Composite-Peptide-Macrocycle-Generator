@@ -11,6 +11,12 @@ class MissingMapNumberError(Exception):
     """
 
 
+class AtomSearchError(Exception):
+    """
+    Raised when unable to find atom that meets specified criteria.
+    """
+
+
 class WritingJsonError(Exception):
     """
     Raised when an error has occured while writing data to a json file.

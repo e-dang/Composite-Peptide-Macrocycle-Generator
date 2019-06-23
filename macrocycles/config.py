@@ -126,10 +126,28 @@ COL4_INDEX = [('ID', ASCENDING)]
 Index = namedtuple('Index', ['mols', 'rxns', 'filters', 'counter'])
 INDEX = Index(COL1_INDEX, COL2_INDEX, COL3_INDEX, COL4_INDEX)
 
+####################################### DataInitializer #######################################
+DI_INPUT_DIR = 'chemdraw'
+
 ####################################### SideChainModifier #######################################
 HETERO_MAP_NUM = 1
 CONN_MAP_NUM = 2
-SCM_INPUT_DIR = os.path.join('chemdraw', 'pre_monomer')
+SCM_INPUT_DIR = 'pre_monomer'
 SCM_OUTPUT_DIR = 'pre_monomer'
-SCM_DOC_TYPE = 'parent_side_chain'
+SCM_INPUT_COL = [COL1]
+SCM_DOC_TYPE = ['parent_side_chain']
+SCM_OUTPUT_COL = COL1
 Connections = namedtuple('Connections', ['smarts', 'mod_array'])
+CONNECTIONS = [Connections(con, mod) for con, mod in [(f'[CH3:{CONN_MAP_NUM}]', [0, 3]),
+                                                      (f'[CH3][CH2:{CONN_MAP_NUM}]', [1, 3]),
+                                                      (f'[CH3][CH2][CH2:{CONN_MAP_NUM}]', [2, 3])]]
+
+####################################### MonomerGenerator #######################################
+BB_MAP_NUM = 1
+SC_MAP_NUM = 2
+STEREOCHEMISTRY = ['CW', 'CCW']
+MG_INPUT_DIR = 'pre_monomer'
+MG_OUTPUT_DIR = 'monomers'
+MG_INPUT_COL = [COL1, COL1]
+MG_DOC_TYPE = ['side_chain', 'backbone']
+MG_OUTPUT_COL = COL1

@@ -12,9 +12,8 @@ from logging import INFO
 
 from rdkit import Chem
 
-from macrocycles.config import (COL1, CONN_MAP_NUM, HETERO_MAP_NUM,
-                                SCM_DOC_TYPE, SCM_INPUT_DIR, SCM_OUTPUT_DIR,
-                                Connections)
+from macrocycles.config import (CONN_MAP_NUM, HETERO_MAP_NUM,
+                                SCM_DOC_TYPE, SCM_INPUT_DIR, SCM_OUTPUT_DIR, SCM_INPUT_COL, SCM_OUTPUT_COL, CONNECTIONS)
 from macrocycles.exceptions import MissingMapNumberError
 from macrocycles.utils import (Base, IOPaths, Flags, MongoParams, Smiles,
                                create_logger, set_flags)
@@ -53,15 +52,14 @@ class SideChainModifier(Base):
         # I/O
         f_in = [os.path.join(SCM_INPUT_DIR, file) for file in kwargs['f_in']] if 'f_in' in kwargs else ['']
         f_out = os.path.join(SCM_OUTPUT_DIR, kwargs['f_out']) if 'f_out' in kwargs else ''
-        mongo_params = kwargs['mongo_params'] if 'mongo_params' in kwargs else MongoParams([COL1], [SCM_DOC_TYPE], COL1)
+        mongo_params = kwargs['mongo_params'] if 'mongo_params' in kwargs else MongoParams(
+            SCM_INPUT_COL, SCM_DOC_TYPE, SCM_OUTPUT_COL)
         mongo_params = mongo_params if not no_db else None
         super().__init__(IOPaths(f_in, f_out), mongo_params, LOGGER, input_flags, output_flags)
 
         # data
         self.parent_side_chains = []
-        self.connections = [Connections(con, mod) for con, mod in [(f'[CH3:{CONN_MAP_NUM}]', [0, 3]),
-                                                                   (f'[CH3][CH2:{CONN_MAP_NUM}]', [1, 3]),
-                                                                   (f'[CH3][CH2][CH2:{CONN_MAP_NUM}]', [2, 3])]]
+        self.connections = CONNECTIONS
 
     def diversify(self):
         """
@@ -100,8 +98,13 @@ class SideChainModifier(Base):
         """
 
         try:
-            self.parent_side_chains = super().load_data()[0]  # return is list of generators
+            self.parent_side_chains = super().load_data()[0]  # single item list is returned, access only item
+        except IndexError:
+            self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
+                                  f'self.mongo_params = {self.mongo_params}')
+            return False
         except Exception:
+            self.logger.exception('Unexcepted exception occured.')
             return False
         else:
             return True
@@ -226,7 +229,7 @@ def main():
                         help='Specifies the format that the input data is in.')
     parser.add_argument('output', nargs='+', choices=['json', 'txt', 'mongo', 'sql'],
                         help='Specifies what format to output the result data in.')
-    parser.add_argument('--f_in', dest='f_in', required='json' in sys.argv or 'txt' in sys.argv, nargs='+',
+    parser.add_argument('--f_in', dest='f_in', required='json' in sys.argv or 'txt' in sys.argv,
                         help='The input file relative to default input directory defined in config.py.')
     parser.add_argument('--f_out', dest='f_out', default='side_chains',
                         help='The output file relative to the default output directory defined in config.py.')
@@ -237,14 +240,14 @@ def main():
 
     # check for proper file specifications
     if args.input in ['json', 'txt']:
-        extensions = [file.split('.')[-1] for file in args.f_in]
-        if not all([args.input == extension for extension in extensions]):
+        extension = args.f_in.split('.')[-1]
+        if args.input != extension:
             LOGGER.error('File extension of the input file does not match the specified format')
             raise OSError('File extension of the input file does not match the specified format')
 
     # configure I/O
     input_flags, output_flags = set_flags(args.input, args.output)
-    f_in = args.f_in if args.input in ['json', 'txt'] else ['']
+    f_in = [args.f_in] if args.input in ['json', 'txt'] else ['']
 
     # create class and perform operations
     modifier = SideChainModifier(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
