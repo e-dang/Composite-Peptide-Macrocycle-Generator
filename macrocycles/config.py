@@ -61,7 +61,7 @@ COL1_VALIDATOR = {
 COL2_VALIDATOR = {
     '$jsonSchema': {
         'bsonType': 'object',
-        'required': ['ID', 'type'],
+        'required': ['ID', 'type', 'smarts'],
         'properties': {
             'ID': {
                 'bsonType': 'string',
@@ -70,6 +70,10 @@ COL2_VALIDATOR = {
             'type': {
                 'enum': ['side_chain', 'template', 'reaction'],
                 'description': 'The type of molecule or data contained in the document'
+            },
+            'smarts': {
+                'bsonType': 'string',
+                'description': 'The atom mapped SMARTS/SMILES string'
             }
         }
     }
@@ -120,7 +124,7 @@ Validators = namedtuple('Validators', ['mols', 'rxns', 'filters', 'counter'])
 VALIDATORS = Validators(COL1_VALIDATOR, COL2_VALIDATOR, COL3_VALIDATOR, COL4_VALIDATOR)
 
 COL1_INDEX = [[('ID', ASCENDING)], [('smiles', ASCENDING)]]
-COL2_INDEX = [('ID', ASCENDING)]
+COL2_INDEX = [[('ID', ASCENDING)], [('smarts', ASCENDING)]]
 COL3_INDEX = [('ID', ASCENDING)]
 COL4_INDEX = [('ID', ASCENDING)]
 Index = namedtuple('Index', ['mols', 'rxns', 'filters', 'counter'])
@@ -151,3 +155,13 @@ MG_OUTPUT_DIR = 'monomers'
 MG_INPUT_COL = [COL1, COL1]
 MG_DOC_TYPE = ['side_chain', 'backbone']
 MG_OUTPUT_COL = COL1
+
+####################################### RegioIsomerEnumerator #######################################
+RXN_MAP_NUM = 2
+CHAIN_MAP_NUM = 4
+METHYL = 0
+REGIO_INPUT_DIR = 'pre_monomer'
+REGIO_OUTPUT_DIR = 'pre_monomer'
+REGIO_INPUT_COL = ['molecules']
+REGIO_DOC_TYPE = ['side_chain']
+REGIO_OUTPUT_COL = 'reactions'

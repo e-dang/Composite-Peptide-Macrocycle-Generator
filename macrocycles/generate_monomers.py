@@ -34,9 +34,10 @@ class MonomerGenerator(Base):
     def __init__(self, required, logger=LOGGER, input_flags=Flags(False, False, True, False),
                  output_flags=Flags(False, False, False, False), no_db=False, **kwargs):
         """
-        Constructor.
+        Initializer.
 
         Args:
+            required (bool): The value of the 'required' field to be stored in the monomer documents.
             input_flags (Flags): A namedtuple containing the flags indicating which format to get input data from.
             output_flags (Flags): A namedtuple containing the flags indicating which format to output data to.
             no_db (bool): If True, ensures that no default connection is made to the database. Defaults to False.
@@ -64,18 +65,24 @@ class MonomerGenerator(Base):
         self.required = required
 
     def load_data(self):
+        """
+        Overloaded method for loading input data.
+
+        Returns:
+            bool: True if successful.
+        """
 
         try:
             self.side_chains, self.backbones = super().load_data()
         except ValueError:
             self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
                                   f'self.mongo_params = {self.mongo_params}')
-            return False
         except Exception:
             self.logger.exception('Unexcepted exception occured.')
-            return False
         else:
             return True
+
+        return False
 
     def generate_monomers(self):
         """
@@ -97,9 +104,13 @@ class MonomerGenerator(Base):
                     self.accumulate_mols(monomers, backbone, side_chain)
         except AtomSearchError:
             self.logger.exception()
-            return False
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
         else:
+            self.logger.info(f'Successfully generated {len(self.result_data)} monomers')
             return True
+
+        return False
 
     def create_monomer(self, backbone, side_chain, stereo):
         """
@@ -115,8 +126,7 @@ class MonomerGenerator(Base):
         """
 
         # attachment point at terminal end of alkyl chain
-        patt = Chem.MolFromSmarts('[CH3]')
-        matches = sorted(side_chain.GetSubstructMatches(patt, useChirality=False), key=lambda x: x[0], reverse=True)
+        matches = side_chain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'), useChirality=False)
 
         if not len(matches):
             raise AtomSearchError(f'Couldn\'t find attchment point of: {Chem.MolToSmiles(side_chain)}')
@@ -128,7 +138,7 @@ class MonomerGenerator(Base):
             sc_atom_idx = None
             for atom_idx in pairs:
                 atom = Chem.Mol.GetAtomWithIdx(side_chain, atom_idx)
-                if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 3 and not Chem.Atom.IsInRing(atom):
+                if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 3:
                     atom.SetAtomMapNum(SC_MAP_NUM)
                     sc_atom_idx = atom_idx
                     break
@@ -168,7 +178,6 @@ class MonomerGenerator(Base):
             else:
                 monomers.append(Smiles(Chem.MolToSmiles(combo), Chem.MolToSmiles(combo, kekuleSmiles=True)))
                 self.logger.debug(f'Success! Monomer {Chem.MolToSmiles(combo)}')
-                attach_complete = True
 
         return monomers
 
@@ -182,12 +191,20 @@ class MonomerGenerator(Base):
             side_chain (dict): The dictionary containing the associated side chain data.
         """
 
+        # makes it easier to identify types of backbone structure when looking at peptides, tp_hybrids, and macrocycles
+        # where IDs can become long
+        struct_key = {
+            'a': 'alpha',
+            'b': 'beta2',
+            'c': 'beta3'
+        }
+        struct = struct_key[backbone['ID']]
         for i, monomer in enumerate(monomers):
-            doc = OrderedDict([('ID', 'm' + str(i) + side_chain['ID']),
+            doc = OrderedDict([('ID', backbone['ID'] + str(i) + side_chain['ID']),
                                ('type', 'monomer'),
                                ('smiles', monomer.smiles),
                                ('kekule', monomer.kekule),
-                               ('backbone', backbone['ID']),
+                               ('backbone', struct),
                                ('side_chain', side_chain),
                                ('required', self.required),
                                ('group', side_chain['parent']['group'])
@@ -200,8 +217,8 @@ def main():
     Driver function. Parses arguments, constructs class, and performs operations on data.
     """
 
-    parser = argparse.ArgumentParser(description='Generates monomers by combining side chains and backbone together. If '
-                                     'the set of generated monomers are to be required in peptide generation, need to '
+    parser = argparse.ArgumentParser(description='Generates monomers by combining side chains and backbone together. If'
+                                     ' the set of generated monomers are to be required in peptide generation, need to '
                                      'spcify option --required.')
     parser.add_argument('input', choices=['json', 'txt', 'mongo', 'sql'],
                         help='Specifies the format that the input data is in.')

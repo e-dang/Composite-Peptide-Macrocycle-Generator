@@ -1,151 +1,237 @@
+"""
+Written by Eric Dang.
+github: https://github.com/e-dang
+email: edang830@gmail.com
+"""
+
 import argparse
-import json
-from itertools import chain
-from pathlib import Path
+import os
+import sys
+from collections import OrderedDict
+from logging import INFO
 
-from pymongo.errors import DuplicateKeyError
 from rdkit import Chem
-from tqdm import tqdm
 
-from utils import Database, read_mols
+from macrocycles.config import (CHAIN_MAP_NUM, METHYL, REGIO_DOC_TYPE,
+                                REGIO_INPUT_COL, REGIO_INPUT_DIR,
+                                REGIO_OUTPUT_COL, REGIO_OUTPUT_DIR,
+                                RXN_MAP_NUM)
+from macrocycles.exceptions import AtomSearchError, InvalidSmilesString
+from macrocycles.utils import (Base, Flags, IOPaths, MongoParams,
+                               create_logger, set_flags, test_valid_smiles)
 
-RXN_MAP_NUM = 2  # atom map number for atom participating in EAS reaction
-ATT_MAP_NUM = 4  # atom map number for attachment point of side chain to peptide backbone
-ETHYL = 1   # modifcation key
-PROPYL = 2  # modifcation key
+LOGGER = create_logger(__name__, INFO)
 
 
-def get_side_chains(fp_in):
+class RegioIsomerEnumerator(Base):
     """
-    Retrieve side chain structures from all files in fp_in and compress them into generator object
+    Class for enumerating the regioisomers of side chains undergoing EAS reactions. Does not consider how likely the
+    regioisomer is to occur, rather it only enumerates all atom that satisfy the specified conditions. Inherits from
+    Base.
 
-    Args:
-        fp_in (list): List containing all absolute filepath strings to the input file(s)
-
-    Returns:
-        list: A list of tuples containing a side chain as rdkit Mols and the modification codes performed on
-        the side chain
-    """
-
-    side_chains = []
-    for file in fp_in:
-        with open(file, 'r') as f:
-            for doc in json.load(f):
-                side_chains.append((Chem.MolFromSmiles(doc['side_chain']), doc['modification']))
-
-    return side_chains
-
-
-def set_atom_map_nums(side_chain):
-    """
-    Enumerate all possible regioisomer locations on each sidechain for EAS reactions and all possible attachment points
-    of side chain to peptide backbone. Possible regioisomer locations are determined by:
-        Carbon - has at least 1 hydrogen, is aromatic, and atom is not designated as peptide backbone attachment point
-        Nitrogen - has at least 1 hydrogen
-        Oxygen - is an alcohol/can't be an ether
-
-    Args:
-        side_chain (rdkit Mol): The rdkit Mol representation of the side chain
-
-    Returns:
-        dict: Keys are SMILES strings, and values are reacting atom index. Each SMILES string is a different regioisomer
-            or has a different peptide backbone attachment point
+    Attributes:
+        side_chains (list): Contains the different side chains for generating regioisomers.
     """
 
-    smiles_idx = {}
+    def __init__(self, logger=LOGGER, input_flags=Flags(False, False, True, False),
+                 output_flags=Flags(False, False, False, False), no_db=False, **kwargs):
+        """
+        Initializer.
 
-    # assign atom map number for attachment and reacting atom of side chain
-    patt = Chem.MolFromSmarts('[CH3]*')  # methyl carbon
-    matches = side_chain.GetSubstructMatches(patt, useChirality=False)
-    for pairs in matches:
-        old_atom_idx = None
-        for atom_idx in pairs:
-            atom = Chem.Mol.GetAtomWithIdx(side_chain, atom_idx)
-            if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 3:
-                atom.SetAtomMapNum(ATT_MAP_NUM)
-                old_atom_idx = atom_idx
+        Args:
+            input_flags (Flags): A namedtuple containing the flags indicating which format to get input data from.
+            output_flags (Flags): A namedtuple containing the flags indicating which format to output data to.
+            no_db (bool): If True, ensures that no default connection is made to the database. Defaults to False.
+            **kwargs:
+                f_in (str): The file name(s) containing the input data, if input data has been specified to be retrieved
+                    from a file.
+                f_out (str): The file name that the result_data will be written to, if specified to do so.
+                mongo_params (MongoParams): A namedtuple containing the collection name(s) and value(s) held within the
+                    'type' field of the documents to be retrieved, as well as the output collection name.
+                no_db (bool): If True, ensures that no default connection is made to the database.
+        """
 
-        # set atom map numbers for every possible EAS reacting atom
-        for atom in side_chain.GetAtoms():
-            atom_idx = None
-            valid = False
-            if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != 4 and Chem.Atom.GetTotalNumHs(atom) != 0 and Chem.Atom.GetIsAromatic(atom):
-                atom.SetAtomMapNum(RXN_MAP_NUM)
-                atom_idx = atom.GetIdx()
-                valid = True
-            elif atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) != 0:
-                atom.SetAtomMapNum(RXN_MAP_NUM)
-                atom_idx = atom.GetIdx()
-                valid = True
-            elif atom.GetSymbol() == 'O' and Chem.Atom.GetTotalNumHs(atom) == 1 or atom.GetSymbol() == 'S' and Chem.Atom.GetTotalNumHs(atom) == 1:
-                atom.SetAtomMapNum(RXN_MAP_NUM)
-                atom_idx = atom.GetIdx()
-                valid = True
+        # I/O
+        f_in = [os.path.join(REGIO_INPUT_DIR, file) for file in kwargs['f_in']] if 'f_in' in kwargs else ['']
+        f_out = os.path.join(REGIO_OUTPUT_DIR, kwargs['f_out']) if 'f_out' in kwargs else ''
+        mongo_params = kwargs['mongo_params'] if 'mongo_params' in kwargs else MongoParams(
+            REGIO_INPUT_COL, REGIO_DOC_TYPE, REGIO_OUTPUT_COL)
+        mongo_params = mongo_params if not no_db else None
+        super().__init__(IOPaths(f_in, f_out), mongo_params, LOGGER, input_flags, output_flags)
 
-            if valid:
+        # data
+        self.side_chains = []
+
+    def load_data(self):
+        """
+        Overloaded method for loading input data.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        try:
+            print('here')
+            self.side_chains = super().load_data()[0]  # should be a single item list, access only item
+        except IndexError:
+            self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
+                                  f'self.mongo_params = {self.mongo_params}')
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
+        else:
+            return True
+
+        return False
+
+    def enumerate_regioisomers(self):
+        """
+        Main driver of class functionality. Calls self.set_atom_map_nums() on each molecule in self.side_chains and
+        passes the results to self.accumulate_mols() for proper formatting.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        try:
+            for side_chain in self.side_chains:
+                if METHYL in side_chain['modifications']:
+                    regioisomers = self.set_atom_map_nums(Chem.MolFromSmiles(side_chain['smiles']))
+                    self.accumulate_mols(regioisomers, side_chain)
+        except AtomSearchError:
+            self.logger.exception()
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
+        else:
+            self.logger.info(f'Successfully generated {len(self.result_data)} regioisomers')
+            return True
+
+        return False
+
+    def set_atom_map_nums(self, side_chain):
+        """
+        Enumerate all possible regioisomer locations on each sidechain for EAS reactions and all possible attachment
+        points of side chain to peptide backbone. Possible regioisomer locations are determined by:
+            Carbon - has at least 1 hydrogen, is aromatic, and atom is not designated as peptide backbone attachment
+                point
+            Nitrogen - has at least 1 hydrogen
+            Oxygen, Sulfer - is an alcohol/thiol
+
+        Args:
+            side_chain (rdkit Mol): The rdkit Mol representation of the side chain
+
+        Returns:
+            dict: Keys are SMILES strings, and values are reacting atom index. Each SMILES string is a different
+                regioisomer or has a different peptide backbone attachment point.
+        """
+
+        regioisomers = {}
+
+        # attachment point at terminal end of alkyl chain
+        matches = side_chain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]*'), useChirality=False)
+        for pairs in matches:
+
+            # assign atom map number for chain attachment carbon
+            old_atom_idx = None
+            for atom_idx in pairs:
+                atom = Chem.Mol.GetAtomWithIdx(side_chain, atom_idx)
+                if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 3:
+                    atom.SetAtomMapNum(CHAIN_MAP_NUM)
+                    old_atom_idx = atom_idx
+                    break
+            else:
+                raise AtomSearchError(f'Couldn\'t find attchment point of: {Chem.MolToSmiles(side_chain)}')
+
+            # set atom map numbers for every eligible EAS reacting atom
+            for atom in side_chain.GetAtoms():
+
+                # determine atom eligibility
+                if (atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != 4 and Chem.Atom.GetTotalNumHs(atom) != 0
+                        and Chem.Atom.GetIsAromatic(atom)) or \
+                    (atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) != 0) or \
+                        (atom.GetSymbol() in ['O', 'S'] and Chem.Atom.GetTotalNumHs(atom) == 1):
+                    atom.SetAtomMapNum(RXN_MAP_NUM)
+                else:
+                    continue
 
                 # format SMILES string
+                atom_idx = atom.GetIdx()
                 mol_str = Chem.MolToSmiles(side_chain)
-                ind = mol_str.find(f'[CH3:{ATT_MAP_NUM}]') + 7  # length of atom map string
-                mol_str = mol_str[:ind] + f'[*:{ATT_MAP_NUM}]' + mol_str[ind:]
-                mol_str = mol_str.replace(f'[CH3:{ATT_MAP_NUM}]', 'C')
+                ind = mol_str.find(f'[CH3:{CHAIN_MAP_NUM}]') + 7  # length of atom map string
+                mol_str = mol_str[:ind] + f'[*:{CHAIN_MAP_NUM}]' + mol_str[ind:]
+                mol_str = mol_str.replace(f'[CH3:{CHAIN_MAP_NUM}]', 'C')
 
                 atom.SetAtomMapNum(0)   # reset reacting atom map number
 
                 try:
-                    Chem.MolFromSmiles(mol_str)
-                    smiles_idx[mol_str] = atom_idx
-                except:
-                    print('Error: can not convert SMILES string to mol:')
-                    print('Side Chain SMILES - ' + Chem.MolFromSmiles(side_chain) + '\nAtom Mapped SMILES - ' + mol_str)
+                    test_valid_smiles(mol_str)
+                except InvalidSmilesString:
+                    self.logger.exception(
+                        f'Invalid SMILES string created for side chain {Chem.MolFromSmiles(side_chain)}')
+                else:
+                    regioisomers[mol_str] = atom_idx
 
-        Chem.Mol.GetAtomWithIdx(side_chain, old_atom_idx).SetAtomMapNum(0)  # reset attachment atom map number
+            Chem.Mol.GetAtomWithIdx(side_chain, old_atom_idx).SetAtomMapNum(0)  # reset attachment atom map number
 
-    return smiles_idx
+        return regioisomers
+
+    def accumulate_mols(self, regioisomers, side_chain):
+        """
+        Stores all data associated with the different regioisomers into a dictionary and appends it so self.result_data.
+
+        Args:
+            regioisomers (dict): A dictionary containing the regioisomer's atom mapped SMILES strings as keys and the
+                reacting atom index as the corresponding value.
+            side_chain (dict): The associated data of the side chain that the regioisomers are derived from.
+        """
+
+        for i, (smarts, rxn_atom_idx) in enumerate(regioisomers.items()):
+            doc = OrderedDict([('ID', 'r' + str(i) + side_chain['ID']),
+                               ('type', 'side_chain'),
+                               ('smarts', smarts),
+                               ('side_chain', side_chain),
+                               ('rxn_atom_idx', rxn_atom_idx)])
+            self.result_data.append(doc)
 
 
 def main():
-    global COUNT
-    parser = argparse.ArgumentParser(description='Enumerates all reacting atoms (regioisomers) of each side chain using'
-                                     ' atom map numbers. Atom map number 2 corresponds to atom that participates in the electrophilic aromatic '
-                                     'substitution reaction that closes the macrocycle ring. Atom map number 4 (wildcard atom) corresponds to the '
-                                     'connection point between the side chain and the peptide backbone. Stores resulting SMILES strings in MongoDB database by defualt.')
-    parser.add_argument('-i', '--in', dest='fin', nargs='+', default=['side_chains.json'],
-                        help='The input json file(s) containing side chain structures')
-    parser.add_argument('-fi', '--fp_in', dest='fp_in', default='smiles/pre_monomer',
-                        help='The filepath to the input files relative to base project directory')
-    parser.add_argument('-d', '--db', dest='database', default='rxn_templates',
-                        help='The mongoDB database to connect to')
-    parser.add_argument('-hn', '--host', dest='host', default='localhost',
-                        help='The host MongoDB server to connect to')
-    parser.add_argument('-p', '--port', dest='port', type=int, default=27017,
-                        help='The port on host server to connect to')
-    parser.add_argument('--show_progress', dest='progress', action='store_false',
-                        help='Show progress bar. Defaults to False')
+    """
+    Driver function. Parses arguments, constructs class, and performs operations on data.
+    """
+
+    parser = argparse.ArgumentParser(description='Enumerates all regioisomers for each side chain using atom map '
+                                     'numbers. The atom map numbers associated with the reacting atom and the atom '
+                                     'connecting the side chain to the rest of the peptide is defined in config.py.')
+    parser.add_argument('input', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies the format that the input data is in.')
+    parser.add_argument('output', nargs='+', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies what format to output the result data in.')
+    parser.add_argument('--f_in', dest='f_in', required='json' in sys.argv or 'txt' in sys.argv,
+                        help='The input file relative to default input directory defined in config.py.')
+    parser.add_argument('--f_out', dest='f_out', default='regioisomers',
+                        help='The output file relative to the default output directory defined in config.py.')
+    parser.add_argument('--no_db', dest='no_db', action='store_true',
+                        help='Turns off default connection that is made to the database.')
 
     args = parser.parse_args()
 
-    # set up full filepath to input file
-    base_path = Path(__file__).resolve().parents[1]
-    fp_in = [str(base_path / args.fp_in / file) for file in args.fin]
+    # check for proper file specifications
+    if args.input in ['json', 'txt']:
+        extension = args.f_in.split('.')[-1]
+        if args.input != extension:
+            LOGGER.error('File extension of the input file does not match the specified format')
+            raise OSError('File extension of the input file does not match the specified format')
 
-    # establish database connection
-    db = Database(host=args.host, port=args.port, db=args.database)
+    # configure I/O
+    input_flags, output_flags = set_flags(args.input, args.output)
+    f_in = [args.f_in] if args.input in ['json', 'txt'] else ['']
 
-    # enumerate all regioisomers with atom map numbers and write to output
-    for side_chain in tqdm(get_side_chains(fp_in), disable=args.progress):
+    # create class and perform operations
+    enumerator = RegioIsomerEnumerator(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
+                                       output_flags=output_flags, no_db=args.no_db)
+    if enumerator.load_data() and enumerator.enumerate_regioisomers():
+        return enumerator.save_data()
 
-        # skip enumeration for ethyl, propyl attachment points, only need to do methyl attachment point
-        if ETHYL in side_chain[1] or PROPYL in side_chain[1]:
-            continue
-
-        for smiles, atom_idx in set_atom_map_nums(side_chain[0]).items():
-            try:
-                db.insert_sidechain(Chem.MolToSmiles(side_chain[0]), smiles, ATT_MAP_NUM,
-                                    RXN_MAP_NUM, atom_idx)
-            except DuplicateKeyError:
-                print('Duplicate:', smiles)
-                continue
+    return False
 
 
 if __name__ == '__main__':

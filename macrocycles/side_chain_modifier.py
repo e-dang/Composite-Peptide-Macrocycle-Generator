@@ -34,7 +34,7 @@ class SideChainModifier(Base):
     def __init__(self, logger=LOGGER, input_flags=Flags(False, False, True, False),
                  output_flags=Flags(False, False, False, False), no_db=False, **kwargs):
         """
-        Constructor.
+        Initializer.
 
         Args:
             input_flags (Flags): A namedtuple containing the flags indicating which format to get input data from.
@@ -61,6 +61,26 @@ class SideChainModifier(Base):
         self.parent_side_chains = []
         self.connections = CONNECTIONS
 
+    def load_data(self):
+        """
+        Overloaded method for loading input data.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        try:
+            self.parent_side_chains = super().load_data()[0]  # should be a single item list, access only item
+        except IndexError:
+            self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
+                                  f'self.mongo_params = {self.mongo_params}')
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
+        else:
+            return True
+
+        return False
+
     def diversify(self):
         """
         Main driver of class functionality. Calls self.alternate_connection_point() on each
@@ -71,45 +91,23 @@ class SideChainModifier(Base):
             bool: True if successful.
         """
 
-        for doc in self.parent_side_chains:
-            unique_mols = []
-            for connection, modification in self.connections:
-                try:
-                    unique_mols.extend(self.alternate_connection_point(doc['smiles'], connection))
-                except MissingMapNumberError:
-                    self.logger.exception(f'Connection missing map numbers! connection: {connection}')
-                    break
-            else:
-                self.accumulate_mols(unique_mols, doc, modification)
-                continue
-            break
+        try:
+            for doc in self.parent_side_chains:
+                unique_mols = {}
+                for conn_tup in self.connections:
+                    unique_mols.update(self.alternate_connection_point(doc['smiles'], conn_tup))
+                self.accumulate_mols(unique_mols, doc)
+        except MissingMapNumberError:
+            self.logger.exception(f'Connection missing map numbers! connection: {conn_tup.smarts}')
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
         else:
             self.logger.info(f'Successfully modified parent side chains into {len(self.result_data)} side chains')
             return True
 
         return False
 
-    def load_data(self):
-        """
-        Overloaded method for loading input data.
-
-        Returns:
-            bool: True if successful.
-        """
-
-        try:
-            self.parent_side_chains = super().load_data()[0]  # single item list is returned, access only item
-        except IndexError:
-            self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
-                                  f'self.mongo_params = {self.mongo_params}')
-            return False
-        except Exception:
-            self.logger.exception('Unexcepted exception occured.')
-            return False
-        else:
-            return True
-
-    def alternate_connection_point(self, mol, connection):
+    def alternate_connection_point(self, mol, connection_tup):
         """
         Creates a set of new molecules by attaching an alkyl chain (which becomes the attachment point to peptide
         backbone) to every eligble position on the side chain. Eligiblity of an atom is defined as:
@@ -118,25 +116,21 @@ class SideChainModifier(Base):
 
         Args:
             mol (rdkit Mol / str): The side chain molecule.
-            connection (rdkit Mol / str): The atom mapped alkyl attachment chain. If in string format, must be a valid
-                SMARTS string.
+            connection_tup (Connections): A namedtuple containing the atom mapped alkyl attachment chain and
+                modifications array.
 
         Raises:
             MissingMapNumberError: If connection is not atom mapped.
 
         Returns:
-            list: A list of unique SMILES strings representing the side chain with alkyl chains attached at different
-                positions.
+            dict: Containing the unique side chain SMILES strings as keys and the corresponding kekule SMILES and
+                modifications as values.
         """
 
-        mols = set()
+        unique_mols = {}
+        connection, modification = connection_tup
         attached = set()
-
-        # convert strings to rdkit Mol
-        if isinstance(connection, str):
-            connection = Chem.MolFromSmarts(connection)
-        if isinstance(mol, str):
-            mol = Chem.MolFromSmiles(mol)
+        connection = Chem.MolFromSmarts(connection)
 
         # check if connecting atom is atom mapped
         map_nums = [atom.GetAtomMapNum() for atom in connection.GetAtoms()]
@@ -147,19 +141,14 @@ class SideChainModifier(Base):
         for atom in mol.GetAtoms():
 
             # detetmine atom eligibility
-            atom_idx = None
-            found = False
-            if atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0 and atom.GetTotalNumHs() < 3:
+            if (atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0 and atom.GetTotalNumHs() < 3) or \
+                    (atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0):
                 atom.SetAtomMapNum(HETERO_MAP_NUM)
                 atom_idx = atom.GetIdx()
                 attached.add(atom_idx)
-                found = True
-            elif atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0:
-                atom.SetAtomMapNum(HETERO_MAP_NUM)
-                atom_idx = atom.GetIdx()
-                attached.add(atom_idx)
-                found = True
-            elif atom.GetIdx() in attached or not found:
+            elif atom.GetIdx() in attached:
+                continue
+            else:
                 continue
 
             # prepare for attachment
@@ -188,31 +177,32 @@ class SideChainModifier(Base):
 
             try:
                 Chem.SanitizeMol(combo)
-                Chem.Kekulize(combo)
             except ValueError:
                 self.logger.exception(f'Sanitize error! Side Chain: {Chem.MolToSmiles(mol)}')
             else:
-                mols.add(Smiles(Chem.MolToSmiles(combo), Chem.MolToSmiles(combo, kekuleSmiles=True)))
+                smiles = Chem.MolToSmiles(combo)
+                Chem.Kekulize(combo)    # kekulizing changes non-kekule smiles
+                unique_mols[smiles] = [Chem.MolToSmiles(combo, kekuleSmiles=True), modification]
                 self.logger.debug(f'Success! Side Chain: {Chem.MolToSmiles(mol)}')
 
-        return list(mols)
+        return unique_mols
 
-    def accumulate_mols(self, unique_mols, parent, modifications):
+    def accumulate_mols(self, unique_mols, parent):
         """
         Stores all data associated with the modified side chain in a dictionary and appends it to self.result_data.
 
         Args:
-            unique_mols (iterable): A list containing the unique SMILES strings of the modified side chain.
+            unique_mols (iterable): Contains the unique SMILES strings of the modified side chain.
             parent (dict): The assocaited data of parent side chain from which the modified side chain was derived.
             modifications (list): A list containing ids of the modifications that were made to the parent side chain.
         """
 
-        for i, smiles in enumerate(unique_mols):
+        for i, (smiles, vals) in enumerate(unique_mols.items()):
             doc = OrderedDict([('ID', parent['ID'] + str(i)),
                                ('type', 'side_chain'),
-                               ('smiles', smiles.smiles),
-                               ('kekule', smiles.kekule),
-                               ('modifications', modifications),
+                               ('smiles', smiles),
+                               ('kekule', vals[0]),
+                               ('modifications', vals[1]),
                                ('parent', parent)])
             self.result_data.append(doc)
 

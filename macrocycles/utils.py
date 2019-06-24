@@ -25,7 +25,7 @@ from rdkit.Chem import rdmolfiles
 from macrocycles.config import (COLLECTIONS, DATA_DIR, MONGO_SETTINGS, BB_MAP_NUM,
                                 PROJECT_DIR, LOG_DIR, VALIDATORS, INDEX, DI_INPUT_DIR)
 from macrocycles.exceptions import (SavingMongoError, SavingSQLError,
-                                    WritingJsonError, WritingTxtError)
+                                    WritingJsonError, WritingTxtError, InvalidSmilesString)
 
 ########################################################################################################################
 ########################################################################################################################
@@ -501,7 +501,7 @@ class Base():
                 raise SavingMongoError
             else:
                 self.logger.info(f'Successfully saved {len(self.result_data)} data points to the collection '
-                                 f'\'{self.mongo_params.output_col}\' on {self.mongo_db}')
+                                 f'{self.mongo_params.output_col} on {self.mongo_db}')
 
         if self.output_flags.sql_flag:
             try:
@@ -580,18 +580,18 @@ class Base():
                 for filepath in self.fp_in:
                     data.append(load_json(filepath))
             except (OSError, json.JSONDecodeError):
-                self.logger.exception(f'Failed to load the json file(s) \'{self.fp_in}\'')
+                self.logger.exception(f'Failed to load the json file(s) {self.fp_in}')
             else:
-                self.logger.info(f'Successfully loaded the json file(s) \'{self.fp_in}\'')
+                self.logger.info(f'Successfully loaded the json file(s) {self.fp_in}')
 
         if self.input_flags.txt_flag:
             try:
                 for filepath in self.fp_in:
                     data.append(load_txt(filepath))
             except OSError:
-                self.logger.exception(f'Failed to load the txt file(s) \'{self.fp_in}\'')
+                self.logger.exception(f'Failed to load the txt file(s) {self.fp_in}')
             else:
-                self.logger.info(f'Successfully loaded the txt file(s) \'{self.fp_in}\'')
+                self.logger.info(f'Successfully loaded the txt file(s) {self.fp_in}')
 
         if self.input_flags.mongo_flag:
             try:
@@ -599,11 +599,11 @@ class Base():
                     data.append(self.load_mongo_db(input_col, doc_type))
                 counts = [cursor.count() for cursor in data]
             except TypeError:
-                self.logger.exception(f'Failed to load the data in collection \'{self.mongo_params.input_cols}\' '
+                self.logger.exception(f'Failed to load the data in collection {self.mongo_params.input_cols} '
                                       f'on {self.mongo_db}')
             else:
                 self.logger.info(f'Successfully loaded {counts} data points from collection '
-                                 f'\'{self.mongo_params.input_cols}\' on {self.mongo_db}')
+                                 f'{self.mongo_params.input_cols} on {self.mongo_db}')
 
         if self.input_flags.sql_flag:
             try:
@@ -746,13 +746,18 @@ class DataInitializer(Base):
 
         return False
 
-    def load_templates(self, ID=['temp1', 'temp2', 'temp3']):
+    def load_templates(self, identifier=['t1', 't2', 't3']):
         """
         Top level function that sets up template documents for the template molecules to be stored in and passes it to
         self.load_files() for filling. If call to self.load_files() is successful then makes call to self.save_data().
+        Passed in identifier list must be in same order as molecules are read from the sdf file. Defaults indentifiers
+        are as follows:
+            - 't1' = template1
+            - 't2' = template2
+            - 't3' = template3
 
         Args:
-            ID (list, optional): A list of strings to be used as IDs. Defaults to ['temp1', 'temp2', 'temp3'].
+            ID (list, optional): A list of strings to be used as IDs. Defaults to ['t1', 't2', 't3'].
 
         Returns:
             bool: True if successful.
@@ -760,19 +765,24 @@ class DataInitializer(Base):
 
         template_doc = OrderedDict([('ID', None), ('type', 'template'), ('smiles', None), ('kekule', None)])
         if self.load_files(template_doc):
-            for doc, id_val in zip(self.result_data, ID):
+            for doc, id_val in zip(self.result_data, identifier):
                 doc['ID'] = id_val
             return self.save_data(create_id=False)
 
         return False
 
-    def load_backbones(self, ID=['alpha', 'beta2', 'beta3']):
+    def load_backbones(self, identifier=['a', 'b', 'c']):
         """
         Top level function that sets up template documents for the backbone molecules to be stored in and passes it to
         self.load_files() for filling. If call to self.load_files() is successful then makes call to self.save_data().
+        Passed in identifier list must be in same order as molecules are read from the sdf file. Default identifiers are
+        as follows:
+            - 'a' = 'alpha amino acid'
+            - 'b' = 'beta2 amino acid'
+            - 'c' = 'beta3 amino acid'
 
         Args:
-            ID (list, optional): A list of strings to be used as IDs. Defaults to ['temp1', 'temp2', 'temp3'].
+            identifier (list, optional): A list of strings to be used as IDs. Defaults to ['a', 'b', 'c'].
 
         Returns:
             bool: True if successful.
@@ -780,7 +790,7 @@ class DataInitializer(Base):
 
         template_doc = OrderedDict([('ID', None), ('type', 'backbone'), ('smiles', None), ('kekule', None)])
         if self.load_files(template_doc):
-            for doc, id_val in zip(self.result_data, ID):
+            for doc, id_val in zip(self.result_data, identifier):
                 doc['ID'] = id_val
                 doc = self.set_backbone_atom_maps(doc)
             return self.save_data(create_id=False)
@@ -788,15 +798,25 @@ class DataInitializer(Base):
         return False
 
     def set_backbone_atom_maps(self, doc):
+        """
+        Method for setting the atom map numbers on the backbone molecules. Atom map numbers are used to determine where
+        on the backbone to attach the side chain.
+
+        Args:
+            doc (dict): The dictionary containing the associated backbone data.
+
+        Returns:
+            dict: The dictionary containing the atom mapped backbone SMILES string.
+        """
 
         mol = Chem.MolFromSmiles(doc['smiles'])
         for atom in mol.GetAtoms():
             neighbors = [neighbor.GetSymbol() for neighbor in atom.GetNeighbors()]
-            if doc['ID'] in ('alpha', 'beta2') and (neighbors in (['C', 'N'], ['N', 'C'])):
+            if doc['ID'] in ('a', 'b') and (neighbors in (['C', 'N'], ['N', 'C'])):
                 atom.SetAtomMapNum(BB_MAP_NUM)
                 doc['smiles'] = Chem.MolToSmiles(mol)
                 break
-            elif doc['ID'] == 'beta3' and neighbors == ['C', 'C']:
+            elif doc['ID'] == 'c' and neighbors == ['C', 'C']:
                 atom.SetAtomMapNum(BB_MAP_NUM)
                 doc['smiles'] = Chem.MolToSmiles(mol)
                 break
@@ -1009,6 +1029,23 @@ def set_flags(inputs, outputs):
     input_flags = Flags(input_flags[0], input_flags[1], input_flags[2], input_flags[3])
     output_flags = Flags(output_flags[0], output_flags[1], output_flags[2], output_flags[3])
     return input_flags, output_flags
+
+
+def test_valid_smiles(smiles):
+    """
+    Test for a valid SMILES string. Rdkit does not provide a way to catch the error associated with trying to convert an
+    invalid SMILES string to a Mol in python, thus this function is necessary to do so.
+
+    Args:
+        smiles (str): The SMILES string to be tested.
+
+    Raises:
+        InvalidSmilesString: The exception that is raised if unable to convert the SMILES string to a Mol.
+    """
+
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise InvalidSmilesString(f'Could not convert SMILES string \'{smiles}\' to rdkit Mol')
 
 
 class Database():

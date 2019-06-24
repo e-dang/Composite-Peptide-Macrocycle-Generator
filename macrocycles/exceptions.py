@@ -17,6 +17,12 @@ class AtomSearchError(Exception):
     """
 
 
+class InvalidSmilesString(Exception):
+    """
+    Raised when unable to convert a SMILES/SMARTS string to rdkit Mol.
+    """
+
+
 class WritingJsonError(Exception):
     """
     Raised when an error has occured while writing data to a json file.
