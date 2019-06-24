@@ -13,10 +13,10 @@ The ID naming convention for molecules is as follows:
     4) Modified side chains IDs are dervied from the parent unmodified side chain ID concatenated with an enumeration
         value. For example, unmodified side chain has an ID of B, and produces 5 modified side chains, then the modified
         side chain IDs would be B1, B2, B3, B4, B5.
-    5) Monomer IDs are derived from the modified side chain ID with the backbone ID appended to the front. For example an
-        alpha amino acid combined with side chain B1 would be assigned the ID aB1. Monomers not derived from a side chain
-        are assigned IDs as if they were derived from a side chain. For example, a modified proline may be given an ID
-        XY -> aXY.
+    5) Monomer IDs are derived from the modified side chain ID with the backbone ID appended to the front and an
+        enumeration value to differentiate stereoisomers. For example an alpha amino acid combined with side chain B1
+        would be assigned the ID a0B1. Monomers not derived from a side chain are assigned IDs as if they were derived from a side chain.
+        from a side chain. For example, a modified proline may be given an ID XY -> aXY.
     6) Peptide IDs are the concatenation of the monomer IDs that make up the peptide. For example, a peptide consisting
         of 3 monomers aB1, Y, cB3 would be aB1YcB3.
     7) Tp-hybrid IDs are the corresponding peptide's ID with the corresponding template ID appended to the front, and

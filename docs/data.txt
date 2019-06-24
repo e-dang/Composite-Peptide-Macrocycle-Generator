@@ -1,0 +1,74 @@
+
+******************************** MongoDB ****************************************
+A single database consisting of 4 collections is used to store data from this project. The collections are as follows:
+molecules, reactions, filters, and counter.
+
+    - Molecules: The molecules collection stores all molecules produced in this project, where the different types are
+        distinquished by a 'type' field in each document. There are 4 required fields for each document: 'ID', 'type',
+        'smiles', and 'kekule'. The rest of the fields in each document vary depending on the value in the 'type' field,
+        which can only be one of the following: 'backbone', 'template', 'parent_side_chain', 'side_chain', 'monomer',
+        'peptide', 'tp_hybrid', 'candidate', 'conformer', 'macrocycle'. The required 'ID' field is a unique identifier
+        for each molecule. The required 'smiles' and 'kekule' fields are the SMILES and kekulized SMILES of each
+        molecule. The whole document structure for each unique 'type' with descriptions are as follows:
+            - backbone
+                - ID
+                - type
+                - smiles
+                - kekule
+            - template
+                - ID
+                - type
+                - smiles
+                - kekule
+            - parent_side_chain
+                - ID
+                - type
+                - smiles
+                - kekule
+                - group
+            - side_chain
+                - ID
+                - type
+                - smiles
+                - kekule
+                - modifications
+                - parent
+            - monomer
+                - ID
+                - type
+                - smiles
+                - kekule
+                - backbone
+                - side_chain
+                - required
+                - group
+            - peptide
+            - tp_hybrid
+            - candidate
+            - conformer
+            - macrocycle
+
+    - reactions: The reactions collection contains all reaction SMARTS strings used to enumerate candidate macrocycles
+        and the associated building blocks to assemble those reaction SMARTS strings. There are 3 required fields for
+        each document in this collection which are: 'ID', 'type', and 'smarts'. There are 3 different values that the
+        'type' field can take: 'side_chain', 'template', and 'reaction'. The ID field is a unique identifier for each
+        document in this collection; see section on ID generation. The 'smarts' field is for storing the atom mapped
+        SMARTS/SMILES strings of the side_chains, templates, or reactions. The whole document structure for each unique
+        'type' with descriptions are as follows:
+            - side_chain
+                - ID
+                - type
+                - smarts
+                - side_chain
+                - chain_map_num
+                - rxn_map_num
+                - rxn_atom_idx
+            - template
+                - ID
+                - type
+                - smarts
+                - substruct
+                - template
+                - chain_map_num
+                - rxn_map_num
+            - reaction
