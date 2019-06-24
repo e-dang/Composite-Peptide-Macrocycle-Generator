@@ -15,8 +15,7 @@ from rdkit import Chem
 from macrocycles.config import (CONN_MAP_NUM, HETERO_MAP_NUM,
                                 SCM_DOC_TYPE, SCM_INPUT_DIR, SCM_OUTPUT_DIR, SCM_INPUT_COL, SCM_OUTPUT_COL, CONNECTIONS)
 from macrocycles.exceptions import MissingMapNumberError
-from macrocycles.utils import (Base, IOPaths, Flags, MongoParams, Smiles,
-                               create_logger, set_flags)
+from macrocycles.utils import (Base, IOPaths, Flags, MongoParams, create_logger, set_flags)
 
 LOGGER = create_logger(name=__name__, level=INFO)
 

@@ -71,7 +71,6 @@ class RegioIsomerEnumerator(Base):
         """
 
         try:
-            print('here')
             self.side_chains = super().load_data()[0]  # should be a single item list, access only item
         except IndexError:
             self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '

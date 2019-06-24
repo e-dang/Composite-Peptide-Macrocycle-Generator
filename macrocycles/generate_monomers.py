@@ -16,8 +16,7 @@ from macrocycles.config import (BB_MAP_NUM, MG_DOC_TYPE, MG_INPUT_COL,
                                 MG_INPUT_DIR, MG_OUTPUT_COL, MG_OUTPUT_DIR,
                                 SC_MAP_NUM, STEREOCHEMISTRY)
 from macrocycles.exceptions import AtomSearchError
-from macrocycles.utils import (Base, Flags, IOPaths, MongoParams, Smiles,
-                               create_logger, set_flags)
+from macrocycles.utils import (Base, Flags, IOPaths, MongoParams, create_logger, set_flags)
 
 LOGGER = create_logger(name=__name__, level=INFO)
 
@@ -97,10 +96,10 @@ class MonomerGenerator(Base):
             for backbone in self.backbones:
                 mol_bb = Chem.MolFromSmarts(backbone['smiles'])
                 for side_chain in self.side_chains:
-                    monomers = []
+                    monomers = {}
                     mol_sc = Chem.MolFromSmiles(side_chain['smiles'])
                     for stereo in self.stereo:
-                        monomers.extend(self.create_monomer(mol_bb, mol_sc, stereo))
+                        monomers.update(self.create_monomer(mol_bb, mol_sc, stereo))
                     self.accumulate_mols(monomers, backbone, side_chain)
         except AtomSearchError:
             self.logger.exception()
@@ -122,7 +121,7 @@ class MonomerGenerator(Base):
             stereo (str): The stereochemistry at the attachment point of the backbone and side chain.
 
         Returns:
-            rdkit Mol: The resulting monomer from connecting the backbone and side chain molecules
+            dict: A dictionary containing the monomers' SMILES string as keys and kekule SMILES as values.
         """
 
         # attachment point at terminal end of alkyl chain
@@ -131,7 +130,7 @@ class MonomerGenerator(Base):
         if not len(matches):
             raise AtomSearchError(f'Couldn\'t find attchment point of: {Chem.MolToSmiles(side_chain)}')
 
-        monomers = []
+        monomers = {}
         for pairs in matches:
 
             # set atom map number for attachment point of side chain
@@ -171,12 +170,13 @@ class MonomerGenerator(Base):
 
             try:
                 Chem.SanitizeMol(combo)
-                Chem.Kekulize(combo)
             except ValueError:
                 self.logger.exception(
                     f'Sanitize Error! Side Chain: {Chem.MolToSmiles(side_chain)}, backbone: {backbone}')
             else:
-                monomers.append(Smiles(Chem.MolToSmiles(combo), Chem.MolToSmiles(combo, kekuleSmiles=True)))
+                smiles = Chem.MolToSmiles(combo)
+                Chem.Kekulize(combo)    # kekulizing changes non-kekule smiles
+                monomers[smiles] = Chem.MolToSmiles(combo, kekuleSmiles=True)
                 self.logger.debug(f'Success! Monomer {Chem.MolToSmiles(combo)}')
 
         return monomers
@@ -186,7 +186,7 @@ class MonomerGenerator(Base):
         Stores all data associated with the monomer in a dictionary and appends it to self.result_data.
 
         Args:
-            monomers (iterable): Contains Smiles namedtuples that contain the SMILES and kekule SMILES of the monomers.
+            monomers (dict): The dictionary containing the monomers' SMILES string as keys and kekule SMILES as values.
             backbone (dict): The dictionary containing the associated backbone data.
             side_chain (dict): The dictionary containing the associated side chain data.
         """
@@ -199,11 +199,11 @@ class MonomerGenerator(Base):
             'c': 'beta3'
         }
         struct = struct_key[backbone['ID']]
-        for i, monomer in enumerate(monomers):
+        for i, (smiles, kekule) in enumerate(monomers.items()):
             doc = OrderedDict([('ID', backbone['ID'] + str(i) + side_chain['ID']),
                                ('type', 'monomer'),
-                               ('smiles', monomer.smiles),
-                               ('kekule', monomer.kekule),
+                               ('smiles', smiles),
+                               ('kekule', kekule),
                                ('backbone', struct),
                                ('side_chain', side_chain),
                                ('required', self.required),

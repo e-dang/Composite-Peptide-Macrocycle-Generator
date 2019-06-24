@@ -31,7 +31,6 @@ from macrocycles.exceptions import (SavingMongoError, SavingSQLError,
 ########################################################################################################################
 ########################################################################################################################
 Flags = namedtuple('Flags', ['json_flag', 'txt_flag', 'mongo_flag', 'sql_flag'])
-Smiles = namedtuple('Smiles', ['smiles', 'kekule'])
 IOPaths = namedtuple('IOPaths', ['input', 'output'])
 MongoParams = namedtuple('MongoParameters', ['input_cols', 'input_types', 'output_col'])
 
@@ -770,6 +769,9 @@ class DataInitializer(Base):
             return self.save_data(create_id=False)
 
         return False
+
+    def set_template_atom_maps(self, doc):
+        pass
 
     def load_backbones(self, identifier=['a', 'b', 'c']):
         """

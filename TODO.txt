@@ -22,3 +22,6 @@
 - Allow for side chains with methyl group already attached, such as 5-methyl indole when diversifying.
 - Discuss if a premethylated side chain like 5-methyl indole should be allowed to form attachment with backbone at the methyl group despite
     having attachment groups already made in side chain modifier step.
+- Try using **kwargs in load_data() method in the MongoDataBase() class for specifying collections and document types to load.
+- Can try factoring the methods merge(), create_monomer(), alternate_connection_point() into a single method that merges two
+    mols based on the atom map numbers passed in. Make it a static method in Base.

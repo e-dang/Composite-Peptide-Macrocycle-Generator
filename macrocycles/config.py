@@ -161,7 +161,16 @@ RXN_MAP_NUM = 2
 CHAIN_MAP_NUM = 4
 METHYL = 0
 REGIO_INPUT_DIR = 'pre_monomer'
-REGIO_OUTPUT_DIR = 'pre_monomer'
+REGIO_OUTPUT_DIR = 'reactions'
 REGIO_INPUT_COL = ['molecules']
 REGIO_DOC_TYPE = ['side_chain']
 REGIO_OUTPUT_COL = 'reactions'
+
+####################################### ReactionGenerator #######################################
+TEMPLATE_RXN_MAP_NUM = 1
+TEMPLATE_CHAIN_MAP_NUM = 3
+RG_INPUT_DIR = 'reactions'
+RG_OUTPUT_DIR = 'reactions'
+RG_INPUT_COL = ['reactions', 'reactions']
+RG_DOC_TYPE = ['side_chain', 'template']
+RG_OUTPUT_COL = 'reactions'

@@ -1,116 +1,192 @@
+"""
+Written by Eric Dang.
+github: https://github.com/e-dang
+email: edang830@gmail.com
+"""
+
 import argparse
+import os
+import sys
+from collections import OrderedDict
+from logging import INFO
 
 from rdkit import Chem
-from tqdm import tqdm
 
-from utils import Database
+from macrocycles.config import (RG_DOC_TYPE, RG_INPUT_COL, RG_INPUT_DIR,
+                                RG_OUTPUT_COL, RG_OUTPUT_DIR, RXN_MAP_NUM, TEMPLATE_RXN_MAP_NUM)
+from macrocycles.exceptions import AtomSearchError
+from macrocycles.utils import (Base, Flags, IOPaths, MongoParams,
+                               create_logger, set_flags)
+
+LOGGER = create_logger(__name__, INFO)
 
 
-def generate_rxn_templates(templates, side_chains, show_progress=False):
+class ReactionGenerator(Base):
     """
-    Top level function that generates reaction SMARTS for all pairs of templates and side_chains using helper
-    function generate_rxn_template().
+    Class for generating atom mapped reaction SMARTS strings from atom mapped template and side chain SMILES strings.
+    Inherits from Base.
 
-    Args:
-        templates (iterable): An iterable object containing template documents such as pymongo cursor on the templates
-            collection
-        side_chains (iterable): An iterable object containing side chain documents such as a pymongo cursor on the
-            side_chains colelction
-        show_progress (bool, optional): Show progress bar. Defaults to False.
-
-    Returns:
-        generator: Generator object of tuples containing the reactions SMARTS string, template document, and side_chain
-            document
-    """
-
-    # create SMARTS reaction template between each template and side chain
-    for template in tqdm(templates, desc='Templates: ', disable=show_progress):
-        for side_chain in tqdm(side_chains, desc='Side chains: ', disable=show_progress):
-            yield generate_rxn_template(template, side_chain), template, side_chain
-
-
-def generate_rxn_template(template, side_chain):
-    """
-    Uses helper function merge() to generate product SMILES string, then use helper function generate_rxn_smarts() to
-    create reaction SMARTS string
-
-    Args:
-        template (pymongo doc): The template's database document
-        side_chain (pumongo doc): The side chain's database document
-
-    Returns:
-        str: The full reaction SMARTS string
+    Attributes:
+        side_chains (list): Contains the different atom mapped side chains.
+        templates (list): Contains the different atom mapped templates.
+        reaction (str): The type of reaction that is being performed (i.e. Friedel-Crafts, Pictet-Spengler,..).
     """
 
-    # combine SMILES strings to get full reaction template SMARTS string
-    return generate_rxn_smarts(template['atom_mapped_smiles'], side_chain['atom_mapped_smiles'],
-                               merge(template, side_chain))
+    def __init__(self, logger=LOGGER, input_flags=Flags(False, False, True, False),
+                 output_flags=Flags(False, False, False, False), no_db=False, **kwargs):
+        """
+        Initializer.
 
+        Args:
+            input_flags (Flags): A namedtuple containing the flags indicating which format to get input data from.
+            output_flags (Flags): A namedtuple containing the flags indicating which format to output data to.
+            no_db (bool): If True, ensures that no default connection is made to the database. Defaults to False.
+            **kwargs:
+                f_in (str): The file name(s) containing the input data, if input data has been specified to be retrieved
+                    from a file.
+                f_out (str): The file name that the result_data will be written to, if specified to do so.
+                mongo_params (MongoParams): A namedtuple containing the collection name(s) and value(s) held within the
+                    'type' field of the documents to be retrieved, as well as the output collection name.
+                no_db (bool): If True, ensures that no default connection is made to the database.
+        """
 
-def generate_rxn_smarts(template, side_chain, product):
-    """
-    Generate a reaction SMARTS string from the arugments
+        # I/O
+        f_in = [os.path.join(RG_INPUT_DIR, file) for file in kwargs['f_in']] if 'f_in' in kwargs else ['']
+        f_out = os.path.join(RG_OUTPUT_DIR, kwargs['f_out']) if 'f_out' in kwargs else ''
+        mongo_params = kwargs['mongo_params'] if 'mongo_params' in kwargs else MongoParams(
+            RG_INPUT_COL, RG_DOC_TYPE, RG_OUTPUT_COL)
+        mongo_params = mongo_params if not no_db else None
+        super().__init__(IOPaths(f_in, f_out), mongo_params, LOGGER, input_flags, output_flags)
 
-    Args:
-        template (str): The template's atom mapped SMILES string
-        side_chain (str): The side chain's atom mapped SMILES string
-        product (str): The product's atom mapped SMILES string
+        # data
+        self.side_chains = []
+        self.templates = []
+        self.reaction = None
 
-    Returns:
-        str: The reaction SMARTS string
-    """
+    def load_data(self):
+        """
+        Overloaded method for loading input data.
 
-    return '(' + template + '.' + side_chain + ')>>' + product
+        Returns:
+            bool: True if successful.
+        """
 
+        try:
+            self.side_chains, self.templates = super().load_data()
+        except IndexError:
+            self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
+                                  f'self.mongo_params = {self.mongo_params}')
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
+        else:
+            return True
 
-def merge(template, side_chain):
-    """
-    Connects the template and side chain together at the designated reacting site (marked by atom map numbers), and
-    converts the product to a SMILES string.
+        return False
 
-    Args:
-        template (dict): The template's database document
-        side_chain (dict): The side chain's database document
+    def generate_reactions(self):
+        """
+        Top level function that generates reaction SMARTS for all pairs of templates and side_chains using helper
+        function generate_rxn_template().
 
-    Returns:
-        str: SMILES string representation of the product of the template reacting with the side chain
-    """
+        Args:
+            templates (iterable): An iterable object containing template documents such as pymongo cursor on the templates
+                collection
+            side_chains (iterable): An iterable object containing side chain documents such as a pymongo cursor on the
+                side_chains colelction
+            show_progress (bool, optional): Show progress bar. Defaults to False.
 
-    # convert SMILES strings to mols
-    temp = Chem.MolFromSmiles(template['atom_mapped_smiles'])
-    sc = Chem.MolFromSmiles(side_chain['atom_mapped_smiles'])
+        Returns:
+            generator: Generator object of tuples containing the reactions SMARTS string, template document, and side_chain
+                document
+        """
 
-    # remove substruct from template and combine mols
-    temp = Chem.DeleteSubstructs(temp, Chem.MolFromSmiles(template['substruct']))
-    combo = Chem.RWMol(Chem.CombineMols(temp, sc))
+        try:
+            for template in self.templates:
+                for side_chain in self.side_chains:
+                    reaction = self.generate_rxn_smarts(Chem.MolFromSmiles(
+                        template), Chem.MolFromSmiles(side_chain), self.merge(template, side_chain))
+                    self.accumulate_data(template, side_chain, reaction)
+        except AtomSearchError:
+            self.logger.exception()
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
+        else:
+            self.logger.info(f'Successfully generated {len(self.result_data)} reactions')
+            return True
 
-    # get reacting atom indicies
-    temp_atom = None
-    sc_atom = None
-    for atom in combo.GetAtoms():
-        if atom.GetAtomMapNum() == int(template['rxn_map_num']):
-            temp_atom = atom.GetIdx()
-        elif atom.GetAtomMapNum() == int(side_chain['rxn_map_num']):
-            sc_atom = atom.GetIdx()
+        return False
 
-    # fix hydrogen counts
-    atom_react = combo.GetAtomWithIdx(sc_atom)
-    if atom_react.GetSymbol() == 'N' or atom_react.GetSymbol() == 'O' or atom_react.GetSymbol() == 'S':
-        atom_react.SetNumExplicitHs(0)
-    elif atom_react.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom_react) > 0:
-        atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
+    def generate_rxn_smarts(self, template, side_chain, product):
+        """
+        Generate a reaction SMARTS string from the arugments
 
-    # create bond
-    combo.AddBond(temp_atom, sc_atom, order=Chem.rdchem.BondType.SINGLE)
+        Args:
+            template (str): The template's atom mapped SMILES string
+            side_chain (str): The side chain's atom mapped SMILES string
+            product (str): The product's atom mapped SMILES string
 
-    try:
-        Chem.SanitizeMol(combo)
-    except ValueError:
-        print('Error!')
-        print('Template:', template['smiles'])
-        print('Side Chain:', side_chain['smiles'])
+        Returns:
+            str: The reaction SMARTS string
+        """
 
-    return Chem.MolToSmiles(combo)
+        return '(' + template + '.' + side_chain + ')>>' + product
+
+    def merge(self, template, side_chain):
+        """
+        Connects the template and side chain together at the designated reacting site (marked by atom map numbers), and
+        converts the product to a SMILES string.
+
+        Args:
+            template (dict): The template's database document
+            side_chain (dict): The side chain's database document
+
+        Returns:
+            str: SMILES string representation of the product of the template reacting with the side chain
+        """
+
+        # convert SMILES strings to mols
+        temp = Chem.MolFromSmiles(template['smarts'])
+        sc = Chem.MolFromSmiles(side_chain['smarts'])
+
+        # remove substruct from template and combine mols
+        temp = Chem.DeleteSubstructs(temp, Chem.MolFromSmiles(template['substruct']))
+        combo = Chem.RWMol(Chem.CombineMols(temp, sc))
+
+        # get reacting atom indicies
+        temp_atom = None
+        sc_atom = None
+        for atom in combo.GetAtoms():
+            if atom.GetAtomMapNum() == TEMPLATE_RXN_MAP_NUM:
+                temp_atom = atom.GetIdx()
+            elif atom.GetAtomMapNum() == RXN_MAP_NUM:
+                sc_atom = atom.GetIdx()
+
+        # fix hydrogen counts
+        atom_react = combo.GetAtomWithIdx(sc_atom)
+        if atom_react.GetSymbol() in ['N', 'O', 'S']:
+            atom_react.SetNumExplicitHs(0)
+        elif atom_react.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom_react) > 0:
+            atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
+
+        # create bond
+        combo.AddBond(temp_atom, sc_atom, order=Chem.rdchem.BondType.SINGLE)
+
+        try:
+            Chem.SanitizeMol(combo)
+        except ValueError:
+            self.logger.exception(f'Sanitize Error! template = {template}, side_chain = {side_chain}')
+        else:
+            return Chem.MolToSmiles(combo)
+
+    def accumulate_data(self, template, side_chain, reaction):
+
+        doc = OrderedDict([('ID', template['ID'] + side_chain['ID']),
+                           ('type', 'reaction'),
+                           ('smarts', reaction),
+                           ('template', template['ID']),
+                           ('side_chain', side_chain),
+                           ('reaction', self.reaction)])
+        self.result_data.append(doc)
 
 
 def main():
@@ -120,40 +196,37 @@ def main():
                                      'map number = 1 to the side chain atom with atom map number = 2. The SMARTS '
                                      'reaction template can then be applied to template-peptide linked molecules to '
                                      'form a macrocycle.')
-    parser.add_argument('templates', nargs='+', choices=[1, 2, 3], type=int,
-                        help='Which template(s) SMILES strings to import; 1 - temp1a, 2 - temp2, 3 - temp3')
-    parser.add_argument('--db', dest='database', default='rxn_templates',
-                        help='The mongoDB database to connect to')
-    parser.add_argument('--host', dest='host', default='localhost',
-                        help='The host MongoDB server to connect to')
-    parser.add_argument('--port', dest='port', type=int, default=27017,
-                        help='The port on host server to connect to')
-    parser.add_argument('--store', dest='store', action='store_true', help='Store results (defaults to False)')
-    parser.add_argument('--silence', dest='silence', action='store_false',
-                        help='Disable printing output to console (defaults to False)')
-    parser.add_argument('--show_progress', dest='progress', action='store_false',
-                        help='Show progress bar (defaults to False)')
+    parser.add_argument('input', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies the format that the input data is in.')
+    parser.add_argument('output', nargs='+', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies what format to output the result data in.')
+    parser.add_argument('--f_in', dest='f_in', required='json' in sys.argv or 'txt' in sys.argv,
+                        help='The input file relative to default input directory defined in config.py.')
+    parser.add_argument('--f_out', dest='f_out', default='regioisomers',
+                        help='The output file relative to the default output directory defined in config.py.')
+    parser.add_argument('--no_db', dest='no_db', action='store_true',
+                        help='Turns off default connection that is made to the database.')
 
     args = parser.parse_args()
 
-    # get template names for db querying
-    templates = [name for ind, name in enumerate(['temp1', 'temp2', 'temp3']) if ind + 1 in args.templates]
+    # check for proper file specifications
+    if args.input in ['json', 'txt']:
+        extension = args.f_in.split('.')[-1]
+        if args.input != extension:
+            LOGGER.error('File extension of the input file does not match the specified format')
+            raise OSError('File extension of the input file does not match the specified format')
 
-    # establish connection and retrieve template and side chain data
-    db = Database(host=args.host, port=args.port, db=args.database)
-    temp_docs = db.find('templates', {'name': {'$in': templates}})
-    sc_docs = db.find_all('side_chains')
+    # configure I/O
+    input_flags, output_flags = set_flags(args.input, args.output)
+    f_in = [args.f_in] if args.input in ['json', 'txt'] else ['']
 
-    for rxn, template, side_chain in generate_rxn_templates(temp_docs, sc_docs, args.progress):
+    # create class and perform operations
+    generator = ReactionGenerator(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
+                                  output_flags=output_flags, no_db=args.no_db)
+    if generator.load_data() and generator.generate_reactions():
+        return generator.save_data()
 
-        if args.silence:
-            print('Reaction: ', rxn)
-            print('Template: ', template['smiles'])
-            print('Side Chain: ', side_chain['smiles'])
-
-        if args.store:
-            mod_rxn = rxn.replace('\\', '\\\\')
-            db.insert_reaction(mod_rxn, template['smiles'], side_chain['smiles'], side_chain['atom_idx'])
+    return False
 
 
 if __name__ == '__main__':
