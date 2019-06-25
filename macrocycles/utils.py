@@ -21,7 +21,7 @@ from pymongo.errors import (BulkWriteError, CollectionInvalid,
                             OperationFailure)
 from rdkit import Chem
 from rdkit.Chem import rdmolfiles
-
+from rdkit.Chem import Draw
 from macrocycles.config import (COLLECTIONS, DATA_DIR, MONGO_SETTINGS, BB_MAP_NUM,
                                 PROJECT_DIR, LOG_DIR, VALIDATORS, INDEX, DI_INPUT_DIR)
 from macrocycles.exceptions import (SavingMongoError, SavingSQLError,
@@ -635,6 +635,68 @@ class Base():
         """
 
         raise OSError
+
+    @staticmethod
+    def merge(mol1, mol2, map_num1, map_num2, stereo=None, clear_map_nums=True):
+        """
+        Static method for merging two molecules at the specified atoms, and updating the hydrogen counts as needed. Atom
+        map numbers should not be the same for both molecules.
+
+        Args:
+            mol1 (rdkit Mol): The molecule to be combined with mol2.
+            mol2 (rdkit Mol): The molecule to be combined with mol1.
+            map_num1 (int): The atom map number of the atom on mol1 that will form a bond with mol2.
+            map_num2 (int): The atom map number of the atom on mol2 that will form a bond with mol1.
+
+        Returns:
+            rdkit Mol: The resulting molecule from combining mol1 and mol2 at the specified atoms.
+        """
+
+        def update_hydrogen_counts(atom, clear_map_nums):
+            """
+            Inner method for clearing the atom map number and updating hydrogen counts.
+
+            Args:
+                atom (rdkit Atom): The atom from a molecule that is going to form a bond with an atom from another
+                    molecule.
+
+            Returns:
+                rdkit Atom: The reformatted atom.
+            """
+
+            if clear_map_nums:
+                atom.SetAtomMapNum(0)
+
+            if atom.GetSymbol() in ['N', 'O', 'S']:
+                atom.SetNumExplicitHs(0)
+            elif atom.GetSymbol() == 'C' and atom.GetNumExplicitHs() != 0:
+                atom.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom) - 1)
+
+            return atom
+
+        # find atoms that will form a bond together and update hydrogen counts
+        combo = Chem.RWMol(Chem.CombineMols(mol1, mol2))
+        Chem.SanitizeMol(combo)
+        for atom in combo.GetAtoms():
+            if atom.GetAtomMapNum() == map_num1:
+                mol1_atom = update_hydrogen_counts(atom, clear_map_nums)
+            elif atom.GetAtomMapNum() == map_num2:
+                mol2_atom = update_hydrogen_counts(atom, clear_map_nums)
+
+        # create bond, remove hydrogens, and sanitize
+        combo.AddBond(mol1_atom.GetIdx(), mol2_atom.GetIdx(), order=Chem.rdchem.BondType.SINGLE)
+        Chem.rdmolops.RemoveHs(combo)
+        Chem.SanitizeMol(combo)
+
+        # add stereochemistry as specified
+        stereo_center = mol1_atom if mol1_atom.GetHybridization() == Chem.rdchem.HybridizationType.SP3 and \
+            mol1_atom.GetTotalNumHs() != 2 else mol2_atom
+        if stereo == 'CCW':
+            stereo_center.SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW)
+        elif stereo == 'CW':
+            stereo_center.SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW)
+
+        return combo
 
 ########################################################################################################################
 ########################################################################################################################

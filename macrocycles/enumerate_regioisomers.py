@@ -112,8 +112,7 @@ class RegioIsomerEnumerator(Base):
         points of side chain to peptide backbone. Possible regioisomer locations are determined by:
             Carbon - has at least 1 hydrogen, is aromatic, and atom is not designated as peptide backbone attachment
                 point
-            Nitrogen - has at least 1 hydrogen
-            Oxygen, Sulfer - is an alcohol/thiol
+            Nitrogen, Oxygen, Sulfer - has at least 1 hydrogen
 
         Args:
             side_chain (rdkit Mol): The rdkit Mol representation of the side chain
@@ -130,7 +129,6 @@ class RegioIsomerEnumerator(Base):
         for pairs in matches:
 
             # assign atom map number for chain attachment carbon
-            old_atom_idx = None
             for atom_idx in pairs:
                 atom = Chem.Mol.GetAtomWithIdx(side_chain, atom_idx)
                 if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 3:
@@ -144,10 +142,8 @@ class RegioIsomerEnumerator(Base):
             for atom in side_chain.GetAtoms():
 
                 # determine atom eligibility
-                if (atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != 4 and Chem.Atom.GetTotalNumHs(atom) != 0
-                        and Chem.Atom.GetIsAromatic(atom)) or \
-                    (atom.GetSymbol() == 'N' and Chem.Atom.GetTotalNumHs(atom) != 0) or \
-                        (atom.GetSymbol() in ['O', 'S'] and Chem.Atom.GetTotalNumHs(atom) == 1):
+                if (atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != CHAIN_MAP_NUM and atom.GetTotalNumHs() != 0
+                        and atom.GetIsAromatic()) or (atom.GetSymbol() in ['N', 'O', 'S'] and atom.GetTotalNumHs() > 0):
                     atom.SetAtomMapNum(RXN_MAP_NUM)
                 else:
                     continue
@@ -169,7 +165,7 @@ class RegioIsomerEnumerator(Base):
                 else:
                     regioisomers[mol_str] = atom_idx
 
-            Chem.Mol.GetAtomWithIdx(side_chain, old_atom_idx).SetAtomMapNum(0)  # reset attachment atom map number
+            side_chain.GetAtomWithIdx(old_atom_idx).SetAtomMapNum(0)  # reset attachment atom map number
 
         return regioisomers
 

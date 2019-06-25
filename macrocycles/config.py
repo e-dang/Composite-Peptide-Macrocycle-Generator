@@ -142,9 +142,9 @@ SCM_INPUT_COL = [COL1]
 SCM_DOC_TYPE = ['parent_side_chain']
 SCM_OUTPUT_COL = COL1
 Connections = namedtuple('Connections', ['smarts', 'mod_array'])
-CONNECTIONS = [Connections(con, mod) for con, mod in [(f'[CH3:{CONN_MAP_NUM}]', [0, 3]),
-                                                      (f'[CH3][CH2:{CONN_MAP_NUM}]', [1, 3]),
-                                                      (f'[CH3][CH2][CH2:{CONN_MAP_NUM}]', [2, 3])]]
+CONNECTIONS = [Connections(con, mod) for con, mod in [(f'[CH4:{CONN_MAP_NUM}]', [0, 3]),
+                                                      (f'[CH3][CH3:{CONN_MAP_NUM}]', [1, 3]),
+                                                      (f'[CH3][CH2][CH3:{CONN_MAP_NUM}]', [2, 3])]]
 
 ####################################### MonomerGenerator #######################################
 BB_MAP_NUM = 1

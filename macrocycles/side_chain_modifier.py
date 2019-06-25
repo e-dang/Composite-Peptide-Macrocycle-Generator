@@ -106,7 +106,7 @@ class SideChainModifier(Base):
 
         return False
 
-    def alternate_connection_point(self, mol, connection_tup):
+    def alternate_connection_point(self, parent_sc, connection_tup):
         """
         Creates a set of new molecules by attaching an alkyl chain (which becomes the attachment point to peptide
         backbone) to every eligble position on the side chain. Eligiblity of an atom is defined as:
@@ -114,7 +114,7 @@ class SideChainModifier(Base):
             Nitrogen, Oxygen, Sulfur - Must have > 0 hydrogens
 
         Args:
-            mol (rdkit Mol / str): The side chain molecule.
+            mol (str): The SMILES string of the parent side chain molecule.
             connection_tup (Connections): A namedtuple containing the atom mapped alkyl attachment chain and
                 modifications array.
 
@@ -127,62 +127,38 @@ class SideChainModifier(Base):
         """
 
         unique_mols = {}
-        connection, modification = connection_tup
         attached = set()
+        connection, modification = connection_tup
         connection = Chem.MolFromSmarts(connection)
+        parent_sc = Chem.MolFromSmiles(parent_sc)
 
         # check if connecting atom is atom mapped
-        map_nums = [atom.GetAtomMapNum() for atom in connection.GetAtoms()]
-        if CONN_MAP_NUM not in map_nums:
+        if CONN_MAP_NUM not in [atom.GetAtomMapNum() for atom in connection.GetAtoms()]:
             raise MissingMapNumberError('Need to specifiy connecting atom with atom map number')
 
         # make attachment at each atom
-        for atom in mol.GetAtoms():
+        for atom in parent_sc.GetAtoms():
 
             # detetmine atom eligibility
-            if (atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0 and atom.GetTotalNumHs() < 3) or \
+            if (atom.GetSymbol() == 'C' and 0 < atom.GetTotalNumHs() < 3) or \
                     (atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0):
                 atom.SetAtomMapNum(HETERO_MAP_NUM)
-                atom_idx = atom.GetIdx()
-                attached.add(atom_idx)
+                attached.add(atom.GetIdx())
             elif atom.GetIdx() in attached:
                 continue
             else:
                 continue
 
-            # prepare for attachment
-            combo = Chem.RWMol(Chem.CombineMols(mol, connection))
-
-            # find reacting atoms on combo mol and reset atom map numbers
-            mol_atom = None
-            conn_atom = None
-            for combo_atom in combo.GetAtoms():
-                if combo_atom.GetAtomMapNum() == HETERO_MAP_NUM:
-                    mol_atom = combo_atom.GetIdx()
-                    combo_atom.SetAtomMapNum(0)
-                    Chem.Mol.GetAtomWithIdx(mol, atom_idx).SetAtomMapNum(0)
-                elif combo_atom.GetAtomMapNum() == CONN_MAP_NUM:
-                    conn_atom = combo_atom.GetIdx()
-                    combo_atom.SetAtomMapNum(0)
-
-            combo.AddBond(mol_atom, conn_atom, order=Chem.rdchem.BondType.SINGLE)
-
-            # fix hydrogen counts
-            atom_react = combo.GetAtomWithIdx(mol_atom)
-            if atom_react.GetSymbol() in ('N', 'O', 'S'):
-                atom_react.SetNumExplicitHs(0)
-            elif atom_react.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom_react) > 0:
-                atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
-
+            # merge parent side chain with conenction and record results
             try:
-                Chem.SanitizeMol(combo)
+                side_chain = Base.merge(parent_sc, connection, HETERO_MAP_NUM, CONN_MAP_NUM)
             except ValueError:
-                self.logger.exception(f'Sanitize error! Side Chain: {Chem.MolToSmiles(mol)}')
+                self.logger.exception(f'Sanitize error! Parent Side Chain: {Chem.MolToSmiles(parent_sc)}')
             else:
-                smiles = Chem.MolToSmiles(combo)
-                Chem.Kekulize(combo)    # kekulizing changes non-kekule smiles
-                unique_mols[smiles] = [Chem.MolToSmiles(combo, kekuleSmiles=True), modification]
-                self.logger.debug(f'Success! Side Chain: {Chem.MolToSmiles(mol)}')
+                atom.SetAtomMapNum(0)
+                smiles = Chem.MolToSmiles(side_chain)
+                Chem.Kekulize(side_chain)
+                unique_mols[smiles] = [Chem.MolToSmiles(side_chain, kekuleSmiles=True), modification]
 
         return unique_mols
 

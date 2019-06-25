@@ -73,6 +73,7 @@ class MonomerGenerator(Base):
 
         try:
             self.side_chains, self.backbones = super().load_data()
+            self.backbones = list(self.backbones)  # convert smaller of two generators to list
         except ValueError:
             self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
                                   f'self.mongo_params = {self.mongo_params}')
@@ -93,16 +94,16 @@ class MonomerGenerator(Base):
         """
 
         try:
-            for backbone in self.backbones:
-                mol_bb = Chem.MolFromSmarts(backbone['smiles'])
-                for side_chain in self.side_chains:
+            for side_chain in self.side_chains:
+                mol_sc = Chem.MolFromSmiles(side_chain['smiles'])
+                for backbone in self.backbones:
                     monomers = {}
-                    mol_sc = Chem.MolFromSmiles(side_chain['smiles'])
+                    mol_bb = Chem.MolFromSmarts(backbone['smiles'])
                     for stereo in self.stereo:
                         monomers.update(self.create_monomer(mol_bb, mol_sc, stereo))
                     self.accumulate_mols(monomers, backbone, side_chain)
         except AtomSearchError:
-            self.logger.exception()
+            self.logger.exception('')
         except Exception:
             self.logger.exception('Unexpected exception occured.')
         else:
@@ -134,50 +135,25 @@ class MonomerGenerator(Base):
         for pairs in matches:
 
             # set atom map number for attachment point of side chain
-            sc_atom_idx = None
             for atom_idx in pairs:
                 atom = Chem.Mol.GetAtomWithIdx(side_chain, atom_idx)
                 if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 3:
                     atom.SetAtomMapNum(SC_MAP_NUM)
-                    sc_atom_idx = atom_idx
                     break
             else:
                 raise AtomSearchError(f'Couldn\'t find attchment point of: {Chem.MolToSmiles(side_chain)}')
 
-            combo = Chem.RWMol(Chem.CombineMols(side_chain, backbone))
-
-            # get reacting atom indicies
-            bb_atom = None
-            sc_atom = None
-            for atom in combo.GetAtoms():
-                if atom.GetAtomMapNum() == BB_MAP_NUM:
-                    bb_atom = atom.GetIdx()
-                    atom.SetAtomMapNum(0)
-                elif atom.GetAtomMapNum() == SC_MAP_NUM:
-                    sc_atom = atom.GetIdx()
-                    atom.SetAtomMapNum(0)
-                    Chem.Mol.GetAtomWithIdx(side_chain, sc_atom_idx).SetAtomMapNum(0)
-
-            combo.AddBond(bb_atom, sc_atom, order=Chem.rdchem.BondType.SINGLE)
-
-            # adjust Stereochemistry, fix hydrogen counts
-            atom_react = combo.GetAtomWithIdx(bb_atom)
-            atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
-            if stereo == 'CCW':
-                atom_react.SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW)
-            else:
-                atom_react.SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW)
-
+            # connect monomer and backbone
             try:
-                Chem.SanitizeMol(combo)
+                monomer = Base.merge(side_chain, backbone, SC_MAP_NUM, BB_MAP_NUM, stereo)
             except ValueError:
-                self.logger.exception(
-                    f'Sanitize Error! Side Chain: {Chem.MolToSmiles(side_chain)}, backbone: {backbone}')
+                self.logger.exception(f'Sanitize Error! Side Chain: {Chem.MolToSmiles(side_chain)}, '
+                                      f'backbone: {Chem.MolToSmiles(backbone)}')
             else:
-                smiles = Chem.MolToSmiles(combo)
-                Chem.Kekulize(combo)    # kekulizing changes non-kekule smiles
-                monomers[smiles] = Chem.MolToSmiles(combo, kekuleSmiles=True)
-                self.logger.debug(f'Success! Monomer {Chem.MolToSmiles(combo)}')
+                atom.SetAtomMapNum(0)
+                smiles = Chem.MolToSmiles(monomer)
+                Chem.Kekulize(monomer)
+                monomers[smiles] = [Chem.MolToSmiles(monomer, kekuleSmiles=True), stereo]
 
         return monomers
 
@@ -199,11 +175,12 @@ class MonomerGenerator(Base):
             'c': 'beta3'
         }
         struct = struct_key[backbone['ID']]
-        for i, (smiles, kekule) in enumerate(monomers.items()):
+        for i, (smiles, vals) in enumerate(monomers.items()):
             doc = OrderedDict([('ID', backbone['ID'] + str(i) + side_chain['ID']),
                                ('type', 'monomer'),
                                ('smiles', smiles),
-                               ('kekule', kekule),
+                               ('kekule', vals[0]),
+                               ('stereo', vals[1]),
                                ('backbone', struct),
                                ('side_chain', side_chain),
                                ('required', self.required),
