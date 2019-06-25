@@ -14,7 +14,6 @@ from rdkit import Chem
 
 from macrocycles.config import (RG_DOC_TYPE, RG_INPUT_COL, RG_INPUT_DIR,
                                 RG_OUTPUT_COL, RG_OUTPUT_DIR, RXN_MAP_NUM, TEMPLATE_RXN_MAP_NUM)
-from macrocycles.exceptions import AtomSearchError
 from macrocycles.utils import (Base, Flags, IOPaths, MongoParams,
                                create_logger, set_flags)
 
@@ -73,6 +72,7 @@ class ReactionGenerator(Base):
 
         try:
             self.side_chains, self.templates = super().load_data()
+            self.templates = list(self.templates)  # convert smaller of two generators to list
         except IndexError:
             self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
                                   f'self.mongo_params = {self.mongo_params}')
@@ -101,13 +101,12 @@ class ReactionGenerator(Base):
         """
 
         try:
-            for template in self.templates:
-                for side_chain in self.side_chains:
-                    reaction = self.generate_rxn_smarts(Chem.MolFromSmiles(
-                        template), Chem.MolFromSmiles(side_chain), self.merge(template, side_chain))
+            for side_chain in self.side_chains:
+                sc_mol = Chem.MolFromSmiles(side_chain['smarts'])
+                for template in self.templates:
+                    temp_mol = Chem.MolFromSmiles(template['smarts'])
+                    reaction = self.friedel_crafts(temp_mol, sc_mol)
                     self.accumulate_data(template, side_chain, reaction)
-        except AtomSearchError:
-            self.logger.exception()
         except Exception:
             self.logger.exception('Unexpected exception occured.')
         else:
@@ -116,69 +115,41 @@ class ReactionGenerator(Base):
 
         return False
 
-    def generate_rxn_smarts(self, template, side_chain, product):
+    def friedel_crafts(self, template, side_chain):
         """
-        Generate a reaction SMARTS string from the arugments
+        Generate a reaction SMARTS string for Friedel-Crafts reaction with the template and side_chain.
 
         Args:
-            template (str): The template's atom mapped SMILES string
-            side_chain (str): The side chain's atom mapped SMILES string
-            product (str): The product's atom mapped SMILES string
+            template (rdkit Mol): The template's atom mapped SMILES string
+            side_chain (rdkit Mol): The side chain's atom mapped SMILES string
 
         Returns:
             str: The reaction SMARTS string
         """
 
-        return '(' + template + '.' + side_chain + ')>>' + product
-
-    def merge(self, template, side_chain):
-        """
-        Connects the template and side chain together at the designated reacting site (marked by atom map numbers), and
-        converts the product to a SMILES string.
-
-        Args:
-            template (dict): The template's database document
-            side_chain (dict): The side chain's database document
-
-        Returns:
-            str: SMILES string representation of the product of the template reacting with the side chain
-        """
-
-        # convert SMILES strings to mols
-        temp = Chem.MolFromSmiles(template['smarts'])
-        sc = Chem.MolFromSmiles(side_chain['smarts'])
-
-        # remove substruct from template and combine mols
-        temp = Chem.DeleteSubstructs(temp, Chem.MolFromSmiles(template['substruct']))
-        combo = Chem.RWMol(Chem.CombineMols(temp, sc))
-
-        # get reacting atom indicies
-        temp_atom = None
-        sc_atom = None
-        for atom in combo.GetAtoms():
-            if atom.GetAtomMapNum() == TEMPLATE_RXN_MAP_NUM:
-                temp_atom = atom.GetIdx()
-            elif atom.GetAtomMapNum() == RXN_MAP_NUM:
-                sc_atom = atom.GetIdx()
-
-        # fix hydrogen counts
-        atom_react = combo.GetAtomWithIdx(sc_atom)
-        if atom_react.GetSymbol() in ['N', 'O', 'S']:
-            atom_react.SetNumExplicitHs(0)
-        elif atom_react.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom_react) > 0:
-            atom_react.SetNumExplicitHs(Chem.Atom.GetTotalNumHs(atom_react) - 1)
-
-        # create bond
-        combo.AddBond(temp_atom, sc_atom, order=Chem.rdchem.BondType.SINGLE)
+        self.reaction = 'friedel_crafts'
+        template = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(
+            'CC(C)(C)OC(=O)O'))  # t-butyl carbonate leaving group
 
         try:
-            Chem.SanitizeMol(combo)
+            product = Base.merge(template, side_chain, TEMPLATE_RXN_MAP_NUM, RXN_MAP_NUM, clear_map_nums=False)
         except ValueError:
             self.logger.exception(f'Sanitize Error! template = {template}, side_chain = {side_chain}')
         else:
-            return Chem.MolToSmiles(combo)
+            product = Chem.MolToSmiles(product)
+            template = Chem.MolToSmiles(template)
+            side_chain = Chem.MolToSmiles(side_chain)
+            return '(' + template + '.' + side_chain + ')>>' + product
 
     def accumulate_data(self, template, side_chain, reaction):
+        """
+        Stores all data associated with the different reactions into a dictionary and appends it so self.result_data.
+
+        Args:
+            template (dict): The associated data of the templates.
+            side_chain (dict): The associated data of the side chain that the regioisomers are derived from.
+            reaction (str): The atom mapped reaction SMARTS string.
+        """
 
         doc = OrderedDict([('ID', template['ID'] + side_chain['ID']),
                            ('type', 'reaction'),
@@ -190,6 +161,10 @@ class ReactionGenerator(Base):
 
 
 def main():
+    """
+    Driver function. Parses arguments, constructs class, and performs operations on data.
+    """
+
     parser = argparse.ArgumentParser(description='Generates and stores a SMARTS reaction template based on template '
                                      'and side chain SMILES strings stored in the MongoDB database. The product in the '
                                      'reaction template corresponds to the connection of the template atom with atom '
@@ -224,7 +199,9 @@ def main():
     generator = ReactionGenerator(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
                                   output_flags=output_flags, no_db=args.no_db)
     if generator.load_data() and generator.generate_reactions():
-        return generator.save_data()
+        # return generator.save_data()
+        print(len(generator.result_data))
+        print(generator.result_data[0])
 
     return False
 
