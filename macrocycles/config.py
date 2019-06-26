@@ -174,3 +174,27 @@ RG_OUTPUT_DIR = 'reactions'
 RG_INPUT_COL = ['reactions', 'reactions']
 RG_DOC_TYPE = ['side_chain', 'template']
 RG_OUTPUT_COL = 'reactions'
+
+####################################### PeptideGenerator #######################################
+NITROGEN_MAP_NUM = 1
+CARBON_MAP_NUM = 2
+CAPACITY = 500000000
+PG_INPUT_DIR = 'monomers'
+PG_OUTPUT_DIR = 'peptides'
+PG_INPUT_COL = ['molecules']
+PG_DOC_TYPE = ['monomer']
+PG_OUTPUT_COL = 'molecules'
+
+####################################### TPHybridGenerator #######################################
+ALPHA = 'a'
+BETA2 = 'b'
+BETA3 = 'c'
+SUCCINIMIDE = 'O=C1CCC(=O)N1O'
+CARBONYL = '[CH]=O'
+TEMP_MAP_NUM = 1
+PEP_MAP_NUM = 2
+TP_INPUT_DIR = 'peptides'
+TP_OUTPUT_DIR = 'tp_hybrids'
+TP_INPUT_COL = ['molecules', 'molecules']
+TP_DOC_TYPE = ['peptide', 'template']
+TP_OUTPUT_COL = 'molecules'

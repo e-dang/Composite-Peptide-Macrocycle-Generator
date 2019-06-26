@@ -38,13 +38,34 @@ molecules, reactions, filters, and counter.
                 - type
                 - smiles
                 - kekule
+                - stereo
                 - backbone
                 - side_chain
                 - required
                 - group
             - peptide
+                - ID
+                - type
+                - smiles
+                - kekule
+                - length
+                - monomers
+                - N_term
             - tp_hybrid
+                - ID
+                - type
+                - smiles
+                - kekule
+                - peptide
+                - template
             - candidate
+                - ID
+                - type
+                - smiles
+                - kekule
+                - num_candidates
+                - tp_hybrid
+                -
             - conformer
             - macrocycle
 
