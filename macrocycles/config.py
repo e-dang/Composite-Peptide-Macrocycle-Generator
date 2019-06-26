@@ -186,9 +186,6 @@ PG_DOC_TYPE = ['monomer']
 PG_OUTPUT_COL = 'molecules'
 
 ####################################### TPHybridGenerator #######################################
-ALPHA = 'a'
-BETA2 = 'b'
-BETA3 = 'c'
 SUCCINIMIDE = 'O=C1CCC(=O)N1O'
 CARBONYL = '[CH]=O'
 TEMP_MAP_NUM = 1

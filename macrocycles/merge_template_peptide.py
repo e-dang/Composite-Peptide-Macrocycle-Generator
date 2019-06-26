@@ -1,251 +1,249 @@
+"""
+Written by Eric Dang.
+github: https://github.com/e-dang
+email: edang830@gmail.com
+"""
+
 import argparse
-import json
-from copy import deepcopy
-from pathlib import Path
+import os
+import sys
+from collections import OrderedDict
+from logging import INFO
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from tqdm import tqdm
 
-ALPHA = 'alpha_amino_acid'
-BETA2 = 'beta2_amino_acid'
-BETA3 = 'beta3_amino_acid'
-
-SUCCINIMIDE = 'O=C1CCC(=O)N1O'  # has extra oxygen
-CARBONYL = '[CH]=O'
-
-TEMP_ATOM_MAP_NUM = 1
-PEP_ATOM_MAP_NUM = 2
-
-TEMPLATE_NAMES = ['_temp1', '_temp2', '_temp3']
+from macrocycles.config import (CARBONYL, PEP_MAP_NUM,
+                                SUCCINIMIDE, TEMP_MAP_NUM, TP_DOC_TYPE,
+                                TP_INPUT_COL, TP_INPUT_DIR, TP_OUTPUT_COL,
+                                TP_OUTPUT_DIR)
+from macrocycles.utils import (Base, Flags, IOPaths, MongoParams,
+                               create_logger, set_flags)
 
 
-def get_templates(fp_temp, temp_inds):
+LOGGER = create_logger(__name__, INFO)
+
+
+class TPHybridGenerator(Base):
     """
-    Retrieves the template based on the value of temp_inds passed into the function and passes the template to a
-    helper function that modifies it in preparation for merging with peptide
+    Class for joining templates and peptides together. Inherits from Base.
 
-    Args:
-        fp_temp (str): The filepath to the json file containing the template SMILES strings
-        temp_inds (int): Indicies indicating which templates to retrieve; 1 - temp1, 2 - temp2, 3 - temp3
-
-    Returns:
-        list: Contains tuples, each of which contain the modified template as an rdkit Mol and the unmodified template
-            SMILES string
+    Attributes:
+        templates (list): Contains the templates and the associated data.
+        peptides (list): Contains the peptides and the associated data.
     """
 
-    template_data = []
-    with open(fp_temp, 'r') as f:
-        for temp_ind in temp_inds:
-            for i, doc in enumerate(json.load(f), start=1):
-                if i == temp_ind:
-                    template_data.append((modify_template(Chem.MolFromSmiles(doc['smiles']), i), doc['smiles']))
+    def __init__(self, logger=LOGGER, input_flags=Flags(False, False, True, False),
+                 output_flags=Flags(False, False, False, False), no_db=False, **kwargs):
+        """
+        Initializer.
 
-    return template_data
+        Args:
+            input_flags (Flags): A namedtuple containing the flags indicating which format to get input data from.
+            output_flags (Flags): A namedtuple containing the flags indicating which format to output data to.
+            no_db (bool): If True, ensures that no default connection is made to the database. Defaults to False.
+            **kwargs:
+                f_in (str): The file name(s) containing the input data, if input data has been specified to be retrieved
+                    from a file.
+                f_out (str): The file name that the result_data will be written to, if specified to do so.
+                mongo_params (MongoParams): A namedtuple containing the collection name(s) and value(s) held within the
+                    'type' field of the documents to be retrieved, as well as the output collection name.
+                no_db (bool): If True, ensures that no default connection is made to the database.
+        """
 
+        # I/O
+        f_in = [os.path.join(TP_INPUT_DIR, file) for file in kwargs['f_in']] if 'f_in' in kwargs else ['']
+        f_out = os.path.join(TP_OUTPUT_DIR, kwargs['f_out']) if 'f_out' in kwargs else ''
+        mongo_params = kwargs['mongo_params'] if 'mongo_params' in kwargs else MongoParams(
+            TP_INPUT_COL, TP_DOC_TYPE, TP_OUTPUT_COL)
+        mongo_params = mongo_params if not no_db else None
+        super().__init__(IOPaths(f_in, f_out), mongo_params, LOGGER, input_flags, output_flags)
 
-def modify_template(template, ind):
-    """
-    Helper function of get_template(), which performs a deletion of the substructure corresponding to the leaving
-    group upon amide bond formation and the assignment of an atom map number to reacting carbon atom
+        # data
+        self.templates = []
+        self.peptides = []
 
-    Args:
-        template (rdkit Mol): The rdkit Mol representation of the template
-        ind (int): The index that idicates the identity of the template
+    def load_data(self):
+        """
+        Overloaded method for loading input data.
 
-    Returns:
-        rdkit Mol: The modified template
-    """
+        Returns:
+            bool: True if successful.
+        """
 
-    # TODO: Need to implement same process for templates 2 and 3
-    # if ind == 1:    # temp 1
-    patt1 = Chem.MolFromSmiles(SUCCINIMIDE)
-    patt2 = Chem.MolFromSmarts(CARBONYL)    # carbonyl that will form amide with peptide
-
-    # remove reaction point substruct
-    template_mod = AllChem.DeleteSubstructs(template, patt1)
-
-    # find and set template peptide connection point
-    matches = template_mod.GetSubstructMatches(patt2, useChirality=False)
-    for pairs in matches:
-        for atom_idx in pairs:
-            atom = Chem.Mol.GetAtomWithIdx(template_mod, atom_idx)
-            if atom.GetSymbol() == 'C' and Chem.Atom.GetTotalNumHs(atom) == 1:
-                atom.SetAtomMapNum(TEMP_ATOM_MAP_NUM)
-
-    return template_mod
-
-
-def combine(template, peptide, n_term):
-    """
-    Convert the peptide SMILES string to an rdkit Mol and combine it with the template through an amide linkage and the
-    designated reacting site
-
-    Args:
-        template (rdkit Mol): The template with pre-set atom map number for reacting atom
-        peptide (rdkit Mol): The peptide to be attached to the template
-
-    Returns:
-        list: Contains the SMILES strings of the molecule resulting from merging the template with the peptide
-    """
-
-    # portion of peptide backbone containing n-term
-    if n_term == ALPHA:
-        patt = Chem.MolFromSmarts('[NH;R]CC(=O)')
-    elif n_term in (BETA2, BETA3):
-        patt = Chem.MolFromSmarts('[NH;R]CCC(=O)')
-
-    # find any primary amine (not amide) or proline n-terminus
-    matches = list(peptide.GetSubstructMatches(Chem.MolFromSmarts('[$([NH2]);!$([NH2]C(=O)*)]'), useChirality=False))
-    matches.extend(list(peptide.GetSubstructMatches(patt, useChirality=False)))
-
-    # for each eligible nitrogen form a connection
-    results = []
-    for pairs in matches:
-
-        # assign atom map number
-        mapped_atom = None
-        for atom_idx in pairs:
-            atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
-            if atom.GetSymbol() == 'N':  # primary amines only
-                atom.SetAtomMapNum(PEP_ATOM_MAP_NUM)
-                mapped_atom = atom
-                break
-
-        # prep for modification
-        combo = Chem.RWMol(Chem.CombineMols(deepcopy(peptide), deepcopy(template)))
-        mapped_atom.SetAtomMapNum(0)
-
-        # get reacting atom's indices in combo mol and remove atom map numbers
-        pep_atom = None
-        temp_atom = None
-        for atom in combo.GetAtoms():
-            if atom.GetAtomMapNum() == TEMP_ATOM_MAP_NUM:
-                temp_atom = atom.GetIdx()
-                atom.SetAtomMapNum(0)
-            elif atom.GetAtomMapNum() == PEP_ATOM_MAP_NUM:
-                pep_atom = atom.GetIdx()
-                atom.SetAtomMapNum(0)
-
-        # merge
         try:
-            combo.AddBond(temp_atom, pep_atom, order=Chem.rdchem.BondType.SINGLE)
-            Chem.SanitizeMol(combo)
-            results.append(Chem.MolToSmiles(combo))
+            self.peptides, self.templates = super().load_data()
+            self.templates = list(self.templates)  # convert smaller of two generators to list
         except ValueError:
-            print('Sanitize Error!')
-            print('Template:', Chem.MolToSmiles(template))
-            print('Peptide:', Chem.MolToSmiles(peptide) + '\n')
+            self.logger.exception('Check MongoParams contains correct number of input_cols and input_types. '
+                                  f'self.mongo_params = {self.mongo_params}')
         except Exception:
-            print('Bond Addition Error!')
-            print('Template:', Chem.MolToSmiles(template))
-            print('Peptide:', Chem.MolToSmiles(peptide) + '\n')
+            self.logger.exception('Unexcepted exception occured.')
+        else:
+            return True
 
-    return results
+        return False
 
+    def modify_template(self, template):
+        """
+        Helper function of get_template(), which performs a deletion of the substructure corresponding to the leaving
+        group upon amide bond formation and the assignment of an atom map number to reacting carbon atom
 
-def merge_templates_peptides(temp_inds, fp_temp, fp_peps, show_progress=False):
-    """
-    Top level function that calls merge_template_peptide() with every combination of specified templates and peptide
-    files.
+        Args:
+            template (rdkit Mol): The rdkit Mol representation of the template
 
-    Args:
-        temp_inds (list): Contains ints which specify which templates to use
-        fp_temp (str): The filepath to the file containing the templates
-        fp_peps (list): Contains the filepath(s) to the file(s) containing the peptides
-        show_progress (bool, optional): Show progress bar. Defaults to False.
+        Returns:
+            rdkit Mol: The modified template
+        """
 
-    Yields:
-        list: A list containing dictionaries of the data associated with the merged template_peptide molecule
-        str: The corresponding output file name for the data
-    """
+        # remove leaving group substruct
+        template = AllChem.DeleteSubstructs(template, Chem.MolFromSmiles(SUCCINIMIDE))
 
-    template_data = get_templates(fp_temp, temp_inds)
-    for temp_ind, template in tqdm(zip(temp_inds, template_data), desc='Templates:', disable=show_progress):
-        for fp_pep in tqdm(fp_peps, desc='Peptide Files:', disable=show_progress):
+        # find and set template peptide connection point
+        matches = template.GetSubstructMatches(Chem.MolFromSmarts(CARBONYL), useChirality=False)
+        for pairs in matches:
+            for atom_idx in pairs:
+                atom = template.GetAtomWithIdx(atom_idx)
+                if atom.GetSymbol() == 'C' and atom.GetTotalNumHs() == 1:
+                    atom.SetAtomMapNum(TEMP_MAP_NUM)
+                    break
 
-            # create output filepath based on template and peptide lengths
-            outfile = fp_pep.split('/')[-1].strip('.json') + TEMPLATE_NAMES[temp_ind - 1] + '.json'
+        return template
 
-            template_peptide = merge_template_peptide(template, fp_pep, show_progress)
-            yield template_peptide, outfile
+    def generate_tp_hybrids(self):
+        """
+        Main driver function that calls self.modify_templates() on each template, and self.connect_template_peptide() on
+        each unique peptide-template pair. The resulting tp_hybrid is then passed to self.accumulate_data().
 
+        Returns:
+            bool: True if successful.
+        """
 
-def merge_template_peptide(template, fp_pep, show_progress=False):
-    """
-    Helper function to merge_templates_peptides(). Gets peptide data from file and calls combine() on each peptide -
-    template combination.
+        templates = [self.modify_template(Chem.MolFromSmiles(template['smiles'])) for template in self.templates]
 
-    Args:
-        template (tuple): Contains the template as an rdkit Mol and the SMILES string of the unmodified template
-        fp_pep (str): The filepath to the file containing the peptides
-        show_progress (bool, optional): Show progress bar. Defaults to False.
+        for peptide in self.peptides:
+            peptide_mol = Chem.MolFromSmiles(peptide['smiles'])
+            for template, template_mol in zip(self.templates, templates):
+                tp_hybrid = self.connect_template_peptide(template_mol, peptide_mol, peptide['N_term'])
+                self.accumulate_data(tp_hybrid, template, peptide)
 
-    Returns:
-        list: A list containing dictionaries of the associated merged template_peptide data
-    """
+        return True
 
-    collection = []
-    with open(fp_pep, 'r') as f:
-        for doc in tqdm(json.load(f), desc='Peptides:', disable=show_progress):
-            doc['template'] = template[1]
-            doc['template-peptide'] = combine(template[0], Chem.MolFromSmiles(doc['peptide']), doc['N-term'])
-            del doc['N-term']
-            collection.append(doc)
+    def connect_template_peptide(self, template, peptide, n_term):
+        """
+        Connects the peptide to the template through amide linkage with any primary amine on the peptide. This means a
+        with a lysine will form two tp_hybrids, where one is connected through the N-terminal amine and the amine on the
+        lysine.
 
-    return collection
+        Args:
+            template (rdkit Mol): The template molecule.
+            peptide (rdkit Mol): The peptide molecule.
+            n_term (str): The type of backbone the N-terminal monomer is made of.
 
+        Returns:
+            dict: A dictionary containing the tp_hybrid SMILES strings as keys and the kekule SMILES strings as values.
+        """
 
-def write_data(merged_data, fp_out):
-    """
-    Writes the merged data to a json file.
+        # type of backbone on N-terminus
+        if n_term == 'alpha':
+            patt = Chem.MolFromSmarts('[NH;R]CC(=O)')
+        elif n_term in ('beta2', 'beta3'):
+            patt = Chem.MolFromSmarts('[NH;R]CCC(=O)')
 
-    Args:
-        merged_data (iterable): An containing dictionaries of the associated merged template_peptide data and the
-            corresponding output file name
-        fp_out (str): The incomplete filepath to the output file. Filepath is completed inside this function
+        # find any primary amine or proline n-terminus
+        matches = list(peptide.GetSubstructMatches(Chem.MolFromSmarts(
+            '[$([NH2]);!$([NH2]C(=O)*)]'), useChirality=False))
+        matches.extend(list(peptide.GetSubstructMatches(patt, useChirality=False)))
 
-    Returns:
-        bool: True if successful
-    """
-    for template_peptide, outfile in merged_data:
-        fp_out = str(fp_out / outfile)
+        # for each eligible nitrogen form a connection
+        results = {}
+        for pairs in matches:
 
-        with open(fp_out, 'w') as f:
-            json.dump(template_peptide, f)
+            # assign atom map number
+            for atom_idx in pairs:
+                atom = Chem.Mol.GetAtomWithIdx(peptide, atom_idx)
+                if atom.GetSymbol() == 'N':  # primary amines only
+                    atom.SetAtomMapNum(PEP_MAP_NUM)
+                    break
 
-    print('Complete!')
-    return True
+            # combine and record results
+            try:
+                tp_hybrid = Base.merge(template, peptide, TEMP_MAP_NUM, PEP_MAP_NUM)
+            except ValueError:
+                self.logger.exception(f'Sanitize Error! template = {Chem.MolToSmiles(template)}, '
+                                      f'peptide = {Chem.MolToSmiles(peptide)}')
+            else:
+                atom.SetAtomMapNum(0)
+                smiles = Chem.MolToSmiles(tp_hybrid)
+                Chem.Kekulize(tp_hybrid)
+                results[smiles] = Chem.MolToSmiles(tp_hybrid, kekuleSmiles=True)
+
+        return results
+
+    def accumulate_data(self, tp_hybrid, template, peptide):
+        """
+        Stores all data associated with the tp_hybrid in a dictionary and appends it to self.result_data.
+
+        Args:
+            tp_hybrid (dict): The dictionary containing the tp_hybrid SMILES string as keys and kekule SMILES as values.
+            template (dict): The dictionary containing the associated template data.
+            peptide (dict): The dictionary containing the associated peptide data.
+        """
+
+        for i, (smiles, kekule) in enumerate(tp_hybrid.items()):
+            doc = OrderedDict([('ID', template['ID'] + str(i) + peptide['ID']),
+                               ('type', 'tp_hybrid'),
+                               ('smiles', smiles),
+                               ('kekule', kekule),
+                               ('peptide', peptide),
+                               ('template', {'ID': template['ID']})])
+            self.result_data.append(doc)
 
 
 def main():
+    """
+    Driver function. Parses arguments, constructs class, and performs operations on data.
+    """
+
     parser = argparse.ArgumentParser(description='Connects each peptide defined in the input file to a template and '
                                      'write the resulting molecule to file as a SMILES string')
-    parser.add_argument('templates', choices=[1, 2, 3], type=int, nargs='+',
-                        help='The template(s) to be used; 1 - temp1,, 2 - temp2, 3 - temp3')
-    parser.add_argument('--f_temp', dest='f_temp', default='templates.json',
-                        help='The json file containing template SMILES strings')
-    parser.add_argument('--f_pep', dest='f_pep', default=['length3_all.json'], nargs='+',
-                        help='The json file(s) containing peptide SMILES strings')
-    parser.add_argument('--fp_temp', dest='fp_temp', default='smiles/templates',
-                        help='The filepath to the template json file relative to the base project directory')
-    parser.add_argument('--fp_pep', dest='fp_pep', default='smiles/peptides',
-                        help='The filepath to the peptide json file(s) relative to the base project directory')
-    parser.add_argument('--fp_out', dest='fp_out', default='smiles/template_peptide/c_term',
-                        help='The filepath for the output json file relative to the base project directory')
-    parser.add_argument('--show_progress', dest='progress', action='store_false',
-                        help='Show progress bar. Defaults to False')
+    parser.add_argument('input', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies the format that the input data is in.')
+    parser.add_argument('output', nargs='+', choices=['json', 'txt', 'mongo', 'sql'],
+                        help='Specifies what format to output the result data in.')
+    parser.add_argument('--bb_file', dest='bb_file', required='json' in sys.argv or 'txt' in sys.argv,
+                        help='The input file containing backbone data relative to default input directory defined '
+                        'in config.py.')
+    parser.add_argument('--sc_file', dest='sc_file', required='json' in sys.argv or 'txt' in sys.argv,
+                        help='The input file containing side chain data relative to default input directory defined '
+                        'in config.py.')
+    parser.add_argument('--f_out', dest='f_out', default='custom',
+                        help='The output file relative to the default output directory defined in config.py.')
+    parser.add_argument('--no_db', dest='no_db', action='store_true',
+                        help='Turns off default connection that is made to the database.')
 
     args = parser.parse_args()
 
-    # get full filepath to input files
-    base_path = Path(__file__).resolve().parents[1]
-    fp_temp = str(base_path / args.fp_temp / args.f_temp)
-    fp_peps = [str(base_path / args.fp_pep / file) for file in args.f_pep]
-    fp_out = base_path / args.fp_out
+    # check for proper file specifications
+    if args.input in ['json', 'txt']:
+        extensions = [args.bb_file.split('.')[-1]]
+        extensions.append(args.sc_file.split('.')[-1])
+        if not all([args.input == extension for extension in extensions]):
+            LOGGER.error('File extension of the input files does not match the specified format')
+            raise OSError('File extension of the input files does not match the specified format')
 
-    merged_data = merge_templates_peptides(args.templates, fp_temp, fp_peps, args.progress)
-    write_data(merged_data, fp_out)
+    # configure I/O
+    input_flags, output_flags = set_flags(args.input, args.output)
+    f_in = [args.sc_file, args.bb_file] if args.input in ['json', 'txt'] else ['']
+
+    generator = TPHybridGenerator(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
+                                  output_flags=output_flags, no_db=args.no_db)
+    if generator.load_data() and generator.generate_tp_hybrids():
+        print(len(generator.result_data))
+        print(generator.result_data[:3])
+        # return generator.save_data()
+
+    return False
 
 
 if __name__ == '__main__':
