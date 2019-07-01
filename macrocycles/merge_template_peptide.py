@@ -96,17 +96,20 @@ class TPHybridGenerator(Base):
             rdkit Mol: The modified template
         """
 
-        # remove leaving group substruct
-        template = AllChem.DeleteSubstructs(template, Chem.MolFromSmiles(SUCCINIMIDE))
-
-        # find and set template peptide connection point
-        matches = template.GetSubstructMatches(Chem.MolFromSmarts(CARBONYL), useChirality=False)
+        # set atom map number for connection point between peptide and template
+        matches = template.GetSubstructMatches(Chem.MolFromSmarts(SUCCINIMIDE))
         for pairs in matches:
             for atom_idx in pairs:
                 atom = template.GetAtomWithIdx(atom_idx)
-                if atom.GetSymbol() == 'C' and atom.GetTotalNumHs() == 1:
-                    atom.SetAtomMapNum(TEMP_MAP_NUM)
-                    break
+                if atom.GetSymbol() == 'O':
+                    neighbors = [neighbor for neighbor in atom.GetNeighbors()]
+                    if len(neighbors) == 2:
+                        carbon = neighbors[0] if neighbors[0].GetSymbol() == 'C' else neighbors[1]
+                        carbon.SetAtomMapNum(TEMP_MAP_NUM)
+                        break
+
+        # remove leaving group substruct
+        template = AllChem.DeleteSubstructs(template, Chem.MolFromSmiles(SUCCINIMIDE))
 
         return template
 
@@ -239,9 +242,9 @@ def main():
     generator = TPHybridGenerator(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
                                   output_flags=output_flags, no_db=args.no_db)
     if generator.load_data() and generator.generate_tp_hybrids():
-        print(len(generator.result_data))
-        print(generator.result_data[:3])
-        # return generator.save_data()
+        # print(len(generator.result_data))
+        # print(generator.result_data[:3])
+        return generator.save_data()
 
     return False
 
