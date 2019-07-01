@@ -127,7 +127,6 @@ class SideChainModifier(Base):
         """
 
         unique_mols = {}
-        attached = set()
         connection, modification = connection_tup
         connection = Chem.MolFromSmarts(connection)
         parent_sc = Chem.MolFromSmiles(parent_sc)
@@ -143,9 +142,6 @@ class SideChainModifier(Base):
             if (atom.GetSymbol() == 'C' and 0 < atom.GetTotalNumHs() < 3) or \
                     (atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0):
                 atom.SetAtomMapNum(HETERO_MAP_NUM)
-                attached.add(atom.GetIdx())
-            elif atom.GetIdx() in attached:
-                continue
             else:
                 continue
 
