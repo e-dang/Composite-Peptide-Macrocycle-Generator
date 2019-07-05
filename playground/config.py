@@ -1,0 +1,202 @@
+
+import os
+from collections import namedtuple
+from pymongo import ASCENDING
+
+################################################ Directories ################################################
+PROJECT_DIR = os.environ['PROJECT_DIR']
+DATA_DIR = os.path.join(PROJECT_DIR, 'data')
+LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
+
+################################################ Files ################################################
+TEMPLATES = os.path.join(DATA_DIR, 'templates.json')
+BACKBONES = os.path.join(DATA_DIR, 'backbones.json')
+CONNECTIONS = os.path.join(DATA_DIR, 'connections.json')
+PARENT_SIDE_CHAINS = os.path.join(DATA_DIR, 'parent_side_chains.json')
+SIDE_CHAINS = os.path.join(DATA_DIR, 'side_chains.json')
+MONOMERS = os.path.join(DATA_DIR, 'monomers.json')
+PEPTIDES = os.path.join(DATA_DIR, 'peptides.json')
+ACYCLIC = os.path.join(DATA_DIR, 'acyclic.json')
+MACROCYCLES = os.path.join(DATA_DIR, '')
+
+################################################ Map Numbers ################################################
+CONN_MAP_NUM = 1
+PSC_MAP_NUM = 2
+
+BB_MAP_NUM = 1
+SC_MAP_NUM = 2
+
+TEMP_EAS_MAP_NUM = 1
+TEMP_WILDCARD_MAP_NUM = 2
+SC_EAS_MAP_NUM = 3
+SC_WILDCARD_MAP_NUM = 4
+
+TEMP_AMIDE_MAP_NUM = 1
+PEP_AMIDE_MAP_NUM = 2
+
+################################################ MongoDB Schema ################################################
+MONGO_HOST = 'localhost'
+MONGO_PORT = 27017
+MONGO_DATABASE = 'tests'
+MongoSettings = namedtuple('MongoSettings', ['host', 'port', 'database'])
+MONGO_SETTINGS = MongoSettings(MONGO_HOST, MONGO_PORT, MONGO_DATABASE)
+
+COL1 = 'molecules'
+COL2 = 'reactions'
+COL3 = 'filters'
+COL4 = 'counter'
+COLLECTIONS = [COL1, COL2, COL3, COL4]
+
+# used for storing molecules
+COL1_VALIDATOR = {
+    '$jsonSchema': {
+        'bsonType': 'object',
+        'required': ['_id', 'type', 'binary', 'kekule'],
+        'properties': {
+            '_id': {
+                'bsonType': 'string',
+                'description': 'The id of the molecule'
+            },
+            'type': {
+                'enum': ['parent_side_chain', 'connection', 'side_chain', 'backbone', 'monomer', 'peptide', 'template', 'tp_hybrid', 'macrocycle', 'conformer'],
+                'description': 'The type of molecule or data contained in the document'
+            },
+            'binary': {
+                'bsonType': ['binData', 'array'],
+                'description': 'The binary representation of the molecule'
+            },
+            'kekule': {
+                'bsonType': ['string', 'array'],
+                'description': 'The kekule SMILES string of the molecule'
+            }
+        }
+    }
+}
+
+# used for storing reactions
+COL2_VALIDATOR = {
+    '$jsonSchema': {
+        'bsonType': 'object',
+        'required': ['_id', 'type', 'binary', 'smarts'],
+        'properties': {
+            '_id': {
+                'bsonType': 'string',
+                'description': 'The id of the molecule'
+            },
+            'type': {
+                'enum': ['template', 'reaction'],
+                'description': 'The type of molecule or data contained in the document'
+            },
+            'binary': {
+                'bsonType': ['binData', 'array'],
+                'description': 'The binary representation of the molecule'
+            },
+            'smarts': {
+                'bsonType': 'string',
+                'description': 'The atom mapped SMARTS/SMILES string'
+            }
+        }
+    }
+}
+
+# used for storing filtering results
+COL3_VALIDATOR = {
+    '$jsonSchema': {
+        'bsonType': 'object',
+        'required': ['_id', 'type'],
+        'properties': {
+            '_id': {
+                'bsonType': 'string',
+                'description': 'The id of the molecule'
+            },
+            'type': {
+                'enum': ['regiosqm', 'indole', 'manual'],
+                'description': 'The filter that has been applied to the molecule'
+            }
+        }
+    }
+}
+
+# used for calculating new IDs
+COL4_VALIDATOR = {
+    '$jsonSchema': {
+        'bsonType': 'object',
+        'required': ['type', 'count', 'prefix'],
+        'properties': {
+            'type': {
+                'bsonType': 'string',
+                'description': 'The type of molecule this counter applies to'
+            },
+            'count': {
+                'bsonType': 'int',
+                'maximum': 25,
+                'minimum': 0,
+                'description': 'Determines the letter to be appended to prefix'
+            },
+            'prefix': {
+                'bsonType': 'string',
+                'description': 'The prefix to the ID determined by count'
+            }
+        }
+    }
+}
+VALIDATORS = [COL1_VALIDATOR, COL2_VALIDATOR, COL3_VALIDATOR, COL4_VALIDATOR]
+
+COL1_INDEX = [[('binary', ASCENDING)], [('kekule', ASCENDING)]]
+COL2_INDEX = [[('binary', ASCENDING)], [('smarts', ASCENDING)]]
+# COL3_INDEX = [('_id', ASCENDING)]
+# COL4_INDEX = [('_id', ASCENDING)]
+COL3_INDEX = None
+COL4_INDEX = None
+INDICES = [COL1_INDEX, COL2_INDEX, COL3_INDEX, COL4_INDEX]
+####################################### SideChainModifier #######################################
+DI_DEFAULTS = {
+    'inputs': {
+        'fp_psc': os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'side_chains_likely1.sdf'),
+        'fp_connections': os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'connections.sdf'),
+        'fp_backbones': os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'backbones.sdf'),
+        'fp_monomers': os.path.join(DATA_DIR, 'chemdraw', 'monomers', 'modified_prolines.sdf'),
+        'fp_templates': os.path.join(DATA_DIR, 'chemdraw', 'templates.sdf')
+    },
+    'outputs': {
+        'col_psc': COL1,
+        'fp_psc': os.path.join(DATA_DIR, 'starter', 'parent_side_chains.json'),
+        'col_connections': COL1,
+        'fp_connections': os.path.join(DATA_DIR, 'starter', 'connections.json'),
+        'col_backbones': COL1,
+        'fp_backbones': os.path.join(DATA_DIR, 'starter', 'backbones.json'),
+        'col_monomers': COL1,
+        'fp_monomers': os.path.join(DATA_DIR, 'starter', 'monomers.json'),
+        'col_templates': COL1,
+        'fp_templates': os.path.join(DATA_DIR, 'starter', 'templates.json'),
+        'col_rtemplates': COL2,
+        'fp_rtemplates': os.path.join(DATA_DIR, 'starter', 'rtemplates.json')
+    }
+}
+####################################### SideChainGenerator #######################################
+SCM_DEFAULTS = {
+    'inputs': {
+        'col_psc': COL1,
+        'col_connections': COL1,
+    },
+    'outputs': {
+        'col_side_chains': COL1
+    }
+}
+
+####################################### MonomerGenerator #######################################
+MG_DEFAULTS = {
+    'inputs': {
+        'col_backbones': COL1,
+        'col_side_chains': COL1
+    },
+    'outputs': {
+        'col_monomers': COL1
+    }
+}
+####################################### DEFAULT #######################################
+DEFAULTS = {
+    'DataInitializer': DI_DEFAULTS,
+    'SideChainGenerator': SCM_DEFAULTS,
+    'MonomerGenerator': MG_DEFAULTS
+}
