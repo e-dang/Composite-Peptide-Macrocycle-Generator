@@ -308,7 +308,7 @@ class DataInitializer(Base):
 
         # set atom map number for connecting atom between template and peptide
         question = 'Enter the index of the carbon atom that will form amide linkage to the peptides: '
-        substruct = DataInitializer.generalize_substruct(template, config.TEMP_AMIDE_MAP_NUM, question)
+        substruct = DataInitializer.generalize_substruct(template, config.TEMP_CARBON_MAP_NUM, question)
         template = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(substruct))
 
         return template, doc
@@ -704,18 +704,8 @@ class MonomerGenerator(Base):
 
     def generate(self, stereochem=['CW', 'CCW'], required=False):
 
-        # side_chains = chain(list(self.side_chains) * len(self.backbones) * len(stereochem))
-        # for i, bb in enumerate(cycle(self.backbones)):
-        #     print(bb)
-        #     if i > 5:
-        #         break
-        # for i, st in enumerate(cycle(stereochem)):
-        #         print(st)
-        #         if i > 4:
-        #             break
         try:
             args = product(self.side_chains, self.backbones, stereochem)
-            # pprint(list(args)[:6])
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(MonomerGenerator.create_monomer, args)
                 for monomer, side_chain, backbone, stereo in results.get():
@@ -1090,3 +1080,172 @@ class PeptideGenerator(Base):
                     attachment_atom = atom
 
         return carboxyl_atom, attachment_atom
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+NewTPHybrid = namedtuple('NewTPHybrid', 'tp_hybrid peptide template')
+
+class TPHybridGenerator(Base):
+    """
+    Class for joining templates and peptides together. Inherits from Base.
+
+    Attributes:
+        templates (list): Contains the templates and the associated data.
+        peptides (list): Contains the peptides and the associated data.
+    """
+
+    _defaults = config.DEFAULTS['TPHybridGenerator']
+
+    def __init__(self, logger=LOGGER, make_db_connection=True):
+        """
+        Initializer.
+
+        Args:
+        """
+
+        # I/O
+        super().__init__(LOGGER, make_db_connection)
+
+        # data
+        self.peptides = []
+        self.templates = []
+
+    def save_data(self):
+
+        params = self._defaults['outputs']
+
+        return self.to_mongo(params['col_tp_hybrids'])
+
+    def load_data(self):
+        """
+        Overloaded method for loading input data.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        params = self._defaults['inputs']
+        try:
+            self.peptides = self.from_mongo(params['col_peptides'], {'type': 'peptide'})
+            self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
+        except Exception:
+            self.logger.exception('Unexcepted exception occured.')
+        else:
+            return True
+
+        return False
+
+    def generate(self):
+
+        try:
+            args = product(self.peptides, self.templates)
+            with multiprocessing.Pool() as pool:
+                results = pool.starmap_async(TPHybridGenerator.create_tp_hybrid, args)
+                for tp_hybrid, peptide, template in results.get():
+                    self.accumulate_data(tp_hybrid, peptide, template)
+        except Exception:
+            raise
+        else:
+            return True
+
+        return False
+
+    def generate_from_ids(self, peptide_ids, template_ids):
+        """
+        Main driver function that calls self.modify_templates() on each template, and self.connect_template_peptide() on
+        each unique peptide-template pair. The resulting tp_hybrid is then passed to self.accumulate_data().
+
+        Returns:
+            bool: True if successful.
+        """
+
+
+        try:
+            params = self._defaults['inputs']
+            self.peptides = self.from_mongo(params['col_peptides'], {'type': 'peptide', '_id': {'$in': peptide_ids}})
+            self.templates = list(self.from_mongo(params['col_templates'],
+                                                  {'type': 'template', '_id': {'$in': template_ids}}))
+
+            results = []
+            for peptide in self.peptides:
+                for template in self.templates:
+                    tp_hybrid, _, _ = TPHybridGenerator.create_tp_hybrid(peptide, template, self.logger)
+                    self.accumulate_data(tp_hybrid, peptide, template)
+                    results.append(tp_hybrid)
+        except Exception:
+            raise
+        else:
+            return results
+
+        return False
+
+    def accumulate_data(self, tp_hybrid, peptide, template):
+        """
+        Stores all data associated with the tp_hybrid in a dictionary and appends it to self.result_data.
+
+        Args:
+            tp_hybrid (dict): The dictionary containing the tp_hybrid SMILES string as keys and kekule SMILES as values.
+            template (dict): The dictionary containing the associated template data.
+            peptide (dict): The dictionary containing the associated peptide data.
+        """
+
+        ind = len(tp_hybrid) * self.templates.index(template)
+
+        for i, (binary, kekule) in enumerate(tp_hybrid.items()):
+            doc = {'_id': peptide['_id'] + str(ind + i),
+                    'type': 'tp_hybrid',
+                    'binary': binary,
+                    'kekule': kekule,
+                    'peptide': peptide['_id'],
+                    'template': template['_id']}
+            self.result_data.append(doc)
+
+    @staticmethod
+    def create_tp_hybrid(peptide, template, logger=None):
+        """
+        Connects the peptide to the template through amide linkage with any primary amine on the peptide. This means a
+        with a lysine will form two tp_hybrids, where one is connected through the N-terminal amine and the amine on the
+        lysine.
+
+        Args:
+            template (rdkit Mol): The template molecule.
+            peptide (rdkit Mol): The peptide molecule.
+            n_term (str): The type of backbone the N-terminal monomer is made of.
+
+        Returns:
+            dict: A dictionary containing the tp_hybrid SMILES strings as keys and the kekule SMILES strings as values.
+        """
+
+        pep_mol = Chem.Mol(peptide['binary'])
+        temp_mol = Chem.Mol(template['binary'])
+
+        # find any primary amine or proline n-terminus
+        matches = pep_mol.GetSubstructMatches(Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*)]'))
+
+        # for each eligible nitrogen form a connection
+        results = {}
+        for pairs in matches:
+
+            # assign atom map number
+            for atom_idx in pairs:
+                atom = pep_mol.GetAtomWithIdx(atom_idx)
+                if atom.GetSymbol() == 'N':  # primary amines only
+                    atom.SetAtomMapNum(config.PEP_NITROGEN_MAP_NUM)
+                    break
+
+            # combine and record results
+            try:
+                tp_hybrid = Base.merge(temp_mol, pep_mol, config.TEMP_CARBON_MAP_NUM, config.PEP_NITROGEN_MAP_NUM)
+            except ValueError:
+                if logger:
+                    logger.exception(f'Sanitize Error! template = {Chem.MolToSmiles(temp_mol)}, '
+                                      f'peptide = {Chem.MolToSmiles(pep_mol)}')
+            else:
+                atom.SetAtomMapNum(0)
+                binary = tp_hybrid.ToBinary()
+                Chem.Kekulize(tp_hybrid)
+                results[binary] = Chem.MolToSmiles(tp_hybrid, kekuleSmiles=True)
+
+        return NewTPHybrid(results, peptide, template)

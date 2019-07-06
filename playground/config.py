@@ -12,22 +12,27 @@ LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
 CAPACITY = 500000000
 
 ################################################ Map Numbers ################################################
+# SideChainGenerator
 CONN_MAP_NUM = 1
 PSC_MAP_NUM = 2
 
+# MonomerGenerator
 BB_MAP_NUM = 1
 SC_MAP_NUM = 2
 
+# PeptideGenerator
 MONO_NITROGEN_MAP_NUM = 1
 PEP_CARBON_MAP_NUM = 2
 
+# TPHybridGenerator
+TEMP_CARBON_MAP_NUM = 1
+PEP_NITROGEN_MAP_NUM = 2
+
+# ReactionGenerator
 TEMP_EAS_MAP_NUM = 1
 TEMP_WILDCARD_MAP_NUM = 2
 SC_EAS_MAP_NUM = 3
 SC_WILDCARD_MAP_NUM = 4
-
-TEMP_AMIDE_MAP_NUM = 1
-PEP_AMIDE_MAP_NUM = 2
 
 ################################################ MongoDB Schema ################################################
 MONGO_HOST = 'localhost'
@@ -189,6 +194,7 @@ MG_DEFAULTS = {
         'col_monomers': COL1
     }
 }
+
 ####################################### PeptideGenerator #######################################
 PG_DEFAULTS = {
     'inputs': {
@@ -199,10 +205,22 @@ PG_DEFAULTS = {
     }
 }
 
+####################################### PeptideGenerator #######################################
+TPHG_DEFAULTS = {
+    'inputs': {
+        'col_peptides': COL1,
+        'col_templates': COL1
+    },
+    'outputs': {
+        'col_tp_hybrids': COL1
+    }
+}
+
 ####################################### DEFAULT #######################################
 DEFAULTS = {
     'DataInitializer': DI_DEFAULTS,
     'SideChainGenerator': SCM_DEFAULTS,
     'MonomerGenerator': MG_DEFAULTS,
     'PeptideGenerator': PG_DEFAULTS,
+    'TPHybridGenerator': TPHG_DEFAULTS
 }
