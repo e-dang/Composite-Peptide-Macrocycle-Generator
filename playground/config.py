@@ -8,16 +8,8 @@ PROJECT_DIR = os.environ['PROJECT_DIR']
 DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
 
-################################################ Files ################################################
-TEMPLATES = os.path.join(DATA_DIR, 'templates.json')
-BACKBONES = os.path.join(DATA_DIR, 'backbones.json')
-CONNECTIONS = os.path.join(DATA_DIR, 'connections.json')
-PARENT_SIDE_CHAINS = os.path.join(DATA_DIR, 'parent_side_chains.json')
-SIDE_CHAINS = os.path.join(DATA_DIR, 'side_chains.json')
-MONOMERS = os.path.join(DATA_DIR, 'monomers.json')
-PEPTIDES = os.path.join(DATA_DIR, 'peptides.json')
-ACYCLIC = os.path.join(DATA_DIR, 'acyclic.json')
-MACROCYCLES = os.path.join(DATA_DIR, '')
+################################################ Globals ################################################
+CAPACITY = 500000000
 
 ################################################ Map Numbers ################################################
 CONN_MAP_NUM = 1
@@ -25,6 +17,9 @@ PSC_MAP_NUM = 2
 
 BB_MAP_NUM = 1
 SC_MAP_NUM = 2
+
+MONO_NITROGEN_MAP_NUM = 1
+PEP_CARBON_MAP_NUM = 2
 
 TEMP_EAS_MAP_NUM = 1
 TEMP_WILDCARD_MAP_NUM = 2
@@ -44,7 +39,7 @@ MONGO_SETTINGS = MongoSettings(MONGO_HOST, MONGO_PORT, MONGO_DATABASE)
 COL1 = 'molecules'
 COL2 = 'reactions'
 COL3 = 'filters'
-COL4 = 'counter'
+COL4 = 'records'
 COLLECTIONS = [COL1, COL2, COL3, COL4]
 
 # used for storing molecules
@@ -117,26 +112,26 @@ COL3_VALIDATOR = {
     }
 }
 
-# used for calculating new IDs
+# used for recording metadata such as used _ids and last insertions
 COL4_VALIDATOR = {
     '$jsonSchema': {
         'bsonType': 'object',
-        'required': ['type', 'count', 'prefix'],
+        'required': ['type'],
         'properties': {
             'type': {
                 'bsonType': 'string',
                 'description': 'The type of molecule this counter applies to'
-            },
-            'count': {
-                'bsonType': 'int',
-                'maximum': 25,
-                'minimum': 0,
-                'description': 'Determines the letter to be appended to prefix'
-            },
-            'prefix': {
-                'bsonType': 'string',
-                'description': 'The prefix to the ID determined by count'
             }
+            # 'count': {
+            #     'bsonType': 'int',
+            #     'maximum': 25,
+            #     'minimum': 0,
+            #     'description': 'Determines the letter to be appended to prefix'
+            # },
+            # 'prefix': {
+            #     'bsonType': 'string',
+            #     'description': 'The prefix to the ID determined by count'
+            # }
         }
     }
 }
@@ -194,9 +189,20 @@ MG_DEFAULTS = {
         'col_monomers': COL1
     }
 }
+####################################### PeptideGenerator #######################################
+PG_DEFAULTS = {
+    'inputs': {
+        'col_monomers': COL1
+    },
+    'outputs': {
+        'col_peptides': COL1
+    }
+}
+
 ####################################### DEFAULT #######################################
 DEFAULTS = {
     'DataInitializer': DI_DEFAULTS,
     'SideChainGenerator': SCM_DEFAULTS,
-    'MonomerGenerator': MG_DEFAULTS
+    'MonomerGenerator': MG_DEFAULTS,
+    'PeptideGenerator': PG_DEFAULTS,
 }
