@@ -11,12 +11,13 @@ from rdkit import Chem
 from rdkit.Chem import Draw
 import json
 from bson import json_util
-from itertools import cycle, chain
+from itertools import cycle, chain, islice, product
 from functools import partial
 import multiprocessing
+from pprint import pprint
 
 from macrocycles.exceptions import MissingMapNumberError, AtomSearchError
-from utils import Base, create_logger, read_mols, get_user_approval, get_user_atom_idx, atom_to_wildcard
+from utils import Base, create_logger, read_mols, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges
 import config
 
 LOGGER = create_logger(name=__name__, level=INFO)
@@ -482,14 +483,7 @@ class SideChainGenerator(Base):
 
         params = self._defaults['outputs']
 
-        results = self.to_mongo(params['col_side_chains'])
-        if len(results.inserted_ids) != len(self.result_data):
-            self.logger.warning(f'Only {len(results.inserted_ids)}/{len(self.result_data)} side_chains have been saved '
-                                'to the database.')
-        else:
-            self.logger.info(f'Successfully saved {len(results.inserted_ids)} side_chains to the database!')
-
-        return results
+        return self.to_mongo(params['col_side_chains'])
 
     def load_data(self, **kwargs):
         """
@@ -522,11 +516,8 @@ class SideChainGenerator(Base):
             bool: True if successful.
         """
 
-        connections = cycle(self.connections)
-        parent_side_chains = chain(list(self.parent_side_chains) * len(self.connections))
-
         try:
-            args = (tup for tup in zip(parent_side_chains, connections))
+            args = product(self.parent_side_chains, self.connections)
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(SideChainGenerator.create_side_chain, args)
                 for side_chain, parent_sc, connection in results.get():
@@ -689,14 +680,7 @@ class MonomerGenerator(Base):
 
         params = self._defaults['outputs']
 
-        results = self.to_mongo(params['col_monomers'])
-        if len(results) != len(self.result_data):
-            self.logger.warning(f'Only {len(results)}/{len(self.result_data)} monomers have been saved to the '
-                                'database.')
-        else:
-            self.logger.info(f'Successfully saved {len(results)} monomers to the database!')
-
-        return results
+        return self.to_mongo(params['col_monomers'])
 
     def load_data(self, **kwargs):
         """
@@ -718,16 +702,24 @@ class MonomerGenerator(Base):
 
         return False
 
-    def generate_parallel(self, stereochem=['CW', 'CCW'], required=False):
+    def generate(self, stereochem=['CW', 'CCW'], required=False):
 
-        side_chains = chain(list(self.side_chains) * len(self.backbones) * len(stereochem))
-
+        # side_chains = chain(list(self.side_chains) * len(self.backbones) * len(stereochem))
+        # for i, bb in enumerate(cycle(self.backbones)):
+        #     print(bb)
+        #     if i > 5:
+        #         break
+        # for i, st in enumerate(cycle(stereochem)):
+        #         print(st)
+        #         if i > 4:
+        #             break
         try:
-            args = ((tup for tup in zip(side_chains, cycle(self.backbones), cycle(stereochem))))
+            args = product(self.side_chains, self.backbones, stereochem)
+            # pprint(list(args)[:6])
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(MonomerGenerator.create_monomer, args)
                 for monomer, side_chain, backbone, stereo in results.get():
-                    self.accumulate_data(monomer, side_chain, backbone, stereo, required)
+                    self.accumulate_data(monomer, side_chain, backbone, required, stereo)
         except AtomSearchError:
             self.logger.exception('')
         except Exception:
@@ -782,12 +774,14 @@ class MonomerGenerator(Base):
         bb_ind = self.backbones.index(backbone)
         stereo_ind = 'f' if stereo == 'CW' else 'r'
         comb_ind = stereo_ind + str(bb_ind)
+
         for binary, kekule in monomers.items():
             doc = {'_id': comb_ind + side_chain['_id'].upper(),
                    'type': 'monomer',
                    'binary': binary,
                    'kekule': kekule,
-                   'backbone': backbone['_id'],
+                   'backbone': {'_id': backbone['_id'],
+                                'binary': backbone['binary']},
                    'side_chain': side_chain,
                    'required': required,
                    'group': side_chain['parent_side_chain']['group']}
@@ -838,3 +832,261 @@ class MonomerGenerator(Base):
                 monomers[binary] = Chem.MolToSmiles(monomer, kekuleSmiles=True)
 
         return NewMonomer(monomers, side_chain, backbone, stereo)
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+
+NewPeptide = namedtuple('NewPeptide', 'peptide monomers n_term')
+
+
+class PeptideGenerator(Base):
+    """
+    Class for joining monomers together to form a peptide. Inherits from Base.
+
+    Attributes:
+        monomers (list): Contains the monomers and the associated data.
+    """
+
+    _defaults = config.DEFAULTS['PeptideGenerator']
+
+    def __init__(self, logger=LOGGER, make_db_connection=True):
+        """
+        Initializer.
+
+        Args:
+        """
+
+        # I/O
+        super().__init__(LOGGER, make_db_connection)
+
+        # data
+        self.monomers = []
+
+    def save_data(self):
+
+        params = self._defaults['outputs']
+
+        return self.to_mongo(params['col_peptides'])
+
+    def load_data(self):
+        """
+        Overloaded method for loading input data.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        params = self._defaults['inputs']
+
+        try:
+            self.monomers = self.from_mongo(params['col_monomers'], {'type': 'monomer'})
+        except Exception:
+            self.logger.exception('Unexcepted exception occured.')
+        else:
+            return True
+
+        return False
+
+    def generate(self, length, num_peptides=None, num_jobs=1, job_id=1):
+        """
+        Top level function that generates the cartesian product of monomers in self.monomers. create_peptide() is then
+        called in a parallel fashion on each tuple of monomers is the cartesian product. The resulting peptide and
+        monomers are then passed to self.accumulate_data(). If self.result_data is about to exceed the capacity of a
+        python list, an automatic call to self.save_data() is made and self.result_data is cleared.
+
+        Args:
+            length (int): The number of monomers per peptide.
+            num_peptides (int, optional): The number of peptides to make. If None, then all peptides in the cartesian
+                product as produced. Defaults to None.
+            num_jobs (int, optional): The number of jobs submitted in a job array. Used for running this method on a
+                super computer. Does not do anything if num_peptides is specified. Defaults to 1.
+            job_id (int, optional): The job ID of the specific job in the job array running this function. Used for
+                running this method on a super computer. Does not do anything if num_peptides is specified. Defaults
+                to 1.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        try:
+            # determine how to run method
+            if num_peptides:
+                monomers = islice(product(self.monomers, repeat=length), num_peptides)
+            else:
+                start, stop = ranges(len(self.monomers) ** length, num_jobs)[job_id - 1]
+                monomers = islice(product(self.monomers, repeat=length), start, stop)
+
+            # perform peptide generation in parallel
+            invalids = 0
+            with multiprocessing.Pool() as pool:
+                result = pool.map_async(PeptideGenerator.create_peptide, monomers)
+                for peptide, monomers, n_term in result.get():
+                    if None in (peptide, monomers, n_term):
+                        invalids += 1
+                    else:
+                        self.accumulate_data(peptide, monomers, n_term)
+
+                    # save data if reaching size limit of python lists
+                    if len(self.result_data) > config.CAPACITY:
+                        self.save_data()
+                        self.result_data = []
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
+        else:
+            self.logger.info(f'Successfully created {len(self.result_data)} valid peptides and discarded {invalids} '
+                            'invalid peptides!')
+            return True
+
+        return False
+
+    def generate_from_ids(self, *monomer_ids):
+
+        params = self._defaults['inputs']
+
+        try:
+            count = 0
+            results = []
+            for monomers in monomer_ids:
+                monomers = self.from_mongo(params['col_monomers'], {'type': 'monomer', '_id': {'$in': monomers}})
+                peptide, monomers, n_term = PeptideGenerator.create_peptide(monomers)
+                if None in (peptide, monomers, n_term):
+                    count = 0
+                else:
+                    results.append(peptide)
+                    self.accumulate_data(peptide, monomers, n_term)
+        except Exception:
+            raise
+        else:
+            return results, count
+
+        return False
+
+    def accumulate_data(self, peptide, monomers, n_term):
+        """
+        Stores all data associated with the peptide in a dictionary and appends it to self.result_data.
+
+        Args:
+            peptide (dict): The dictionary containing the peptide's SMILES string as keys and a list containing the
+                kekule SMILES and the N-terminal monomer's backbone type as values.
+            monomers (dict): The dictionary containing the associated monomer data.
+        """
+
+        monomer_ids = [monomer['_id'] for monomer in monomers]
+        pep_id = ''.join(monomer_ids)
+
+        for binary, kekule in peptide.items():
+            doc = {'_id': pep_id,
+                    'type': 'peptide',
+                    'binary': binary,
+                    'kekule': kekule,
+                    'monomers': monomer_ids,
+                    'N-term': n_term}
+        self.result_data.append(doc)
+
+    @staticmethod
+    def create_peptide(monomers, logger=None):
+        """
+        Static class method. Connects monomers together creating a peptide and verifies that the peptide is composed of
+        at least one required monomer.
+
+        Args:
+            monomers (list): Contains the monomer documents.
+            logger (Logger, optional): A logger used to log errors in the method. Defaults to None.
+
+        Returns:
+            dict: A dictionary containing the peptide SMILES string as a key and a list containing the kekule SMILES
+                string and N-terminal monomer's backbone type as a value.
+            list: The list of monomer documents used to create the peptide.
+        """
+
+        # check that peptide is valid before constructing
+        if not PeptideGenerator.is_valid_monomers(monomers):
+            return None, None, None
+
+        # begin conneting each monomer in monomers
+        for i, monomer in enumerate(monomers):
+
+            monomer_mol = Chem.Mol(monomer['binary'])
+            backbone = Chem.Mol(monomer['backbone']['binary'])
+
+            # start peptide with first monomer
+            if i == 0:
+                peptide = monomer_mol
+                backbone_prev = backbone
+                continue
+
+            # assign atom map numbers
+            monomer_old_attach = PeptideGenerator.tag_monomer_n_term(monomer_mol, backbone)
+            carboxyl_atom, pep_old_attach = PeptideGenerator.tag_peptide_c_term(peptide, backbone_prev)
+
+            # remove oxygen atom from carboxyl
+            peptide = Chem.RWMol(peptide)
+            peptide.RemoveAtom(carboxyl_atom)
+
+            # connect peptide and monomer
+            try:
+                peptide = Base.merge(peptide, monomer_mol, config.PEP_CARBON_MAP_NUM, config.MONO_NITROGEN_MAP_NUM)
+            except ValueError:
+                if logger:
+                    logger.exception(f'Sanitize Error! monomer = {Chem.MolToSmiles(monomer_mol)}, '
+                                     f'peptide = {Chem.MolToSmiles(peptide)}')
+                else:
+                    print(f'Sanitize Error! monomer = {Chem.MolToSmiles(monomer_mol)}, '
+                          f'peptide = {Chem.MolToSmiles(peptide)}')
+            else:
+                pep_old_attach.SetAtomMapNum(0)
+                monomer_old_attach.SetAtomMapNum(0)
+                backbone_prev = backbone
+
+        # structure return data
+        binary = peptide.ToBinary()
+        Chem.Kekulize(peptide)
+        result = {binary: Chem.MolToSmiles(peptide, kekuleSmiles=True)}
+        return NewPeptide(result, monomers, monomer['backbone'])
+
+    @staticmethod
+    def is_valid_monomers(monomers):
+        """
+        Determines the validity of the peptide.
+
+        Args:
+            monomers (list): Contains the monomer documents.
+
+        Returns:
+            bool: True if at least one monomer is required.
+        """
+
+        for monomer in monomers:
+            if monomer['required']:
+                return True
+
+        return False
+
+    @staticmethod
+    def tag_monomer_n_term(monomer, backbone):
+
+        matches = monomer.GetSubstructMatches(backbone)
+        for pair in matches:
+            for atom_idx in pair:
+                atom = monomer.GetAtomWithIdx(atom_idx)
+                if atom.GetSymbol() == 'N' and atom.GetTotalNumHs() != 0:
+                    atom.SetAtomMapNum(config.MONO_NITROGEN_MAP_NUM)
+                    return atom
+
+    @staticmethod
+    def tag_peptide_c_term(peptide, backbone):
+
+        matches = peptide.GetSubstructMatches(backbone)
+        for pair in matches:
+            for atom_idx in pair:
+                atom = peptide.GetAtomWithIdx(atom_idx)
+                if atom.GetSymbol() == 'O' and atom.GetTotalNumHs() == 1:
+                    carboxyl_atom = atom_idx
+                elif atom.GetSymbol() == 'C' and atom.GetTotalNumHs() == 0 and \
+                        atom.GetHybridization() == Chem.rdchem.HybridizationType.SP2:
+                    atom.SetAtomMapNum(config.PEP_CARBON_MAP_NUM)
+                    attachment_atom = atom
+
+        return carboxyl_atom, attachment_atom
