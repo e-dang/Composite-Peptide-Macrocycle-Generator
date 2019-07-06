@@ -8,6 +8,7 @@ import logging.handlers
 from pymongo import MongoClient, errors
 import config
 from rdkit.Chem import Draw
+from pprint import pprint
 
 
 class CustomFormatter(logging.Formatter):
@@ -213,8 +214,9 @@ class MongoDataBase():
                     f'Created collection \'{collection}\' in database \'{self.database.name}\' and applied index '
                     f'{index} to validation schema {validator}')
         else:
-            # intialize counter
+            # intialize records
             self[config.COL4].insert_one({'type': 'parent_side_chain', 'count': 0, 'prefix': ''})
+            self[config.COL4].insert_one({'type': 'last_inserted', 'collection': '', 'ids': []})
 
             self.logger.info('Successfully completed setup()!')
             return True
@@ -259,14 +261,30 @@ class MongoDataBase():
 
         try:
             result = self[collection].insert_many(docs, ordered=ordered)
+            self[config.COL4].find_one_and_update({'type': 'last_inserted'},
+                                                  {'$set': {'collection': collection, 'ids': result.inserted_ids}})
         except (errors.DuplicateKeyError, ValueError, TypeError, errors.InvalidDocument):
-            self.logger.exception(f'Failed to save data to the Mongo database. docs = {docs[:5]}')
+            self.logger.exception(f'Failed to save {len(docs)} data points to the Mongo database.')
         except errors.BulkWriteError as err:
-            self.logger.exception(f'Failed to save data to the Mongo database. docs = {docs[:5]}\n{err.details}')
+            return self.bulkwrite_err_handler(docs, collection, err, ordered)
         else:
-            self.logger.info(f'Successfully saved {len(result.inserted_ids)}/{len(docs)} data points to the collection '
-                             f'\'{collection}\' on {self}')
-            return result
+            self.logger.info(f'Successfully saved {len(docs)} data points to the collection \'{collection}\' on {self}')
+            return True
+
+        return False
+
+    def remove_last_insertion(self):
+
+        try:
+            doc = self[config.COL4].find_one({'type': 'last_inserted'})
+            collection, ids = doc['collection'], doc['ids']
+
+            result = self[collection].delete_many({'_id': {'$in': ids}})
+        except ValueError:
+            self.logger.exception(f'Failed to delete documents in collection \'{collection}\' with ids {ids}')
+        else:
+            self.logger.info(f'Successfully deleted {result.deleted_count} documents from collection \'{collection}\'')
+            return True
 
         return False
 
@@ -299,6 +317,48 @@ class MongoDataBase():
             f'Successfully created {len(docs)} new IDs and updated the count and prefix to {count}, \'{prefix}\'')
 
         return docs
+
+    def bulkwrite_err_handler(self, docs, collection, err, ordered):
+
+        # get _ids, kekule, and messages from documents that caused the error
+        err_ids, err_kekule, err_msg = [], [], []
+        for error in err.details['writeErrors']:
+            err_ids.append(error['op']['_id'])
+            err_kekule.append(error['op']['kekule'])
+            err_msg.append(error['errmsg'])
+
+        # report error only if duplicate is not a natural amino acid
+        count = 0
+        for doc, msg in zip(self[collection].find({'kekule': {'$in': list(err_kekule)}}), err_msg):
+            if doc['group'] not in ('D-natural', 'L-natural'):
+                self.logger.exception(f'Failed to save document due to duplicate: {doc}\n{msg}')
+                count += 1
+
+        # get _ids of successfully inserted documents
+        if ordered:
+            inserted_ids = [doc['_id'] for doc in docs[:err.details['nInserted']]]
+        else:
+            all_ids = set(doc['_id'] for doc in docs)
+            inserted_ids = list(all_ids.difference(set(err_ids)))
+
+        # update last inserted record
+        self[config.COL4].find_one_and_update({'type': 'last_inserted'},
+                                              {'$set': {'collection': collection, 'ids': inserted_ids}})
+
+        # report successul or failure
+        num_ids = len(inserted_ids)
+        num_docs = len(docs)
+        if count == 0:
+            self.logger.info(f'Successfully inserted {num_ids}/{num_docs} documents into the database. '
+                             f'{num_docs - num_ids} documents were duplicates of manually inserted documents '
+                             '(such as natural amino aicds')
+            return True
+        else:
+            self.logger.warning(f'{num_ids}/{num_docs} documents were successfully inserted into the '
+                                f'database. {count} documents were unexpected duplicates and '
+                                f'{num_docs - num_ids - count} documents were duplicates of manually inserted documents'
+                                ' (such as natural amino acids)')
+            return False
 
 
 def generate_id(count, prefix):
@@ -544,3 +604,8 @@ def atom_to_wildcard(atom):
     atom.SetFormalCharge(0)
     atom.SetIsAromatic(False)
     atom.SetNumExplicitHs(0)
+
+
+def ranges(total, chunks):
+    step = total / chunks
+    return [(round(step*i), round(step*(i+1))) for i in range(chunks)]
