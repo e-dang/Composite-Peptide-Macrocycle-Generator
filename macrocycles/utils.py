@@ -266,7 +266,8 @@ class MongoDataBase():
         except (errors.DuplicateKeyError, ValueError, TypeError, errors.InvalidDocument):
             self.logger.exception(f'Failed to save {len(docs)} data points to the Mongo database.')
         except errors.BulkWriteError as err:
-            return self.bulkwrite_err_handler(docs, collection, err, ordered)
+            field = 'kekule' if collection == config.COL1 else 'smarts'
+            return self.bulkwrite_err_handler(docs, collection, field, err, ordered)
         else:
             self.logger.info(f'Successfully saved {len(docs)} data points to the collection \'{collection}\' on {self}')
             return True
@@ -318,18 +319,34 @@ class MongoDataBase():
 
         return docs
 
-    def bulkwrite_err_handler(self, docs, collection, err, ordered):
+    def bulkwrite_err_handler(self, docs, collection, field, err, ordered):
+
+        num_docs = len(docs)
 
         # get _ids, kekule, and messages from documents that caused the error
-        err_ids, err_kekule, err_msg = [], [], []
+        err_ids, err_smiles, err_msg, failed_val, too_large = [], [], [], 0, 0
         for error in err.details['writeErrors']:
-            err_ids.append(error['op']['_id'])
-            err_kekule.append(error['op']['kekule'])
-            err_msg.append(error['errmsg'])
+            if error['code'] == 121:    # document failed validation
+                failed_val += 1
+            if error['code'] == 17280:  # an index in the document is too large
+                too_large += 1
+            else:
+                err_ids.append(error['op']['_id'])
+                err_smiles.append(error['op'][field])
+                err_msg.append(error['errmsg'])
+
+        if failed_val != 0:
+            self.logger.error(f'{failed_val}/{num_docs} document failed validation!')
+            return False
+
+        if too_large != 0:
+            self.logger.error(
+                f'{too_large}/{num_docs} documents have too large of a value for an index in the database!')
+            return False
 
         # report error only if duplicate is not a natural amino acid
         count = 0
-        for doc, msg in zip(self[collection].find({'kekule': {'$in': list(err_kekule)}}), err_msg):
+        for doc, msg in zip(self[collection].find({field: {'$in': list(err_smiles)}}), err_msg):
             if doc['group'] not in ('D-natural', 'L-natural'):
                 self.logger.exception(f'Failed to save document due to duplicate: {doc}\n{msg}')
                 count += 1
@@ -347,18 +364,17 @@ class MongoDataBase():
 
         # report successul or failure
         num_ids = len(inserted_ids)
-        num_docs = len(docs)
-        if count == 0:
-            self.logger.info(f'Successfully inserted {num_ids}/{num_docs} documents into the database. '
-                             f'{num_docs - num_ids} documents were duplicates of manually inserted documents '
-                             '(such as natural amino aicds')
-            return True
-        else:
+        if count != 0:
             self.logger.warning(f'{num_ids}/{num_docs} documents were successfully inserted into the '
                                 f'database. {count} documents were unexpected duplicates and '
                                 f'{num_docs - num_ids - count} documents were duplicates of manually inserted documents'
                                 ' (such as natural amino acids)')
             return False
+
+        self.logger.info(f'Successfully inserted {num_ids}/{num_docs} documents into the database. '
+                         f'{num_docs - num_ids} documents were duplicates of manually inserted documents '
+                         '(such as natural amino acids)')
+        return True
 
 
 def generate_id(count, prefix):
