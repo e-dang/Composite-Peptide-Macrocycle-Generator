@@ -105,7 +105,7 @@ class ReactionGenerator(Base):
                 sc_mol = Chem.MolFromSmiles(side_chain['smarts'])
                 for template in self.templates:
                     temp_mol = Chem.MolFromSmiles(template['smarts'])
-                    reaction = self.friedel_crafts(temp_mol, sc_mol)
+                    reaction = self.friedel_crafts(temp_mol, sc_mol, template['atom_idx'])
                     self.accumulate_data(template, side_chain, reaction)
         except Exception:
             self.logger.exception('Unexpected exception occured.')
@@ -115,7 +115,7 @@ class ReactionGenerator(Base):
 
         return False
 
-    def friedel_crafts(self, template, side_chain):
+    def friedel_crafts(self, template, side_chain, reacting_atom_idx):
         """
         Generate a reaction SMARTS string for Friedel-Crafts reaction with the template and side_chain.
 
@@ -128,18 +128,65 @@ class ReactionGenerator(Base):
         """
 
         self.reaction = 'friedel_crafts'
-        template = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(
+        temp_mod = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(
             'CC(C)(C)OC(=O)O'))  # t-butyl carbonate leaving group
-
+        reacting_atom = temp_mod.GetAtomWithIdx(reacting_atom_idx)
+        reacting_atom.SetNumExplicitHs(reacting_atom.GetTotalNumHs() + 1)
         try:
-            product = Base.merge(template, side_chain, TEMPLATE_RXN_MAP_NUM, RXN_MAP_NUM, clear_map_nums=False)
+            product = Base.merge(temp_mod, side_chain, TEMPLATE_RXN_MAP_NUM, RXN_MAP_NUM, clear_map_nums=False)
         except ValueError:
-            self.logger.exception(f'Sanitize Error! template = {template}, side_chain = {side_chain}')
+            self.logger.exception(
+                f'Sanitize Error! template = {Chem.MolToSmiles(template)}, side_chain = {Chem.MolToSmiles(side_chain)}')
         else:
             product = Chem.MolToSmiles(product)
             template = Chem.MolToSmiles(template)
             side_chain = Chem.MolToSmiles(side_chain)
             return '(' + template + '.' + side_chain + ')>>' + product
+
+    def pictet_spangler(template, side_chain, reacting_atom_idx):
+        pass
+
+    def reaction_from_vector(mol, vector=None):
+
+        mol = mol.split('*')
+        for i, substr in enumerate(mol):
+            if i == 0:
+                mol = substr
+            else:
+                mol = f'[*:{i}]'.join([mol, substr])
+
+        print(mol)
+        mol = Chem.MolFromSmiles(mol)
+
+        idxs = [idx for idx_tup in vector if 0 not in idx_tup for idx in idx_tup]
+        idxs = set(idxs)
+        print(idxs)
+        for i, idx in enumerate(idxs, start=i + 1):
+            mol.GetAtomWithIdx(idx).SetAtomMapNum(i)
+
+        old_mol = deepcopy(mol)
+        mol = Chem.RWMol(mol)
+        idxs = set()
+        for idx_tup in vector:
+            idx1, idx2 = idx_tup
+            idxs.add(idx1)
+            idxs.add(idx2)
+
+            if 0 in idx_tup:
+                idx = idx_tup[0] if idx_tup[0] != 0 else idx_tup[1]
+                mol.RemoveAtom(idx)
+            else:
+                idx1, idx2 = idx_tup
+                idxs.add(idx1)
+                idxs.add(idx2)
+                mol.AddBond(idx1, idx2, Chem.rdchem.BondType.SINGLE)
+
+        reaction = '(' + Chem.MolToSmiles(old_mol) + ')>>' + Chem.MolToSmiles(mol)
+
+        return reaction
+
+    def create_reaction_smarts():
+        pass
 
     def accumulate_data(self, template, side_chain, reaction):
         """
@@ -199,9 +246,9 @@ def main():
     generator = ReactionGenerator(f_in=f_in, f_out=args.f_out, input_flags=input_flags,
                                   output_flags=output_flags, no_db=args.no_db)
     if generator.load_data() and generator.generate_reactions():
-        # return generator.save_data()
-        print(len(generator.result_data))
-        print(generator.result_data[0])
+        return generator.save_data()
+        # print(len(generator.result_data))
+        # print(generator.result_data[:2])
 
     return False
 

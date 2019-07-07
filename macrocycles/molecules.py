@@ -17,8 +17,8 @@ import multiprocessing
 from pprint import pprint
 
 from macrocycles.exceptions import MissingMapNumberError, AtomSearchError
-from utils import Base, create_logger, read_mols, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges
-import config
+from macrocycles.utils import Base, create_logger, read_mols, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges
+import macrocycles.config as config
 
 LOGGER = create_logger(name=__name__, level=INFO)
 
