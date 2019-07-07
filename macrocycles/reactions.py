@@ -13,6 +13,11 @@ from logging import INFO
 
 LOGGER = utils.create_logger(__name__, INFO)
 
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
 ReactionInfo = namedtuple('ReactionInfo', 'binary rxn_atom_idx type')
 
 
@@ -48,14 +53,15 @@ class Reaction():
         return AllChem.ReactionFromSmarts(str(self))
 
     @property
+    def binary(self):
+        return self.reaction.ToBinary()
+
+    @property
     def data(self):
         if self.product is None:
             return None
 
-        return ReactionInfo(self.to_binary(), self.reacting_atom.GetIdx(), self.name)
-
-    def to_binary(self):
-        return self.reaction.ToBinary()
+        return ReactionInfo(self.binary, self.reacting_atom.GetIdx(), self.name)
 
 
 class FriedelCafts(Reaction):
@@ -81,7 +87,17 @@ class TsujiTrost(Reaction):
 
 
 class PictetSpangler(Reaction):
-    pass
+
+    def __init__(self, side_chain, template, reacting_atom):
+        pass
+
+    @staticmethod
+    def is_valid(atom):
+        pass
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
 
 NewReactions = namedtuple('NewReactions', 'reactions side_chain template')
@@ -184,14 +200,17 @@ class ReactionGenerator(utils.Base):
             reaction (str): The atom mapped reaction SMARTS string.
         """
 
-        for smarts, (binary, rxn_atom_idx, rxn_type) in reactions.items():
-            doc = {'_id': template['_id'] + side_chain['_id'],
+        chunk = len(reactions) * self.templates.index(template)
+        for i, (smarts, (binary, rxn_atom_idx, rxn_type)) in enumerate(reactions.items()):
+            doc = {'_id': side_chain['_id'] + str(chunk + i) + rxn_type[0],
                    'type': rxn_type,
                    'binary': binary,
                    'smarts': smarts,
+                   'rxn_atom_idx': rxn_atom_idx,
                    'template': template['_id'],
-                   'side_chain': side_chain['_id'],
-                   'rxn_atom_idx': rxn_atom_idx}
+                   'side_chain': {'_id': side_chain['_id'],
+                                  'parent_side_chain': side_chain['parent_side_chain']['_id'],
+                                  'conn_atom_idx': side_chain['_id']}}
             self.result_data.append(doc)
 
     @staticmethod
