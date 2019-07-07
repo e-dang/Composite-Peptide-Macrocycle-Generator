@@ -84,7 +84,7 @@ COL2_VALIDATOR = {
                 'description': 'The id of the molecule'
             },
             'type': {
-                'enum': ['template', 'reaction'],
+                'enum': ['template', 'friedel_crafts', 'tsuji_trost', 'pictet_spangler'],
                 'description': 'The type of molecule or data contained in the document'
             },
             'binary': {
@@ -143,7 +143,7 @@ COL4_VALIDATOR = {
 VALIDATORS = [COL1_VALIDATOR, COL2_VALIDATOR, COL3_VALIDATOR, COL4_VALIDATOR]
 
 COL1_INDEX = [[('binary', ASCENDING)], [('kekule', ASCENDING)]]
-COL2_INDEX = [[('binary', ASCENDING)], [('smarts', ASCENDING)]]
+COL2_INDEX = [[('smarts', ASCENDING)]]
 # COL3_INDEX = [('_id', ASCENDING)]
 # COL4_INDEX = [('_id', ASCENDING)]
 COL3_INDEX = None
@@ -216,6 +216,16 @@ TPHG_DEFAULTS = {
         'col_tp_hybrids': COL1
     }
 }
+####################################### MacrocycleGenerator #######################################
+MCG_DEFAULTS = {
+    'inputs': {
+        'col_tp_hyrbids': COL1,
+        'col_reactions': COL2
+    },
+    'outputs': {
+        'col_macrocycles': COL1
+    }
+}
 
 ####################################### ReactionGenerator #######################################
 RG_DEFAULTS = {
@@ -235,5 +245,6 @@ DEFAULTS = {
     'MonomerGenerator': MG_DEFAULTS,
     'PeptideGenerator': PG_DEFAULTS,
     'TPHybridGenerator': TPHG_DEFAULTS,
+    'MacrocycleGenerator': MCG_DEFAULTS,
     'ReactionGenerator': RG_DEFAULTS
 }

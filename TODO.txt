@@ -14,7 +14,7 @@
 - Add unit tests
 - fix filepaths within project
 - Use constants for hardcoded values in scripts
-- Change heats in regioSQM filter to 3 decimal places
+- Change heats in regioSQM filter to 3 decimal places, get rid of 2nd threshold and set first threshold to 4 kcal/mol
 - Switch to storing kekulize smiles strings in DB / Get molecules to render without circle for aromaticity
     Kekuleized reaction smarts cant be run with rdkit chemical reactions. Need to store both Kekule smiles and canonical smiles in db. temporary fix is continue to use canonical smiles
     and kekulize smiles when making presentations. Need to think about how to store kekulize smiles in db (relational db)?
@@ -23,5 +23,8 @@
 - Discuss if a premethylated side chain like 5-methyl indole should be allowed to form attachment with backbone at the methyl group despite
     having attachment groups already made in side chain modifier step.
 - Try using **kwargs in load_data() method in the MongoDataBase() class for specifying collections and document types to load.
-- Can try factoring the methods merge(), create_monomer(), alternate_connection_point() into a single method that merges two
-    mols based on the atom map numbers passed in. Make it a static method in Base.
+
+
+- In nested fields in mongodb documents, only keep useful data such as _id and the binary.
+- Add in starter data for natural amino acid side chains so that they can reference parent side chain docs with connection atom
+    indices. this is necessary for macrocycle generation.

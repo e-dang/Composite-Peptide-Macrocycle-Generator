@@ -9,11 +9,13 @@ from collections import ChainMap, namedtuple
 from copy import deepcopy
 from rdkit import Chem
 from rdkit.Chem import Draw
+from rdkit.Chem import AllChem
 import json
 from bson import json_util
-from itertools import cycle, chain, islice, product
+from itertools import cycle, chain, islice, product, dropwhile
 from functools import partial
 import multiprocessing
+from random import sample
 from pprint import pprint
 
 from macrocycles.exceptions import MissingMapNumberError, AtomSearchError
@@ -448,8 +450,8 @@ class DataInitializer(Base):
 ########################################################################################################################
 ########################################################################################################################
 
-
-NewSideChain = namedtuple('NewSideChain', 'side_chain parent_sc connection')
+SideChainInfo = namedtuple('SideChainInfo', 'smiles conn_atom_idx')
+NewSideChains = namedtuple('NewSideChains', 'side_chain parent_sc connection')
 
 
 class SideChainGenerator(Base):
@@ -473,7 +475,7 @@ class SideChainGenerator(Base):
         """
 
         # I/O
-        super().__init__(LOGGER, make_db_connection)
+        super().__init__(logger, make_db_connection)
 
         # data
         self.parent_side_chains = []
@@ -564,13 +566,15 @@ class SideChainGenerator(Base):
         """
 
         chunk = len(side_chains) * self.connections.index(connection)
-        for i, (binary, kekule) in enumerate(side_chains.items()):
+        for i, (binary, (kekule, conn_atom_idx)) in enumerate(side_chains.items()):
             doc = {'_id': parent_sc['_id'] + str(chunk + i),
                    'type': 'side_chain',
                    'binary': binary,
                    'kekule': kekule,
+                   'conn_atom_idx': conn_atom_idx,
                    'connection': connection['_id'],
-                   'parent_side_chain': parent_sc}
+                   'parent_side_chain': {'_id': parent_sc['_id'],
+                                        'group': parent_sc['group']}}
             self.result_data.append(doc)
 
     @staticmethod
@@ -622,9 +626,9 @@ class SideChainGenerator(Base):
                 atom.SetAtomMapNum(0)
                 binary = side_chain.ToBinary()
                 Chem.Kekulize(side_chain)
-                unique_mols[binary] = Chem.MolToSmiles(side_chain, kekuleSmiles=True)
+                unique_mols[binary] = SideChainInfo(Chem.MolToSmiles(side_chain, kekuleSmiles=True), atom.GetIdx())
 
-        return NewSideChain(unique_mols, parent_sc, connection)
+        return NewSideChains(unique_mols, parent_sc, connection)
 
     @staticmethod
     def is_valid_atom(atom):
@@ -670,7 +674,7 @@ class MonomerGenerator(Base):
         """
 
         # I/O
-        super().__init__(LOGGER, make_db_connection)
+        super().__init__(logger, make_db_connection)
 
         # data
         self.side_chains = []
@@ -770,11 +774,13 @@ class MonomerGenerator(Base):
                    'type': 'monomer',
                    'binary': binary,
                    'kekule': kekule,
+                   'required': required,
+                   'group': side_chain['parent_side_chain']['group'],
                    'backbone': {'_id': backbone['_id'],
                                 'binary': backbone['binary']},
-                   'side_chain': side_chain,
-                   'required': required,
-                   'group': side_chain['parent_side_chain']['group']}
+                   'side_chain': {'_id': side_chain['_id'],
+                                  'parent_side_chain': side_chain['parent_side_chain']['_id'],
+                                  'conn_atom_idx': side_chain['conn_atom_idx']}}
             self.result_data.append(doc)
 
     @staticmethod
@@ -828,7 +834,7 @@ class MonomerGenerator(Base):
 ########################################################################################################################
 
 
-NewPeptide = namedtuple('NewPeptide', 'peptide monomers n_term')
+NewPeptide = namedtuple('NewPeptide', 'peptide monomers')
 
 
 class PeptideGenerator(Base):
@@ -849,7 +855,7 @@ class PeptideGenerator(Base):
         """
 
         # I/O
-        super().__init__(LOGGER, make_db_connection)
+        super().__init__(logger, make_db_connection)
 
         # data
         self.monomers = []
@@ -879,7 +885,7 @@ class PeptideGenerator(Base):
 
         return False
 
-    def generate(self, length, num_peptides=None, num_jobs=1, job_id=1):
+    def generate(self, length, num_peptides=None, random=False, num_jobs=1, job_id=1):
         """
         Top level function that generates the cartesian product of monomers in self.monomers. create_peptide() is then
         called in a parallel fashion on each tuple of monomers is the cartesian product. The resulting peptide and
@@ -902,21 +908,25 @@ class PeptideGenerator(Base):
 
         try:
             # determine how to run method
+            monomer_prod = product(self.monomers, repeat=length)
             if num_peptides:
-                monomers = islice(product(self.monomers, repeat=length), num_peptides)
+                if random:
+                    monomers = sample(monomer_prod, num_peptides)
+                else:
+                    monomers = islice(monomer_prod, num_peptides)
             else:
                 start, stop = ranges(len(self.monomers) ** length, num_jobs)[job_id - 1]
-                monomers = islice(product(self.monomers, repeat=length), start, stop)
+                monomers = islice(monomer_prod, start, stop)
 
             # perform peptide generation in parallel
             invalids = 0
             with multiprocessing.Pool() as pool:
                 result = pool.map_async(PeptideGenerator.create_peptide, monomers)
-                for peptide, monomers, n_term in result.get():
-                    if None in (peptide, monomers, n_term):
+                for peptide, monomers in result.get():
+                    if None in (peptide, monomers):
                         invalids += 1
                     else:
-                        self.accumulate_data(peptide, monomers, n_term)
+                        self.accumulate_data(peptide, monomers)
 
                     # save data if reaching size limit of python lists
                     if len(self.result_data) > config.CAPACITY:
@@ -940,12 +950,12 @@ class PeptideGenerator(Base):
             results = []
             for monomers in monomer_ids:
                 monomers = self.from_mongo(params['col_monomers'], {'type': 'monomer', '_id': {'$in': monomers}})
-                peptide, monomers, n_term = PeptideGenerator.create_peptide(monomers)
-                if None in (peptide, monomers, n_term):
+                peptide, monomers = PeptideGenerator.create_peptide(monomers)
+                if None in (peptide, monomers):
                     count = 0
                 else:
                     results.append(peptide)
-                    self.accumulate_data(peptide, monomers, n_term)
+                    self.accumulate_data(peptide, monomers)
         except Exception:
             raise
         else:
@@ -953,7 +963,7 @@ class PeptideGenerator(Base):
 
         return False
 
-    def accumulate_data(self, peptide, monomers, n_term):
+    def accumulate_data(self, peptide, monomers):
         """
         Stores all data associated with the peptide in a dictionary and appends it to self.result_data.
 
@@ -963,17 +973,20 @@ class PeptideGenerator(Base):
             monomers (dict): The dictionary containing the associated monomer data.
         """
 
-        monomer_ids = [monomer['_id'] for monomer in monomers]
-        pep_id = ''.join(monomer_ids)
+        monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'side_chain')} for monomer in monomers]
+        # for monomer in monomers:
+        #     monomer_data.append({'_id': monomer['_id'], 'side_chain': monomer['side_chain']})
+
+        # monomer_ids = [(monomer['_id'], monomer['side_chain']['conn_atom_idx']) for monomer in monomers]
+        pep_id = ''.join([monomer['_id'] for monomer in monomer_data])
 
         for binary, kekule in peptide.items():
             doc = {'_id': pep_id,
                     'type': 'peptide',
                     'binary': binary,
                     'kekule': kekule,
-                    'monomers': monomer_ids,
-                    'N-term': n_term}
-        self.result_data.append(doc)
+                    'monomers': monomer_data}
+            self.result_data.append(doc)
 
     @staticmethod
     def create_peptide(monomers, logger=None):
@@ -993,7 +1006,7 @@ class PeptideGenerator(Base):
 
         # check that peptide is valid before constructing
         if not PeptideGenerator.is_valid_monomers(monomers):
-            return None, None, None
+            return None, None
 
         # begin conneting each monomer in monomers
         for i, monomer in enumerate(monomers):
@@ -1034,7 +1047,7 @@ class PeptideGenerator(Base):
         binary = peptide.ToBinary()
         Chem.Kekulize(peptide)
         result = {binary: Chem.MolToSmiles(peptide, kekuleSmiles=True)}
-        return NewPeptide(result, monomers, monomer['backbone'])
+        return NewPeptide(result, monomers)
 
     @staticmethod
     def is_valid_monomers(monomers):
@@ -1106,7 +1119,7 @@ class TPHybridGenerator(Base):
         """
 
         # I/O
-        super().__init__(LOGGER, make_db_connection)
+        super().__init__(logger, make_db_connection)
 
         # data
         self.peptides = []
@@ -1191,14 +1204,15 @@ class TPHybridGenerator(Base):
             peptide (dict): The dictionary containing the associated peptide data.
         """
 
-        ind = len(tp_hybrid) * self.templates.index(template)
+        chunk = len(tp_hybrid) * self.templates.index(template)
 
         for i, (binary, kekule) in enumerate(tp_hybrid.items()):
-            doc = {'_id': peptide['_id'] + str(ind + i),
+            doc = {'_id': peptide['_id'] + str(chunk + i),
                     'type': 'tp_hybrid',
                     'binary': binary,
                     'kekule': kekule,
-                    'peptide': peptide['_id'],
+                    'peptide': {'_id': peptide['_id'],
+                                'monomers': peptide['monomers']},
                     'template': template['_id']}
             self.result_data.append(doc)
 
@@ -1249,3 +1263,227 @@ class TPHybridGenerator(Base):
                 results[binary] = Chem.MolToSmiles(tp_hybrid, kekuleSmiles=True)
 
         return NewTPHybrid(results, peptide, template)
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+NewMacrocycles = namedtuple('NewMacrocycles', 'macrocycles tp_hybrid reaction')
+
+class MacrocycleGenerator(Base):
+    """
+    Class for enumerating the candidate macrocycles by applying reactions to the tp_hybrids. Inherits from Base.
+
+    Attributes:
+        tp_hybrids (list): Contains the different side chains for generating regioisomers.
+    """
+
+    _defaults = config.DEFAULTS['MacrocycleGenerator']
+
+    def __init__(self, logger=LOGGER, make_db_connection=True):
+        """
+        Initializer.
+
+        Args:
+        """
+
+        # I/O
+        super().__init__(logger, make_db_connection=True)
+
+        # data
+        self.tp_hybrids = []
+        self.reactions = []
+
+
+    def save_data(self):
+
+        params = self._defaults['outputs']
+        return self.to_mongo(params['col_macrocycles'], {'type': 'macrocycle'})
+
+    def load_data(self):
+        """
+        Overloaded method for loading input data.
+
+        Returns:
+            bool: True if successful.
+        """
+
+        try:
+            params = self._defaults['inputs']
+            self.tp_hybrids = self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid'})
+            self.reactions = self.from_mongo(params['col_reactions'], {'type': {'$ne': 'template'}})
+        except Exception:
+            self.logger.exception('Unexpected exception occured.')
+        else:
+            return True
+
+        return False
+
+    # def generate_candidates(self):
+
+    #     for tp_hybrid in self.tp_hybrids:
+    #         reactant = tp_hybrid['smiles']
+    #         print('', reactant)
+    #         for i, monomer in enumerate(set(tp_hybrid['peptide']['monomers'])):
+    #             print('\t', monomer)
+    #             monomer = self.mongo_db['molecules'].find_one({'ID': monomer})
+    #             # print(monomer)
+    #             reactions = list(self.mongo_db['reactions'].find(
+    #                 {'type': 'reaction', 'side_chain.side_chain.parent.ID': monomer['side_chain']['parent']['ID']}))
+    #             reactions.extend(list(self.mongo_db['reactions'].find(
+    #                 {'type': 'reaction', 'side_chain': monomer['side_chain']['ID']}
+    #             )))
+    #             # print(reactions[0])
+    #             print(len(reactions))
+    #             # print(reactions)
+    #             products, reacting_side_chains, atom_idxs = self.apply_reaction(reactant, reactions)
+    #             self.accumulate_data(products, reacting_side_chains, atom_idxs, tp_hybrid, reactions, i)
+
+    #     return True
+
+    def generate(self):
+        for tp_hybrid in self.tp_hybrids:
+            # lookups = defaultdict(list)
+            # unique = ((monomer['side_chain']['parent_side_chain'], monomer['side_chain']['conn_atom_idx']) for monomer in tp_hybrid['peptide']['monomers'])
+            # for key, val in unique:
+            #     lookups[key].append(val)
+            for monomer in tp_hybrid['peptide']['monomers']:
+                side_chain = monomer['side_chain']
+                if side_chain is not None:
+                    reactions = self.from_mongo('reactions', {'side_chain.parent_side_chain': side_chain['parent_side_chain'], 'side_chain.conn_atom_idx': side_chain['conn_atom_idx']})
+                    for reaction in reactions:
+                        macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reaction)
+                        self.accumulate_data(macrocycles, tp_hybrid, reaction)
+        return True
+
+    def generate_parallel(self):
+
+        try:
+            args = self.pair_parameters()
+
+            with multiprocessing.Pool() as pool:
+                results = pool.starmap_async(MacrocycleGenerator.apply_reaction, args)
+
+                for macrocycles, tp_hybrid, reaction in results.get():
+                    self.accumulate_data(macrocycles, tp_hybrid, reaction)
+        except Exception:
+            raise
+        else:
+            return True
+
+        return False
+
+
+    def accumulate_data(self, macrocycles, tp_hybrid, reaction):
+
+        for i, (binary, kekule) in enumerate(macrocycles.items()):
+            doc = {
+                '_id': tp_hybrid['_id'] + str(i),
+                'type': 'macrocycle',
+                'binary': binary,
+                'kekule': kekule,
+                'tp_hybrid': tp_hybrid['_id'],
+                'reaction': {'_id': reaction['_id'],
+                             'side_chain': reaction['side_chain']['_id'],
+                             'rxn_atom_idx': reaction['rxn_atom_idx']}
+            }
+            self.result_data.append(doc)
+
+    # def accumulate_data(self, macrocycles, reacting_side_chains, atom_idxs, tp_hybrid, reactions, i):
+
+    #     # for j, (macrocycle, reacting_side_chain, atom_idx) in enumerate(zip(macrocycles, reacting_side_chains, atom_idxs)):
+    #     doc = {
+    #         'ID': 'c' + str(i) + tp_hybrid['ID'],
+    #         'type': 'candidate',
+    #         'smiles': macrocycles,
+    #         'kekule': '',
+    #         'reacting_side_chains': reacting_side_chains,
+    #         'atom_idxs': atom_idxs,
+    #         'tp_hybrid': tp_hybrid
+    #         # 'reaction': reactions
+    #     }
+    #     self.result_data.append(doc)
+
+    def pair_parameters(self):
+
+        parent_side_chains = list(self.from_mongo('molecules', {'type': 'parent_side_chain'}))
+        for parent_sc in parent_side_chains:
+            tp_hybrids = dropwhile(lambda x: MacrocycleGenerator.has_parent_side_chain(x, parent_sc), self.tp_hybrids)
+            reactions = dropwhile(lambda x: MacrocycleGenerator.has_parent_side_chain(x, parent_sc), self.reactions)
+            for tp_hybrid in tp_hybrids:
+                applicable_rxns = dropwhile(lambda x: MacrocycleGenerator.has_same_conn_idx(x, tp_hybrid), reactions)
+                yield cycle(tp_hybrid), applicable_rxns
+
+
+    @staticmethod
+    def has_parent_side_chain(tp_hybrid, parent_sc):
+
+        for monomer in tp_hybrid['peptide']['monomers']:
+            if monomer['side_chain']['parent_side_chain'] == parent_sc['_id']:
+                return True
+
+        return False
+
+    @staticmethod
+    def has_same_conn_idx(reactions, tp_hybrid):
+
+        for reaction in reactions:
+            if reaction['side_chain']['conn_atom_idx'] == tp_hybrid['side_chain']['conn_atom_idx']:
+                return True
+
+        return False
+
+    @staticmethod
+    def apply_reaction(tp_hybrid, reaction):
+        """
+        Applys all reaction templates to a reactant and collects all unique products
+
+        Args:
+            reactant (str): The reactant SMILES string
+            rxn_docs (pymongo cursor): The collection of reaction documents containing reaction template SMARTS strings
+
+        Returns:
+            list: A list of SMARTS strings of all unique products
+            list: A list of side chains that reacted in order to form the products
+            list: A list of reacting atom indices in the side_chains that formed products
+        """
+
+        reactant = Chem.Mol(tp_hybrid['binary'])
+        rxn = AllChem.ChemicalReaction(reaction['binary'])
+        results = {}
+
+        products = rxn.RunReactants((reactant,))
+        for product in products:
+            Chem.SanitizeMol(product[0])
+            binary = product.ToBinary()
+            Chem.Kekulize(product)
+            results[binary] = Chem.MolToSmiles(product, kekuleSmiles=True)
+
+        return NewMacrocycles(results, tp_hybrid, reaction)
+
+        # # apply reactions
+        # reaction_info = {}
+        # for doc in reactions:
+        #     rxn = AllChem.ReactionFromSmarts(doc['binary'])
+        #     prod = rxn.RunReactants((reactant,))
+        #     # print(prod)
+
+        #     # get unique products
+        #     for mol in prod:
+        #         Chem.SanitizeMol(mol[0])
+        #         smiles = Chem.MolToSmiles(mol[0])
+        #         # print(smiles)
+        #         if smiles not in reaction_info.keys():
+        #             try:
+        #                 reaction_info[smiles] = (doc['side_chain'], doc['side_chain']['rxn_atom_idx'])
+        #             except:
+        #                 reaction_info[smiles] = (doc['side_chain'], None)
+
+        # # print(reaction_info)
+        # unique_prods, sc_and_idx = zip(*[(key, value) for key, value in reaction_info.items()])
+        # reacting_side_chains, atom_idxs = zip(*list(sc_and_idx))
+        # # print(reacting_side_chains)
+        # # print(atom_idxs)
+
+        # return unique_prods, reacting_side_chains, atom_idxs
