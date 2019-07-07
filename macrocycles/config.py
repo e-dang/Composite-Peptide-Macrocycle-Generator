@@ -149,7 +149,7 @@ COL2_INDEX = [[('binary', ASCENDING)], [('smarts', ASCENDING)]]
 COL3_INDEX = None
 COL4_INDEX = None
 INDICES = [COL1_INDEX, COL2_INDEX, COL3_INDEX, COL4_INDEX]
-####################################### SideChainModifier #######################################
+####################################### DataInitializer #######################################
 DI_DEFAULTS = {
     'inputs': {
         'fp_psc': os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'side_chains_likely1.sdf'),
@@ -173,6 +173,7 @@ DI_DEFAULTS = {
         'fp_rtemplates': os.path.join(DATA_DIR, 'starter', 'rtemplates.json')
     }
 }
+
 ####################################### SideChainGenerator #######################################
 SCM_DEFAULTS = {
     'inputs': {
@@ -205,7 +206,7 @@ PG_DEFAULTS = {
     }
 }
 
-####################################### PeptideGenerator #######################################
+####################################### TPHybridGenerator #######################################
 TPHG_DEFAULTS = {
     'inputs': {
         'col_peptides': COL1,
@@ -216,11 +217,23 @@ TPHG_DEFAULTS = {
     }
 }
 
+####################################### ReactionGenerator #######################################
+RG_DEFAULTS = {
+    'inputs': {
+        'col_templates': COL2,
+        'col_side_chains': COL1,
+    },
+    'outputs': {
+        'col_reactions': COL2
+    }
+}
+
 ####################################### DEFAULT #######################################
 DEFAULTS = {
     'DataInitializer': DI_DEFAULTS,
     'SideChainGenerator': SCM_DEFAULTS,
     'MonomerGenerator': MG_DEFAULTS,
     'PeptideGenerator': PG_DEFAULTS,
-    'TPHybridGenerator': TPHG_DEFAULTS
+    'TPHybridGenerator': TPHG_DEFAULTS,
+    'ReactionGenerator': RG_DEFAULTS
 }
