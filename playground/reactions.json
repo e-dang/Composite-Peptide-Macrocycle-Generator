@@ -1,0 +1,90 @@
+// pictet_spangler
+[
+    {
+        "ID": "1",
+        "type": "reaction",
+        "smarts": "(O=C(C(C[CH:4]=O)[*:2])[NH:3]C(Cc1cc[nH][cH:5]1)[*:1])>>O=C1C([*:2])C[CH:4]2[N:3]1C([*:1])Cc1cc[nH][c:5]12",
+        "side_chain": "Cc1c[nH]cc1",
+        "rxn_vector": [
+            [
+                14,
+                8
+            ],
+            [
+                14,
+                7
+            ],
+            [
+                15,
+                0
+            ]
+        ]
+    },
+    {
+        "ID": "2",
+        "type": "reaction",
+        "smarts": "(O=C(C(C[CH:3]=O)[*:2])[NH:4]C(Cc1c2ccccc2[nH][cH:5]1)[*:1])>>O=C1C([*:2])C[CH:3]2[N:4]1C([*:1])Cc1c3ccccc3[nH][c:5]12",
+        "side_chain": "AA5",
+        "rxn_vector": [
+            [
+                18,
+                12
+            ],
+            [
+                18,
+                4
+            ],
+            [
+                19,
+                0
+            ]
+        ]
+    },
+    {
+        "ID": "3",
+        "type": "reaction",
+        "smarts": "(O=C(C(C[CH:4]=O)[*:2])[NH:3]C(Cc1ccs[cH:5]1)[*:1])>>O=C1C([*:2])C[CH:4]2[N:3]1C([*:1])Cc1ccs[c:5]12",
+        "side_chain": "Cc1ccsc1",
+        "rxn_vector": [
+            [
+                14,
+                8
+            ],
+            [
+                14,
+                7
+            ],
+            [
+                15,
+                0
+            ]
+        ]
+    },
+    {
+        "ID": "pyroloindoline",
+        "type": "reaction",
+        "smarts": "([*:3]Cc1cccc(/C=C/[C:1]OC(=O)OC(C)(C)C)c1.[*:5][C@@H]([NH:7][*:4])C[c:2]1[c:6][nH]c2ccccc12)>>C(=C/[C:1][C:2]12C[C@@H]([*:5])[N:7]([*:4])[C:6]1Nc1ccccc12)\c1cccc(C[*:3])c1",
+        "side_chain": "AA5",
+        "rxn_vector": []
+    },
+    {
+        "ID": "4",
+        "type": "reaction",
+        "smarts": "(O=C(CC([*:2])([*:3])[CH:4]=O)[NH:5]C(Cc1c2ccccc2[nH][cH:6]1)[*:1])>>O=C1CC([*:2])([*:3])[CH:4]2[N:5]1C([*:1])Cc1c3ccccc3[nH][c:6]12",
+        "side_chain": "AA5",
+        "rxn_vector": [
+            [
+                19,
+                12
+            ],
+            [
+                19,
+                4
+            ],
+            [
+                20,
+                0
+            ]
+        ]
+    }
+]
