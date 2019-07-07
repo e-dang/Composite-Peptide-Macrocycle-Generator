@@ -908,15 +908,15 @@ class PeptideGenerator(Base):
 
         try:
             # determine how to run method
-            monomer_prod = product(self.monomers, repeat=length)
             if num_peptides:
                 if random:
-                    monomers = sample(monomer_prod, num_peptides)
+                    self.monomers = list(self.monomers)
+                    monomers = [sample(self.monomers, length) for i in range(num_peptides)]
                 else:
-                    monomers = islice(monomer_prod, num_peptides)
+                    monomers = islice(product(self.monomers, repeat=length), num_peptides)
             else:
                 start, stop = ranges(len(self.monomers) ** length, num_jobs)[job_id - 1]
-                monomers = islice(monomer_prod, start, stop)
+                monomers = islice(product(self.monomers, repeat=length), start, stop)
 
             # perform peptide generation in parallel
             invalids = 0
