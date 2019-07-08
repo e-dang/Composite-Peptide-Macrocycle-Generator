@@ -12,7 +12,7 @@ from rdkit.Chem import Draw
 from rdkit.Chem import AllChem
 import json
 from bson import json_util
-from itertools import cycle, chain, islice, product, dropwhile
+from itertools import cycle, chain, islice, product
 from functools import partial
 import multiprocessing
 from random import sample
@@ -311,6 +311,11 @@ class DataInitializer(Base):
         # set atom map number for connecting atom between template and peptide
         question = 'Enter the index of the carbon atom that will form amide linkage to the peptides: '
         substruct = DataInitializer.generalize_substruct(template, config.TEMP_CARBON_MAP_NUM, question)
+        template = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(substruct))
+
+        # remove leaving group at EAS reaction site
+        question = 'Enter the index of the carbon atom that will close the macrocycle ring through an EAS reaction: '
+        substruct = DataInitializer.generalize_substruct(template, 0, question)
         template = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(substruct))
 
         return template, doc
@@ -1295,7 +1300,6 @@ class MacrocycleGenerator(Base):
         self.tp_hybrids = []
         self.reactions = []
 
-
     def save_data(self):
 
         params = self._defaults['outputs']
@@ -1312,7 +1316,7 @@ class MacrocycleGenerator(Base):
         try:
             params = self._defaults['inputs']
             self.tp_hybrids = self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid'})
-            self.reactions = self.from_mongo(params['col_reactions'], {'type': {'$ne': 'template'}})
+            self.reactions = list(self.from_mongo(params['col_reactions'], {'type': {'$ne': 'template'}}))
         except Exception:
             self.logger.exception('Unexpected exception occured.')
         else:
@@ -1320,52 +1324,32 @@ class MacrocycleGenerator(Base):
 
         return False
 
-    # def generate_candidates(self):
-
-    #     for tp_hybrid in self.tp_hybrids:
-    #         reactant = tp_hybrid['smiles']
-    #         print('', reactant)
-    #         for i, monomer in enumerate(set(tp_hybrid['peptide']['monomers'])):
-    #             print('\t', monomer)
-    #             monomer = self.mongo_db['molecules'].find_one({'ID': monomer})
-    #             # print(monomer)
-    #             reactions = list(self.mongo_db['reactions'].find(
-    #                 {'type': 'reaction', 'side_chain.side_chain.parent.ID': monomer['side_chain']['parent']['ID']}))
-    #             reactions.extend(list(self.mongo_db['reactions'].find(
-    #                 {'type': 'reaction', 'side_chain': monomer['side_chain']['ID']}
-    #             )))
-    #             # print(reactions[0])
-    #             print(len(reactions))
-    #             # print(reactions)
-    #             products, reacting_side_chains, atom_idxs = self.apply_reaction(reactant, reactions)
-    #             self.accumulate_data(products, reacting_side_chains, atom_idxs, tp_hybrid, reactions, i)
-
-    #     return True
-
     def generate(self):
         for tp_hybrid in self.tp_hybrids:
-            # lookups = defaultdict(list)
-            # unique = ((monomer['side_chain']['parent_side_chain'], monomer['side_chain']['conn_atom_idx']) for monomer in tp_hybrid['peptide']['monomers'])
-            # for key, val in unique:
-            #     lookups[key].append(val)
             for monomer in tp_hybrid['peptide']['monomers']:
                 side_chain = monomer['side_chain']
-                if side_chain is not None:
-                    reactions = self.from_mongo('reactions', {'side_chain.parent_side_chain': side_chain['parent_side_chain'], 'side_chain.conn_atom_idx': side_chain['conn_atom_idx']})
-                    for reaction in reactions:
-                        macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reaction)
-                        self.accumulate_data(macrocycles, tp_hybrid, reaction)
+                if side_chain is None or isinstance(side_chain, str):
+                    continue
+                reactions = self.from_mongo('reactions', {'side_chain.parent_side_chain': side_chain['parent_side_chain'], 'side_chain.conn_atom_idx': side_chain['conn_atom_idx']})
+                for reaction in reactions:
+                    macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reaction)
+                    self.accumulate_data(macrocycles, tp_hybrid, reaction)
         return True
 
     def generate_parallel(self):
 
         try:
-            args = self.pair_parameters()
+            parent_sc_filter = partial(MacrocycleGenerator.is_applicable, attr='parent_side_chain')
+            conn_atom_filter = partial(MacrocycleGenerator.is_applicable, attr='conn_atom_idx')
+            partial_filtered = filter(parent_sc_filter, product(self.tp_hybrids, self.reactions))
+            args = filter(conn_atom_filter, partial_filtered)
 
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(MacrocycleGenerator.apply_reaction, args)
 
                 for macrocycles, tp_hybrid, reaction in results.get():
+                    if None in (macrocycles, tp_hybrid, reaction):
+                        continue
                     self.accumulate_data(macrocycles, tp_hybrid, reaction)
         except Exception:
             raise
@@ -1390,46 +1374,14 @@ class MacrocycleGenerator(Base):
             }
             self.result_data.append(doc)
 
-    # def accumulate_data(self, macrocycles, reacting_side_chains, atom_idxs, tp_hybrid, reactions, i):
-
-    #     # for j, (macrocycle, reacting_side_chain, atom_idx) in enumerate(zip(macrocycles, reacting_side_chains, atom_idxs)):
-    #     doc = {
-    #         'ID': 'c' + str(i) + tp_hybrid['ID'],
-    #         'type': 'candidate',
-    #         'smiles': macrocycles,
-    #         'kekule': '',
-    #         'reacting_side_chains': reacting_side_chains,
-    #         'atom_idxs': atom_idxs,
-    #         'tp_hybrid': tp_hybrid
-    #         # 'reaction': reactions
-    #     }
-    #     self.result_data.append(doc)
-
-    def pair_parameters(self):
-
-        parent_side_chains = list(self.from_mongo('molecules', {'type': 'parent_side_chain'}))
-        for parent_sc in parent_side_chains:
-            tp_hybrids = dropwhile(lambda x: MacrocycleGenerator.has_parent_side_chain(x, parent_sc), self.tp_hybrids)
-            reactions = dropwhile(lambda x: MacrocycleGenerator.has_parent_side_chain(x, parent_sc), self.reactions)
-            for tp_hybrid in tp_hybrids:
-                applicable_rxns = dropwhile(lambda x: MacrocycleGenerator.has_same_conn_idx(x, tp_hybrid), reactions)
-                yield cycle(tp_hybrid), applicable_rxns
-
-
     @staticmethod
-    def has_parent_side_chain(tp_hybrid, parent_sc):
-
+    def is_applicable(args, attr):
+        tp_hybrid, reaction = args
         for monomer in tp_hybrid['peptide']['monomers']:
-            if monomer['side_chain']['parent_side_chain'] == parent_sc['_id']:
-                return True
-
-        return False
-
-    @staticmethod
-    def has_same_conn_idx(reactions, tp_hybrid):
-
-        for reaction in reactions:
-            if reaction['side_chain']['conn_atom_idx'] == tp_hybrid['side_chain']['conn_atom_idx']:
+            side_chain = monomer['side_chain']
+            if side_chain is None or isinstance(side_chain, str):
+                continue
+            if side_chain[attr] == reaction['side_chain'][attr]:
                 return True
 
         return False
@@ -1451,39 +1403,14 @@ class MacrocycleGenerator(Base):
 
         reactant = Chem.Mol(tp_hybrid['binary'])
         rxn = AllChem.ChemicalReaction(reaction['binary'])
-        results = {}
 
-        products = rxn.RunReactants((reactant,))
-        for product in products:
-            Chem.SanitizeMol(product[0])
-            binary = product.ToBinary()
-            Chem.Kekulize(product)
-            results[binary] = Chem.MolToSmiles(product, kekuleSmiles=True)
+        results = {}
+        for products in rxn.RunReactants((reactant,)):
+            for macrocycle in products:
+                Chem.SanitizeMol(macrocycle)
+                binary = macrocycle.ToBinary()
+                Chem.Kekulize(macrocycle)
+                results[binary] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
 
         return NewMacrocycles(results, tp_hybrid, reaction)
 
-        # # apply reactions
-        # reaction_info = {}
-        # for doc in reactions:
-        #     rxn = AllChem.ReactionFromSmarts(doc['binary'])
-        #     prod = rxn.RunReactants((reactant,))
-        #     # print(prod)
-
-        #     # get unique products
-        #     for mol in prod:
-        #         Chem.SanitizeMol(mol[0])
-        #         smiles = Chem.MolToSmiles(mol[0])
-        #         # print(smiles)
-        #         if smiles not in reaction_info.keys():
-        #             try:
-        #                 reaction_info[smiles] = (doc['side_chain'], doc['side_chain']['rxn_atom_idx'])
-        #             except:
-        #                 reaction_info[smiles] = (doc['side_chain'], None)
-
-        # # print(reaction_info)
-        # unique_prods, sc_and_idx = zip(*[(key, value) for key, value in reaction_info.items()])
-        # reacting_side_chains, atom_idxs = zip(*list(sc_and_idx))
-        # # print(reacting_side_chains)
-        # # print(atom_idxs)
-
-        # return unique_prods, reacting_side_chains, atom_idxs
