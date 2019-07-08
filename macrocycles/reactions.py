@@ -146,7 +146,8 @@ class ReactionGenerator(utils.Base):
 
         try:
             params = self._defaults['inputs']
-            self.side_chains = self.from_mongo(params['col_side_chains'], {'type': 'side_chain'})
+            self.side_chains = self.from_mongo(params['col_side_chains'], {
+                                               'type': 'side_chain', 'connection': 'methyl'})
             self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
         except Exception:
             self.logger.exception('Unexpected exception occured.')
@@ -210,7 +211,7 @@ class ReactionGenerator(utils.Base):
                    'template': template['_id'],
                    'side_chain': {'_id': side_chain['_id'],
                                   'parent_side_chain': side_chain['parent_side_chain']['_id'],
-                                  'conn_atom_idx': side_chain['_id']}}
+                                  'conn_atom_idx': side_chain['conn_atom_idx']}}
             self.result_data.append(doc)
 
     @staticmethod
