@@ -23,25 +23,7 @@ class InvalidSmilesString(Exception):
     """
 
 
-class WritingJsonError(Exception):
+class DataNotFoundError(Exception):
     """
-    Raised when an error has occured while writing data to a json file.
-    """
-
-
-class WritingTxtError(Exception):
-    """
-    Raised when an error has occured while writing data to a txt file.
-    """
-
-
-class SavingMongoError(Exception):
-    """
-    Raised when an error has occured while saving data to the Mongo database.
-    """
-
-
-class SavingSQLError(Exception):
-    """
-    Raised when an error has occured while saving data to the SQL database.
+    Raised when the MongoDataBase returns an empty result.
     """

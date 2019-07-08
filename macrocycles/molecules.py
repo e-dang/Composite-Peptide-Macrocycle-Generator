@@ -18,7 +18,7 @@ import multiprocessing
 from random import sample
 from pprint import pprint
 
-from macrocycles.exceptions import MissingMapNumberError, AtomSearchError
+from macrocycles.exceptions import MissingMapNumberError, AtomSearchError, DataNotFoundError
 from macrocycles.utils import Base, create_logger, read_mols, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges
 import macrocycles.config as config
 
@@ -59,8 +59,8 @@ class DataInitializer(Base):
         self.result_data = []
         self.load_templates()
         self.result_data = []
-        self.load_rtemplates()
-        self.result_data = []
+        # self.load_rtemplates()
+        # self.result_data = []
         self.load_monomers()
         self.result_data = []
 
@@ -230,6 +230,9 @@ class DataInitializer(Base):
 
         if backbone is None:
             backbone = input('Enter the backbone type these monomers are made of: ')
+            bb_doc = self.from_mongo(self._defaults['outputs']['col_backbones'], {'_id': backbone})[0]
+            if bb_doc is None:
+                raise DataNotFoundError(f'The backbone with _id \'{backbone}\' could not be found.')
 
         if group is None:
             group = input(f'Enter group name for monomers in file {fp}: ')
@@ -241,7 +244,8 @@ class DataInitializer(Base):
                         'type': 'monomer',
                         'binary': None,
                         'kekule': None,
-                        'backbone': backbone,
+                        'backbone': {'_id': bb_doc['_id'],
+                                     'binary': bb_doc['binary']},
                         'side_chain': None,
                         'group': group,
                         'required': required}
@@ -285,18 +289,37 @@ class DataInitializer(Base):
             fp = self._defaults['inputs']['fp_templates']
 
         if collection is None:
-            collection = self._defaults['outputs']['col_templates']
+            col_temp = self._defaults['outputs']['col_templates']
+            col_rtemp = self._defaults['outputs']['col_rtemplates']
 
-        template_doc = {'_id': None,
+        temp_doc = {'_id': None,
                         'type': 'template',
                         'binary': None,
                         'kekule': None,
                         'original': None}
 
-        if self.from_sdf(fp, template_doc, DataInitializer.set_template_properties):
-            return self.to_mongo(collection, create_id=False)
+        rtemp_doc = {'_id': None,
+                        'type': 'template',
+                        'binary': None,
+                        'smarts': None,
+                        'original': None}
 
-        return False
+        temp_data, rtemp_data = [], []
+        for mol in read_mols(fp):
+            doc = deepcopy(temp_doc)
+            rdoc = deepcopy(rtemp_doc)
+
+            mol, doc = DataInitializer.set_template_properties(mol, doc)
+            rdoc['_id'] = doc['_id']
+            rdoc['original'] = doc['original']
+            rtemp_data.append(DataInitializer.modify_rtemplate(deepcopy(mol), rdoc))
+            temp_data.append(DataInitializer.modify_template(deepcopy(mol), doc))
+
+        self.result_data = temp_data
+        temp_result = self.to_mongo(col_temp)
+        self.result_data = rtemp_data
+        rtemp_result = self.to_mongo(col_rtemp)
+        return temp_result and rtemp_result
 
     @staticmethod
     def set_template_properties(template, doc):
@@ -310,15 +333,46 @@ class DataInitializer(Base):
 
         # set atom map number for connecting atom between template and peptide
         question = 'Enter the index of the carbon atom that will form amide linkage to the peptides: '
-        substruct = DataInitializer.generalize_substruct(template, config.TEMP_CARBON_MAP_NUM, question)
+        substruct = DataInitializer.generalize_substruct(template, config.TEMP_WILDCARD_MAP_NUM, question)
         template = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(substruct))
 
         # remove leaving group at EAS reaction site
         question = 'Enter the index of the carbon atom that will close the macrocycle ring through an EAS reaction: '
-        substruct = DataInitializer.generalize_substruct(template, 0, question)
+        substruct = DataInitializer.generalize_substruct(template, config.TEMP_EAS_MAP_NUM, question)
         template = Chem.DeleteSubstructs(template, Chem.MolFromSmiles(substruct))
 
         return template, doc
+
+    @staticmethod
+    def modify_rtemplate(rtemplate, doc):
+
+        mol = Chem.RWMol(rtemplate)
+        for atom in mol.GetAtoms():
+            if atom.GetAtomMapNum() == config.TEMP_WILDCARD_MAP_NUM:
+                atom_to_wildcard(atom)
+                for neighbor in atom.GetNeighbors():
+                    if neighbor.GetSymbol() == 'O':
+                        break
+        mol.RemoveAtom(neighbor.GetIdx())
+        Chem.SanitizeMol(mol)
+        mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol))
+        doc['binary'] = mol.ToBinary()
+        Chem.Kekulize(mol)
+        doc['smarts'] = Chem.MolToSmiles(mol, kekuleSmiles=True)
+
+        return doc
+
+    @staticmethod
+    def modify_template(template, doc):
+
+        for atom in template.GetAtoms():
+            if atom.GetAtomMapNum() == config.TEMP_EAS_MAP_NUM:
+                atom.SetAtomMapNum(0)
+        doc['binary'] = template.ToBinary()
+        Chem.Kekulize(template)
+        doc['kekule'] = Chem.MolToSmiles(template, kekuleSmiles=True)
+
+        return doc
 
     def load_rtemplates(self, fp=None, collection=None):
 
@@ -979,10 +1033,6 @@ class PeptideGenerator(Base):
         """
 
         monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'side_chain')} for monomer in monomers]
-        # for monomer in monomers:
-        #     monomer_data.append({'_id': monomer['_id'], 'side_chain': monomer['side_chain']})
-
-        # monomer_ids = [(monomer['_id'], monomer['side_chain']['conn_atom_idx']) for monomer in monomers]
         pep_id = ''.join([monomer['_id'] for monomer in monomer_data])
 
         for binary, kekule in peptide.items():
@@ -1303,7 +1353,7 @@ class MacrocycleGenerator(Base):
     def save_data(self):
 
         params = self._defaults['outputs']
-        return self.to_mongo(params['col_macrocycles'], {'type': 'macrocycle'})
+        return self.to_mongo(params['col_macrocycles'])
 
     def load_data(self):
         """
@@ -1325,31 +1375,36 @@ class MacrocycleGenerator(Base):
         return False
 
     def generate(self):
-        for tp_hybrid in self.tp_hybrids:
-            for monomer in tp_hybrid['peptide']['monomers']:
-                side_chain = monomer['side_chain']
-                if side_chain is None or isinstance(side_chain, str):
-                    continue
-                reactions = self.from_mongo('reactions', {'side_chain.parent_side_chain': side_chain['parent_side_chain'], 'side_chain.conn_atom_idx': side_chain['conn_atom_idx']})
-                for reaction in reactions:
-                    macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reaction)
-                    self.accumulate_data(macrocycles, tp_hybrid, reaction)
-        return True
-
-    def generate_parallel(self):
 
         try:
             parent_sc_filter = partial(MacrocycleGenerator.is_applicable, attr='parent_side_chain')
             conn_atom_filter = partial(MacrocycleGenerator.is_applicable, attr='conn_atom_idx')
-            partial_filtered = filter(parent_sc_filter, product(self.tp_hybrids, self.reactions))
-            args = filter(conn_atom_filter, partial_filtered)
+            template_filter = partial(MacrocycleGenerator.is_applicable, attr='template')
+            first_filter = filter(parent_sc_filter, product(self.tp_hybrids, self.reactions))
+            second_filter = filter(conn_atom_filter, first_filter)
+            args = filter(template_filter, second_filter)
 
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(MacrocycleGenerator.apply_reaction, args)
 
                 for macrocycles, tp_hybrid, reaction in results.get():
-                    if None in (macrocycles, tp_hybrid, reaction):
-                        continue
+                    self.accumulate_data(macrocycles, tp_hybrid, reaction)
+        except Exception:
+            raise
+        else:
+            return True
+
+        return False
+
+    def generate_from_ids(self, tp_hybrid_ids, reaction_ids):
+        try:
+            params = self._defaults['inputs']
+            self.tp_hybrids = self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid', '_id': {'$in': tp_hybrid_ids}})
+            self.reactions = self.from_mongo(params['col_reactions'], {'type': 'reaction', '_id': {'$in': reaction_ids}})
+
+            for tp_hybrid, reaction in product(self.tp_hybrids, self.reactions):
+                if tp_hybrid['template'] == reaction['template']:
+                    macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reaction)
                     self.accumulate_data(macrocycles, tp_hybrid, reaction)
         except Exception:
             raise
@@ -1361,30 +1416,20 @@ class MacrocycleGenerator(Base):
 
     def accumulate_data(self, macrocycles, tp_hybrid, reaction):
 
+        sc_id = reaction['side_chain']['_id']
+        rxn_idx = reaction['rxn_atom_idx']
         for i, (binary, kekule) in enumerate(macrocycles.items()):
             doc = {
-                '_id': tp_hybrid['_id'] + str(i),
+                '_id': tp_hybrid['_id'] + str(sc_id) + str(rxn_idx) + str(i),
                 'type': 'macrocycle',
                 'binary': binary,
                 'kekule': kekule,
                 'tp_hybrid': tp_hybrid['_id'],
                 'reaction': {'_id': reaction['_id'],
-                             'side_chain': reaction['side_chain']['_id'],
-                             'rxn_atom_idx': reaction['rxn_atom_idx']}
+                             'side_chain': sc_id,
+                             'rxn_atom_idx': rxn_idx}
             }
             self.result_data.append(doc)
-
-    @staticmethod
-    def is_applicable(args, attr):
-        tp_hybrid, reaction = args
-        for monomer in tp_hybrid['peptide']['monomers']:
-            side_chain = monomer['side_chain']
-            if side_chain is None or isinstance(side_chain, str):
-                continue
-            if side_chain[attr] == reaction['side_chain'][attr]:
-                return True
-
-        return False
 
     @staticmethod
     def apply_reaction(tp_hybrid, reaction):
@@ -1413,4 +1458,22 @@ class MacrocycleGenerator(Base):
                 results[binary] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
 
         return NewMacrocycles(results, tp_hybrid, reaction)
+
+    @staticmethod
+    def is_applicable(args, attr):
+
+        tp_hybrid, reaction = args
+        if attr in ('parent_side_chain', 'conn_atom_idx'):
+            for monomer in tp_hybrid['peptide']['monomers']:
+                side_chain = monomer['side_chain']
+                if side_chain is None or isinstance(side_chain, str):
+                    continue
+                if side_chain[attr] == reaction['side_chain'][attr]:
+                    return True
+        else:
+            if tp_hybrid[attr] == reaction[attr]:
+                return True
+
+        return False
+
 

@@ -324,7 +324,7 @@ class MongoDataBase():
         num_docs = len(docs)
 
         # get _ids, kekule, and messages from documents that caused the error
-        err_ids, err_smiles, err_msg, failed_val, too_large = [], [], [], 0, 0
+        err_ids, err_smiles, err_msg, err_op, failed_val, too_large = [], [], [], [], 0, 0
         for error in err.details['writeErrors']:
             if error['code'] == 121:    # document failed validation
                 failed_val += 1
@@ -334,6 +334,7 @@ class MongoDataBase():
                 err_ids.append(error['op']['_id'])
                 err_smiles.append(error['op'][field])
                 err_msg.append(error['errmsg'])
+                err_op.append(error['op'])
 
         if failed_val != 0:
             self.logger.error(f'{failed_val}/{num_docs} document failed validation!')
@@ -346,10 +347,17 @@ class MongoDataBase():
 
         # report error only if duplicate is not a natural amino acid
         count = 0
-        for doc, msg in zip(self[collection].find({field: {'$in': list(err_smiles)}}), err_msg):
+        for err_doc, msg in zip(err_op, err_msg):
+            doc = self[collection].find_one({field: err_doc[field]})
+            if doc is None:
+                self.logger.error(f'Duplicates exist in the data set you are trying to insert! {err_doc}')
+                return False
             if doc['group'] not in ('D-natural', 'L-natural'):
-                self.logger.exception(f'Failed to save document due to duplicate: {doc}\n{msg}')
+                self.logger.error(f'Failed to save document due to duplicate: {doc}\n{msg}')
                 count += 1
+            else:
+                # doc['side_chain'] = err_doc['side_chain']
+                self[collection].update_one({'_id': doc['_id']}, {'$set': {'side_chain': err_doc['side_chain']}})
 
         # get _ids of successfully inserted documents
         if ordered:
@@ -486,9 +494,9 @@ class Base():
         try:
             data = self.mongo_db[collection].find(query, projection)
         except TypeError:
-            self.logger.exception(f'Failed to load the data in collection {collection} on {self.mongo_db}')
+            self.logger.exception(f'Failed to load the data in collection \'{collection}\' on {self.mongo_db}')
         else:
-            self.logger.info(f'Successfully loaded {data.count()} data points from collection {collection} on '
+            self.logger.info(f'Successfully loaded {data.count()} data points from collection \'{collection}\' on '
                              f'{self.mongo_db}')
             return data
 
