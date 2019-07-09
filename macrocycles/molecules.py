@@ -5,7 +5,7 @@ email: edang830@gmail.com
 """
 
 from logging import INFO
-from collections import ChainMap, namedtuple, deque
+from collections import ChainMap, namedtuple, deque, Counter
 from copy import deepcopy
 from rdkit import Chem
 from rdkit.Chem import Draw
@@ -15,7 +15,7 @@ from bson import json_util
 from itertools import cycle, chain, islice, product
 from functools import partial
 import multiprocessing
-from random import sample
+from random import sample, seed
 from pprint import pprint
 import numpy as np
 from time import time
@@ -974,6 +974,7 @@ class PeptideGenerator(Base):
             if num_peptides:
                 if random:
                     self.monomers = list(self.monomers)
+                    seed(time())
                     monomers = [sample(self.monomers, length) for i in range(num_peptides)]
                 else:
                     monomers = islice(product(self.monomers, repeat=length), num_peptides)
@@ -1012,7 +1013,9 @@ class PeptideGenerator(Base):
             count = 0
             results = []
             for monomers in monomer_ids:
+                counts = Counter(monomers)
                 monomers = self.from_mongo(params['col_monomers'], {'type': 'monomer', '_id': {'$in': monomers}})
+                monomers = [monomer for monomer in monomers for i in range(counts[monomer['_id']])]
                 peptide, monomers = PeptideGenerator.create_peptide(monomers)
                 if None in (peptide, monomers):
                     count = 0
@@ -1575,8 +1578,7 @@ class ConformerGenerator(Base):
             non_converged_confs = np.array(conf_ids)[np.nonzero(convergence)]
             #TODO: implement it such that only nonconverged confs are reoptimized
             if len(non_converged_confs):
-                print('enetered')
-                max_iters += 100
+                max_iters += 50
             else:
                 break
 
