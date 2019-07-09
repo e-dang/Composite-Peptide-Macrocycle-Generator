@@ -27,3 +27,9 @@ class DataNotFoundError(Exception):
     """
     Raised when the MongoDataBase returns an empty result.
     """
+
+
+class MergeError(Exception):
+    """
+    Raised when merging of two molecules fails.
+    """

@@ -21,7 +21,7 @@ import numpy as np
 from time import time
 import os
 
-from macrocycles.exceptions import MissingMapNumberError, AtomSearchError, DataNotFoundError
+from macrocycles.exceptions import MissingMapNumberError, AtomSearchError, DataNotFoundError, MergeError
 from macrocycles.utils import Base, create_logger, read_mols, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges
 import macrocycles.config as config
 
@@ -678,12 +678,13 @@ class SideChainGenerator(Base):
 
             # merge parent side chain with conenction and record results
             try:
-                side_chain = Base.merge(parent_mol, conn_mol, config.PSC_MAP_NUM, config.CONN_MAP_NUM)
-            except ValueError:
+                # side_chain = Base.merge(parent_mol, conn_mol, config.PSC_MAP_NUM, config.CONN_MAP_NUM)
+                side_chain = Base.merge(parent_mol, conn_mol)
+            except (ValueError, MergeError) as error:
                 if logger:
-                    logger.exception(f'Sanitize error! Parent Side Chain: {Chem.MolToSmiles(parent_mol)}')
+                    logger.exception(f'Parent Side Chain: {Chem.MolToSmiles(parent_mol)}')
                 else:
-                    print('error')
+                    print(error)
             else:
                 atom.SetAtomMapNum(0)
                 binary = side_chain.ToBinary()
@@ -878,7 +879,7 @@ class MonomerGenerator(Base):
 
             # connect monomer and backbone
             try:
-                monomer = Base.merge(sc_mol, bb_mol, config.SC_MAP_NUM, config.BB_MAP_NUM, stereo)
+                monomer = Base.merge(sc_mol, bb_mol, stereo=stereo)
             except ValueError:
                 if logger:
                     logger.exception(f'Sanitize Error! Side Chain: {Chem.MolToSmiles(sc_mol)}, '
@@ -1088,7 +1089,7 @@ class PeptideGenerator(Base):
 
             # connect peptide and monomer
             try:
-                peptide = Base.merge(peptide, monomer_mol, config.PEP_CARBON_MAP_NUM, config.MONO_NITROGEN_MAP_NUM)
+                peptide = Base.merge(peptide, monomer_mol)
             except ValueError:
                 if logger:
                     logger.exception(f'Sanitize Error! monomer = {Chem.MolToSmiles(monomer_mol)}, '
@@ -1309,7 +1310,7 @@ class TPHybridGenerator(Base):
 
             # combine and record results
             try:
-                tp_hybrid = Base.merge(temp_mol, pep_mol, config.TEMP_CARBON_MAP_NUM, config.PEP_NITROGEN_MAP_NUM)
+                tp_hybrid = Base.merge(temp_mol, pep_mol)
             except ValueError:
                 if logger:
                     logger.exception(f'Sanitize Error! template = {Chem.MolToSmiles(temp_mol)}, '

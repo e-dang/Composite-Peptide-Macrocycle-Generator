@@ -30,8 +30,8 @@ class Reaction():
         self.side_chain = side_chain
         self.template = template
         self.reacting_atom = reacting_atom
-        self.product = utils.Base.merge(side_chain, template, config.SC_EAS_MAP_NUM,
-                                        config.TEMP_EAS_MAP_NUM, clear_map_nums=False) if self else None
+        self.product = utils.Base.merge(side_chain, template, ignored_map_nums=[
+                                        config.TEMP_WILDCARD_MAP_NUM, config.SC_WILDCARD_MAP_NUM], clear_map_nums=False) if self else None
 
     def __repr__(self):
         return 'name: {self.name}\nside_chain: {self.side_chain}\ntemplate: {self.template}\nproduct:{self.product}\n'

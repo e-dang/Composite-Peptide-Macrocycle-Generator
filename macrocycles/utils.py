@@ -9,6 +9,7 @@ from pymongo import MongoClient, errors
 import macrocycles.config as config
 from rdkit.Chem import Draw
 from pprint import pprint
+from macrocycles.exceptions import MergeError
 
 
 class CustomFormatter(logging.Formatter):
@@ -503,7 +504,7 @@ class Base():
         return None
 
     @staticmethod
-    def merge(mol1, mol2, map_num1, map_num2, stereo=None, clear_map_nums=True):
+    def merge(*mols, ignored_map_nums=[], stereo=None, clear_map_nums=True):
         """
         Static method for merging two molecules at the specified atoms, and updating the hydrogen counts as needed. Atom
         map numbers should not be the same for both molecules.
@@ -518,51 +519,60 @@ class Base():
             rdkit Mol: The resulting molecule from combining mol1 and mol2 at the specified atoms.
         """
 
-        def update_hydrogen_counts(atom, clear_map_nums):
-            """
-            Inner method for clearing the atom map number and updating hydrogen counts.
-
-            Args:
-                atom (rdkit Atom): The atom from a molecule that is going to form a bond with an atom from another
-                    molecule.
-
-            Returns:
-                rdkit Atom: The reformatted atom.
-            """
-
-            if clear_map_nums:
-                atom.SetAtomMapNum(0)
-
-            if atom.GetSymbol() in ['N', 'O', 'S']:
-                atom.SetNumExplicitHs(0)
-            elif atom.GetSymbol() == 'C' and atom.GetNumExplicitHs() != 0:
-                atom.SetNumExplicitHs(atom.GetTotalNumHs() - 1)
-
-            return atom
+        if len(mols) < 1 or len(mols) > 2:
+            raise MergeError('Can only merge 1 or 2 molecules at a time.')
 
         # find atoms that will form a bond together and update hydrogen counts
-        combo = Chem.RWMol(Chem.CombineMols(mol1, mol2))
+        combo, *mols = mols
+        for mol in mols:
+            combo = Chem.CombineMols(combo, mol)
+
+        # find atoms that will form a bond together and update hydrogen counts
+        combo = Chem.RWMol(combo)
         Chem.SanitizeMol(combo)
-        for atom in combo.GetAtoms():
-            if atom.GetAtomMapNum() == map_num1:
-                mol1_atom = update_hydrogen_counts(atom, clear_map_nums)
-            elif atom.GetAtomMapNum() == map_num2:
-                mol2_atom = update_hydrogen_counts(atom, clear_map_nums)
+        try:
+            atom1, atom2 = [Base.update_hydrogen_counts(atom, clear_map_nums)
+                            for atom in combo.GetAtoms() if atom.GetAtomMapNum() and atom.GetAtomMapNum() not in ignored_map_nums]
+        except ValueError:
+            raise MergeError('There must be exactly 2 map numbers across all molecules.')
 
         # create bond, remove hydrogens, and sanitize
-        combo.AddBond(mol1_atom.GetIdx(), mol2_atom.GetIdx(), order=Chem.rdchem.BondType.SINGLE)
+        combo.AddBond(atom1.GetIdx(), atom2.GetIdx(), order=Chem.rdchem.BondType.SINGLE)
         Chem.rdmolops.RemoveHs(combo)
         Chem.SanitizeMol(combo)
 
         # add stereochemistry as specified
-        stereo_center = mol1_atom if mol1_atom.GetHybridization() == Chem.rdchem.HybridizationType.SP3 and \
-            mol1_atom.GetTotalNumHs() != 2 else mol2_atom
+        stereo_center = atom1 if atom1.GetHybridization() == Chem.rdchem.HybridizationType.SP3 and \
+            atom1.GetTotalNumHs() != 2 else atom2
         if stereo == 'CCW':
             stereo_center.SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW)
         elif stereo == 'CW':
             stereo_center.SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW)
 
         return Chem.MolFromSmiles(Chem.MolToSmiles(combo))
+
+    @staticmethod
+    def update_hydrogen_counts(atom, clear_map_nums):
+        """
+        Inner method for clearing the atom map number and updating hydrogen counts.
+
+        Args:
+            atom (rdkit Atom): The atom from a molecule that is going to form a bond with an atom from another
+                molecule.
+
+        Returns:
+            rdkit Atom: The reformatted atom.
+        """
+
+        if clear_map_nums:
+            atom.SetAtomMapNum(0)
+
+        if atom.GetSymbol() in ['N', 'O', 'S']:
+            atom.SetNumExplicitHs(0)
+        elif atom.GetSymbol() == 'C' and atom.GetNumExplicitHs() != 0:
+            atom.SetNumExplicitHs(atom.GetTotalNumHs() - 1)
+
+        return atom
 
 
 def read_mols(filepath=None, verbose=False):
