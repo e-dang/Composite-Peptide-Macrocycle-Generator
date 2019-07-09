@@ -250,6 +250,17 @@ RG_DEFAULTS = {
     }
 }
 
+####################################### RegioSQMFilter #######################################
+RSQM_DEFAULTS = {
+    'inputs': {
+        'col_filters': COL3,
+        'col_macrocycles': COL1
+    },
+    'outputs': {
+        'col_filtered': COL1
+    }
+}
+
 ####################################### DEFAULT #######################################
 DEFAULTS = {
     'DataInitializer': DI_DEFAULTS,
@@ -259,5 +270,6 @@ DEFAULTS = {
     'TPHybridGenerator': TPHG_DEFAULTS,
     'MacrocycleGenerator': MCG_DEFAULTS,
     'ConformerGenerator': CG_DEFAULTS,
-    'ReactionGenerator': RG_DEFAULTS
+    'ReactionGenerator': RG_DEFAULTS,
+    'RegioSQMFilter': RSQM_DEFAULTS
 }
