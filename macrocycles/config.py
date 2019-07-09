@@ -216,6 +216,7 @@ TPHG_DEFAULTS = {
         'col_tp_hybrids': COL1
     }
 }
+
 ####################################### MacrocycleGenerator #######################################
 MCG_DEFAULTS = {
     'inputs': {
@@ -224,6 +225,17 @@ MCG_DEFAULTS = {
     },
     'outputs': {
         'col_macrocycles': COL1
+    }
+}
+
+####################################### ConformerGenerator #######################################
+CG_DEFAULTS = {
+    'inputs': {
+        'col_macrocycles': COL1,
+    },
+    'outputs': {
+        'col_conformers': COL1,
+        'fp_conformers': os.path.join(DATA_DIR, 'conformers')
     }
 }
 
@@ -246,5 +258,6 @@ DEFAULTS = {
     'PeptideGenerator': PG_DEFAULTS,
     'TPHybridGenerator': TPHG_DEFAULTS,
     'MacrocycleGenerator': MCG_DEFAULTS,
+    'ConformerGenerator': CG_DEFAULTS,
     'ReactionGenerator': RG_DEFAULTS
 }

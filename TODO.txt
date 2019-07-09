@@ -27,4 +27,8 @@
 
 - In nested fields in mongodb documents, only keep useful data such as _id and the binary.
 - Add in starter data for natural amino acid side chains so that they can reference parent side chain docs with connection atom
-    indices. this is necessary for macrocycle generation.
+    indices. this is necessary for macrocycle generation. Could also try to change query process when identifying which reactions to
+    apply to a macrocycle so that it only looks at the side chain's minimum substructure (i.e. methyl variant), would need to
+    add fields to each type of document that contained the methyl variant's kekule strucutre.
+- apply molecular weight filter to each step above monomer generation
+- apply pka filter

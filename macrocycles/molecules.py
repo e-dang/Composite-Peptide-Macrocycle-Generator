@@ -5,7 +5,7 @@ email: edang830@gmail.com
 """
 
 from logging import INFO
-from collections import ChainMap, namedtuple
+from collections import ChainMap, namedtuple, deque
 from copy import deepcopy
 from rdkit import Chem
 from rdkit.Chem import Draw
@@ -17,6 +17,9 @@ from functools import partial
 import multiprocessing
 from random import sample
 from pprint import pprint
+import numpy as np
+from time import time
+import os
 
 from macrocycles.exceptions import MissingMapNumberError, AtomSearchError, DataNotFoundError
 from macrocycles.utils import Base, create_logger, read_mols, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges
@@ -1476,4 +1479,130 @@ class MacrocycleGenerator(Base):
 
         return False
 
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
+NewConformers = namedtuple('NewConformers', 'macrocycle_doc macrocycle_mol conf_ids energy rms')
+
+class ConformerGenerator(Base):
+
+    _defaults = config.DEFAULTS['ConformerGenerator']
+
+    def __init__(self, logger=LOGGER, make_db_connection=True):
+
+        # I/O
+        super().__init__(logger, make_db_connection)
+
+        # data
+        self.macrocycles = []
+
+    def save_data(self, mongo=True, pdb=False):
+
+        try:
+            params = self._defaults['outputs']
+            for conformer in self.result_data:
+                _id = conformer['_id']
+                if pdb:
+                    Chem.MolToPDBFile(Chem.Mol(conformer['binary']), os.path.join(params['fp_conformers'], _id + '.pdb'))
+                if mongo:
+                    del conformer['_id']
+                    update = {'$set': {'conformer': conformer}}
+                    self.mongo_db[params['col_conformers']].find_one_and_update({'_id': _id}, update)
+        except Exception:
+            raise
+        else:
+            return True
+
+        return False
+
+    def load_data(self):
+
+        try:
+            params = self._defaults['inputs']
+            self.macrocycles = list(self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'})) #, 'regio_filter': True})
+        except Exception:
+            raise
+        else:
+            return True
+
+        return False
+
+    def generate(self, num_confs=10, rms_threshold=0.5, seed=-1, max_iters=1000, d_min=0.35):
+        try:
+            embed_func = partial(ConformerGenerator.embed_conformers, num_confs=num_confs, rms_threshold=rms_threshold, seed=seed)
+            optimize_func = partial(ConformerGenerator.optimize_conformers, max_iters=max_iters, d_min=d_min)
+            with multiprocessing.Pool() as pool:
+                embed_result = pool.map_async(embed_func, self.macrocycles)
+                optimize_result = pool.starmap_async(optimize_func, embed_result.get())
+                for macrocycle, conf_ids, energy, rms, _id in optimize_result.get():
+                    self.accumulate_data(macrocycle, conf_ids, energy, rms, _id)
+        except Exception:
+            raise
+        else:
+            return True
+
+        return False
+
+    def accumulate_data(self, macrocycle, conf_ids, energy, rms, _id):
+
+        doc = {
+            '_id': _id,
+            'binary': macrocycle.ToBinary(),
+            'conf_ids': conf_ids,
+            'energy': energy,
+            'rms': rms,
+            'avg_rms': round(np.average(rms), 3)
+        }
+        self.result_data.append(doc)
+
+    @staticmethod
+    def embed_conformers(macrocycle, num_confs=50, seed=-1, rms_threshold=0.5):
+
+        macro_mol = Chem.Mol(macrocycle['binary'])
+        macro_mol = Chem.AddHs(macro_mol)
+        conf_ids = AllChem.EmbedMultipleConfs(macro_mol, numConfs=num_confs, randomSeed=seed, pruneRmsThresh=rms_threshold, numThreads=0)
+
+        return macro_mol, list(conf_ids), macrocycle['_id']
+
+    @staticmethod
+    def optimize_conformers(macrocycle, conf_ids, _id, max_iters=1000, d_min=0.35):
+
+        start = time()
+        while time() - start < 300: # 5 minutes
+            convergence, energy = zip(*AllChem.MMFFOptimizeMoleculeConfs(macrocycle, maxIters=max_iters, numThreads=0))
+            non_converged_confs = np.array(conf_ids)[np.nonzero(convergence)]
+            #TODO: implement it such that only nonconverged confs are reoptimized
+            if len(non_converged_confs):
+                print('enetered')
+                max_iters += 100
+            else:
+                break
+
+        sorted_confs = deque(sorted(zip(energy, conf_ids), key=lambda x: x[0]))
+        sorted_confs = ConformerGenerator.ebejer_algorithm(macrocycle, sorted_confs, max_iters, d_min)
+        energy, conf_ids = zip(*sorted_confs)
+
+        rms = []
+        AllChem.AlignMolConformers(macrocycle, confIds=conf_ids, maxIters=max_iters, RMSlist=rms)
+
+        return NewConformers(macrocycle, conf_ids, energy, rms, _id)
+
+    @staticmethod
+    def ebejer_algorithm(macrocycle, confs, max_iters=1000, d_min=0.35):
+
+        # store lowest energy conformer and remove from list of conformers
+        keep = deque()
+        keep.append(confs.popleft())
+
+        while confs:
+            conf = confs[0]
+            for keep_conf in keep:
+                rms = AllChem.AlignMol(macrocycle, macrocycle, prbCid=conf[1], refCid=keep_conf[1], maxIters=max_iters)
+                if rms < d_min:
+                    confs.popleft()
+                    break
+            else:
+                keep.append(confs.popleft())
+
+        return keep
