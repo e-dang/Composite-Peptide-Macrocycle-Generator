@@ -7,6 +7,7 @@ from pymongo import ASCENDING
 PROJECT_DIR = os.environ['PROJECT_DIR']
 DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
+TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 
 ################################################ Globals ################################################
 CAPACITY = 500000000
@@ -235,7 +236,9 @@ CG_DEFAULTS = {
     },
     'outputs': {
         'col_conformers': COL1,
-        'fp_conformers': os.path.join(DATA_DIR, 'conformers')
+        'fp_conformers': os.path.join(DATA_DIR, 'conformers'),
+        'tmp_molecule': os.path.join(TMP_DIR, 'conf_macrocycle.sdf'),
+        'tmp_genetic_results': os.path.join(TMP_DIR, 'genetic_results.sdf')
     }
 }
 

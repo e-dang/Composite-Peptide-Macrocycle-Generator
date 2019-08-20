@@ -4,6 +4,7 @@ from rdkit import Chem
 import os
 import inspect
 import logging
+from itertools import islice
 import logging.handlers
 from pymongo import MongoClient, errors
 import macrocycles.config as config
@@ -601,6 +602,23 @@ def read_mols(filepath=None, verbose=False):
     return mols
 
 
+def write_mol(mol, filepath, conf_id=None):
+    if filepath.split('.')[-1] != 'sdf':
+        print('Error needs to be sdf file')
+
+    writer = Chem.SDWriter(filepath)
+    if conf_id is None:
+        writer.write(mol)
+    elif conf_id == -1:
+        for conf in mol.GetConformers():
+            writer.write(mol, confId=conf.GetId())
+    else:
+        writer.write(mol, confId=conf_id)
+    writer.close()
+
+    return True
+
+
 def get_user_approval(question):
 
     while True:
@@ -643,3 +661,15 @@ def atom_to_wildcard(atom):
 def ranges(total, chunks):
     step = total / chunks
     return [(round(step*i), round(step*(i+1))) for i in range(chunks)]
+
+
+def window(iterable, window_size):
+    "Returns a sliding window (of width n) over data from the iterable"
+    "   s -> (s0,s1,...s[n-1]), (s1,s2,...,sn), ...                   "
+    it = iter(iterable)
+    result = tuple(islice(it, window_size))
+    if len(result) == window_size:
+        yield result
+    for elem in it:
+        result = result[1:] + (elem,)
+        yield result

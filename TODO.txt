@@ -32,3 +32,5 @@
     add fields to each type of document that contained the methyl variant's kekule strucutre.
 - apply molecular weight filter to each step above monomer generation
 - apply pka filter
+- try eliminating stereochemistry until after macrocycle generation. Could yield much faster performance.
+- Look into website http://www.openmolecules.org/index.html datawarrior and torsionexplorer
