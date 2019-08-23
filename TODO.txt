@@ -34,3 +34,4 @@
 - apply pka filter
 - try eliminating stereochemistry until after macrocycle generation. Could yield much faster performance.
 - Look into website http://www.openmolecules.org/index.html datawarrior and torsionexplorer
+- Add to_json and from_json functions to all generator classes for use on the hoffman cluster

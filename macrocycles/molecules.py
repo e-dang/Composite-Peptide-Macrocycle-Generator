@@ -1358,10 +1358,16 @@ class MacrocycleGenerator(Base):
         self.tp_hybrids = []
         self.reactions = []
 
-    def save_data(self):
+    def save_data(self, to_mongo=True, to_json=False):
 
         params = self._defaults['outputs']
-        return self.to_mongo(params['col_macrocycles'])
+        if to_mongo:
+            self.to_mongo(params['col_macrocycles'])
+        if to_json:
+            with open(params['json_macrocycles'], 'w') as file:
+                json.dump(json.loads(json_util.dumps(self.result_data)), file)
+
+        return True
 
     def load_data(self):
         """
@@ -1504,22 +1510,33 @@ class ConformerGenerator(Base):
         # data
         self.macrocycles = []
 
-    def save_data(self, mongo=True, pdb=False):
+    def save_data(self, to_mongo=True, to_pdb=False, to_json=False):
 
         try:
             params = self._defaults['outputs']
             for macrocycle in self.result_data:
                 _id = macrocycle['_id']
-                if pdb:
+                if to_pdb:
                     Chem.MolToPDBFile(Chem.Mol(macrocycle['binary']), os.path.join(params['fp_conformers'], _id + '.pdb'))
-                if mongo:
+                if to_mongo:
                     self.mongo_db[params['col_conformers']].find_one_and_replace({'_id': _id}, macrocycle)
+            if to_json:
+                with open(params['json_conformers'], 'w') as file:
+                    json.dump(json.loads(json_util.dumps(self.result_data)), file)
         except Exception:
             raise
         else:
             return True
 
         return False
+
+    def from_json(self):
+
+        params = self._defaults['inputs']
+        with open(params['json_macrocycles'], 'r') as file:
+            self.macrocycles = json_util.loads(json_util.dumps(json.load(file)))
+
+        return True
 
     def load_data(self):
 
@@ -1595,7 +1612,7 @@ class ConformerGenerator(Base):
     def conformation_search(macrocycle, repeats=5, num_confs_genetic=50, num_confs_keep=5, force_field='MMFF94s',
                             score='energy', min_rmsd=0.5, energy_diff=5, max_iters=1000, ring_size=10, granularity=5,
                             clash_threshold=0.9, distance_interval=[1.0, 2.5], seed=-1, num_embed_tries=5):
-
+        start = time()
         storage_mol = Chem.Mol(macrocycle['binary'])
 
 
@@ -1683,7 +1700,7 @@ class ConformerGenerator(Base):
 
         # remove temporary files
         ConformerGenerator.cleanup()
-
+        print(f'TIME:{time() - start}')
         return NewConformers(macrocycle, opt_macrocycle, energies, rms, ring_rms)
 
     @staticmethod

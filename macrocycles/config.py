@@ -143,7 +143,7 @@ COL4_VALIDATOR = {
 }
 VALIDATORS = [COL1_VALIDATOR, COL2_VALIDATOR, COL3_VALIDATOR, COL4_VALIDATOR]
 
-COL1_INDEX = [[('binary', ASCENDING)], [('kekule', ASCENDING)]]
+COL1_INDEX = [[('kekule', ASCENDING)]]
 COL2_INDEX = [[('smarts', ASCENDING)]]
 # COL3_INDEX = [('_id', ASCENDING)]
 # COL4_INDEX = [('_id', ASCENDING)]
@@ -225,7 +225,8 @@ MCG_DEFAULTS = {
         'col_reactions': COL2
     },
     'outputs': {
-        'col_macrocycles': COL1
+        'col_macrocycles': COL1,
+        'json_macrocycles': os.path.join(DATA_DIR, 'macrocycles.json')
     }
 }
 
@@ -233,9 +234,11 @@ MCG_DEFAULTS = {
 CG_DEFAULTS = {
     'inputs': {
         'col_macrocycles': COL1,
+        'json_macrocycles': MCG_DEFAULTS['outputs']['json_macrocycles']
     },
     'outputs': {
         'col_conformers': COL1,
+        'json_conformers': os.path.join(DATA_DIR, 'conformers', 'conformers.json'),
         'fp_conformers': os.path.join(DATA_DIR, 'conformers'),
         'tmp_molecule': os.path.join(TMP_DIR, 'conf_macrocycle.sdf'),
         'tmp_genetic_results': os.path.join(TMP_DIR, 'genetic_results.sdf')
