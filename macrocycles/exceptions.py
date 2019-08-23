@@ -33,3 +33,10 @@ class MergeError(Exception):
     """
     Raised when merging of two molecules fails.
     """
+
+
+class FailedEmbeddingError(Exception):
+    """
+    Raise when embedding a molecule for conformation generation using ETKDGv2 parameters and random coordinates both
+    fail to produce a starting conformation.
+    """

@@ -22,7 +22,7 @@ from time import time
 import os
 import sys
 
-from macrocycles.exceptions import MissingMapNumberError, AtomSearchError, DataNotFoundError, MergeError
+from macrocycles.exceptions import MissingMapNumberError, AtomSearchError, DataNotFoundError, MergeError, FailedEmbeddingError
 from macrocycles.utils import Base, create_logger, read_mols, write_mol, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges, window
 import macrocycles.config as config
 
@@ -1435,7 +1435,8 @@ class MacrocycleGenerator(Base):
                 'tp_hybrid': tp_hybrid['_id'],
                 'reaction': {'_id': reaction['_id'],
                              'side_chain': sc_id,
-                             'rxn_atom_idx': rxn_idx}
+                             'rxn_atom_idx': rxn_idx},
+                'has_confs': False
             }
             self.result_data.append(doc)
 
@@ -1507,14 +1508,12 @@ class ConformerGenerator(Base):
 
         try:
             params = self._defaults['outputs']
-            for conformer in self.result_data:
-                _id = conformer['_id']
+            for macrocycle in self.result_data:
+                _id = macrocycle['_id']
                 if pdb:
-                    Chem.MolToPDBFile(Chem.Mol(conformer['binary']), os.path.join(params['fp_conformers'], _id + '.pdb'))
+                    Chem.MolToPDBFile(Chem.Mol(macrocycle['binary']), os.path.join(params['fp_conformers'], _id + '.pdb'))
                 if mongo:
-                    del conformer['_id']
-                    update = {'$set': {'conformer': conformer}}
-                    self.mongo_db[params['col_conformers']].find_one_and_update({'_id': _id}, update)
+                    self.mongo_db[params['col_conformers']].find_one_and_replace({'_id': _id}, macrocycle)
         except Exception:
             raise
         else:
@@ -1526,7 +1525,7 @@ class ConformerGenerator(Base):
 
         try:
             params = self._defaults['inputs']
-            self.macrocycles = list(self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'})) #, 'regio_filter': True})
+            self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'}) #, 'regio_filter': True})
         except Exception:
             raise
         else:
@@ -1534,15 +1533,19 @@ class ConformerGenerator(Base):
 
         return False
 
-    def generate(self, num_confs=1000, rms_threshold=1, seed=-1, max_iters=1000, d_min=0.35):
+    def generate(self, repeats=5, num_confs_genetic=50, num_confs_keep=5, force_field='MMFF94s', score='energy',
+                min_rmsd=0.5, energy_diff=5, max_iters=1000, ring_size=10, granularity=5, clash_threshold=0.9,
+                distance_interval=[1.0, 2.5], seed=-1, num_embed_tries=5):
+
+        kwargs = locals()
+        del kwargs['self']
+
         try:
-            embed_func = partial(ConformerGenerator.embed_conformers, num_confs=num_confs, rms_threshold=rms_threshold, seed=seed)
-            optimize_func = partial(ConformerGenerator.optimize_conformers, max_iters=max_iters, d_min=d_min)
+            conf_search = partial(ConformerGenerator.conformation_search, **kwargs)
             with multiprocessing.Pool() as pool:
-                embed_result = pool.map_async(embed_func, self.macrocycles)
-                optimize_result = pool.starmap_async(optimize_func, embed_result.get())
-                for macrocycle, conf_ids, energy, rms, _id in optimize_result.get():
-                    self.accumulate_data(macrocycle, conf_ids, energy, rms, _id)
+                conf_results = pool.map_async(conf_search, self.macrocycles)
+                for macro_doc, macro_mol, energies, rms, ring_rms in conf_results.get():
+                    self.accumulate_data(macro_doc, macro_mol, energies, rms, ring_rms)
         except Exception:
             raise
         else:
@@ -1550,14 +1553,20 @@ class ConformerGenerator(Base):
 
         return False
 
-    def generate_serial(self, num_confs=10, rms_threshold=0.5, seed=-1, max_iters=1000, d_min=0.35):
+    def generate_from_ids(self, macrocycle_ids, repeats=5, num_confs_genetic=50, num_confs_keep=5, force_field='MMFF94s', score='energy',
+                        min_rmsd=0.5, energy_diff=5, max_iters=1000, ring_size=10, granularity=5, clash_threshold=0.9,
+                        distance_interval=[1.0, 2.5], seed=-1, num_embed_tries=5):
+        kwargs = locals()
+        del kwargs['self']
+        del kwargs['macrocycle_ids']
 
         try:
+            params = self._defaults['inputs']
+            self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle', '_id': {'$in': macrocycle_ids}})
+
             for macrocycle in self.macrocycles:
-                return ConformerGenerator.conformation_search(macrocycle, energy_diff=5)
-                # tup = ConformerGenerator.embed_conformers(macrocycle, num_confs, seed, rms_threshold)
-                # result = ConformerGenerator.optimize_conformers(*tup, max_iters=max_iters, d_min=d_min)
-                # self.accumulate_data(result.macrocycle_doc, result.macrocycle_mol, result.conf_ids, result.energy, result.rms)
+                macro_doc, macro_mol, energies, rms, ring_rms = ConformerGenerator.conformation_search(macrocycle, **kwargs)
+                self.accumulate_data(macro_doc, macro_mol, energies, rms, ring_rms)
         except Exception:
             raise
         else:
@@ -1565,12 +1574,12 @@ class ConformerGenerator(Base):
 
         return False
 
-    def accumulate_data(self, macrocycle, conf_ids, energy, rms, _id):
+    def accumulate_data(self, macro_doc, macro_mol, energies, rms, ring_rms):
 
         doc = {
-            '_id': _id,
-            'binary': macrocycle.ToBinary(),
-            'num_confs': num_confs,
+            'binary': macro_mol.ToBinary(),
+            'has_confs': True,
+            'num_confs': macro_mol.GetNumConformers(),
             'energies': energies,
             'rms': rms,
             'ring_rms': ring_rms,
@@ -1578,12 +1587,14 @@ class ConformerGenerator(Base):
             'avg_rms': round(np.average(rms), 3),
             'avg_ring_rms': round(np.average(ring_rms), 3)
         }
-        self.result_data.append(doc)
+        macro_doc.update(doc)
+
+        self.result_data.append(macro_doc)
 
     @staticmethod
     def conformation_search(macrocycle, repeats=5, num_confs_genetic=50, num_confs_keep=5, force_field='MMFF94s',
                             score='energy', min_rmsd=0.5, energy_diff=5, max_iters=1000, ring_size=10, granularity=5,
-                            clash_threshold=0.9, distance_interval=[1.0, 2.5], seed=-1):
+                            clash_threshold=0.9, distance_interval=[1.0, 2.5], seed=-1, num_embed_tries=5):
 
         storage_mol = Chem.Mol(macrocycle['binary'])
 
@@ -1597,8 +1608,6 @@ class ConformerGenerator(Base):
         # for each cleavable bond, perform algorithm
         opt_energies = {}
         min_energy = None
-        params = AllChem.ETKDGv2()
-        params.numThreads = 0
         for bond in cleavable_bonds:
 
             # cleave the bond and update the dihedral list
@@ -1612,16 +1621,21 @@ class ConformerGenerator(Base):
             opt_linear_rotamers = []
             for i in range(repeats):
                 rotamers = deepcopy(linear_mol)
-                params.randomSeed = int(time()) if seed == -1 else seed
-                while AllChem.EmbedMolecule(rotamers, params=params) < 0: params.randomSeed = int(time())
-                ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
-                rotamers = ConformerGenerator.genetic_algorithm(rotamers, num_confs=num_confs_genetic, score=score)
-                energies = ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
-                opt_linear_rotamers.extend(ConformerGenerator.optimize_linear_rotamers(rotamers,
-                                           int(np.argmin(energies)), new_dihedrals, cleaved_info.cleaved_atom1,
-                                           cleaved_info.cleaved_atom2, num_confs_keep, granularity, min_rmsd,
-                                           clash_threshold, distance_interval, max_iters))
-
+                try:
+                    ConformerGenerator.embed_molecule(rotamers, seed, max_iters, num_embed_tries)
+                    ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
+                    rotamers = ConformerGenerator.genetic_algorithm(rotamers, num_confs=num_confs_genetic, score=score)
+                    energies = ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
+                    opt_linear_rotamers.extend(ConformerGenerator.optimize_linear_rotamers(rotamers,
+                                            int(np.argmin(energies)), new_dihedrals, cleaved_info.cleaved_atom1,
+                                            cleaved_info.cleaved_atom2, num_confs_keep, granularity, min_rmsd,
+                                            clash_threshold, distance_interval, max_iters))
+                except ValueError as err:
+                    print(err)
+                    print('pid', os.getpid())
+                    print('old_smiles', old_smiles)
+                    print('value error happened here1')
+                    exit()
             # add best resulting rotamers to mol
             for optimized_linear in opt_linear_rotamers:
                 linear_mol.AddConformer(optimized_linear, assignId=True)
@@ -1635,20 +1649,26 @@ class ConformerGenerator(Base):
             try:
                 # optimize macrocycle and filter out conformers
                 energies = ConformerGenerator.optimize_conformers(macro_mol, force_field, max_iters)
-                ConformerGenerator.filter_conformers(macro_mol, energies, min_energy, energy_diff)
+                ConformerGenerator.filter_conformers(macro_mol, energies, energy_diff=energy_diff)
                 mols = [ConformerGenerator.genetic_algorithm(macro_mol, conf_id=i, num_confs=num_confs_genetic,
                                                              score=score) for i in range(macro_mol.GetNumConformers())]
                 macro_mol = ConformerGenerator.aggregate_conformers(mols)
                 energies = ConformerGenerator.optimize_conformers(macro_mol, force_field, max_iters)
-                ConformerGenerator.filter_conformers(macro_mol, energies, min_energy, energy_diff)
+
 
                 # compare newly generated conformers to optimum conformers and if it is valid then add it to the list of
                 # optimum conformers
-                ConformerGenerator.evaluate_conformers(macro_mol, energies, storage_mol, opt_energies,
+                min_energy = ConformerGenerator.get_lowest_energy(energies, min_energy)
+                ConformerGenerator.evaluate_conformers(macro_mol, energies, storage_mol, opt_energies, min_energy, energy_diff,
                                                        min_rmsd, max_iters)
-                min_energy = min(opt_energies.values())
             except IndexError:  # number of conformers after filtering is 0
                 continue
+            except ValeuError as err:
+                print(err)
+                print('pid', os.getpid())
+                print('old_smiles', old_smiles)
+                print('value error happened here2')
+                exit()
 
         # add conformers to opt_macrocycle in order of increasing energy
         energies, rms, ring_rms = [], [], []
@@ -1847,6 +1867,21 @@ class ConformerGenerator(Base):
         return new_dihedrals
 
     @staticmethod
+    def embed_molecule(mol, seed=-1, max_iters=1000, num_tries=5):
+        params = AllChem.ETKDGv2()
+        params.numThreads = 0
+        params.maxIterations = max_iters
+        params.randomSeed = int(time()) if seed == -1 else seed
+
+        for i in range(num_tries):
+            if AllChem.EmbedMolecule(mol, params=params) >= 0:
+                break
+            params.randomSeed = int(time()) if seed == -1 else seed
+        else:
+            if AllChem.EmbedMolecule(mol, maxAttempts=max_iters, useRandomCoords=True) < 0:
+                raise FailedEmbeddingError
+
+    @staticmethod
     def optimize_conformers(mol, force_field='MMFF94s', max_iters=1000):
 
         mol_props = AllChem.MMFFGetMoleculeProperties(mol)
@@ -1869,6 +1904,13 @@ class ConformerGenerator(Base):
         outputs = ConformerGenerator._defaults['outputs']
         mol_file, results_file = outputs['tmp_molecule'], outputs['tmp_genetic_results']
 
+        # assign unique file names so parallel processes dont touch other processes' files
+        ext_idx = mol_file.index('.')
+        mol_file = mol_file[:ext_idx] + str(os.getpid()) + mol_file[ext_idx:]
+        ext_idx = results_file.index('.')
+        results_file = results_file[:ext_idx] + str(os.getpid()) + results_file[ext_idx:]
+
+        # perform genetic algorithm
         command = f'obabel {mol_file} -O {results_file} --conformer --nconf {num_confs} --score {score} \
                     --writeconformers &> /dev/null'
         write_mol(mol, mol_file, conf_id=conf_id)
@@ -1982,33 +2024,44 @@ class ConformerGenerator(Base):
         return atom1_position.Distance(atom2_position)
 
     @staticmethod
-    def evaluate_conformers(mol, energies, optimal_mol, opt_energies, min_rmsd=0.5, max_iters=1000):
+    def evaluate_conformers(mol, energies, opt_mol, opt_energies, min_energy, energy_diff=5, min_rmsd=0.5, max_iters=1000):
 
         for i, macro_conf in enumerate(mol.GetConformers()):
+
+            # skip if energy is too high
+            if energies[i] > min_energy + energy_diff:
+                continue
+
             similar_confs = []
-            for opt_conf in optimal_mol.GetConformers():
-                rmsd = AllChem.AlignMol(mol, optimal_mol, macro_conf.GetId(), opt_conf.GetId(), maxIters=max_iters)
+            for opt_conf in opt_mol.GetConformers():
+
+                # remove conformer if energy is too high
+                if opt_energies[opt_conf.GetId()] > min_energy + energy_diff:
+                    del opt_energies[opt_conf.GetId()]
+                    opt_mol.RemoveConformer(opt_conf.GetId())
+                    continue
+
+                rmsd = AllChem.AlignMol(mol, opt_mol, macro_conf.GetId(), opt_conf.GetId(), maxIters=max_iters)
                 if rmsd < min_rmsd:
                     similar_confs.append(opt_conf.GetId())
             similar_energies = [opt_energies[conf_id] for conf_id in similar_confs]
             similar_energies.append(energies[i])
             try:
                 max_id = similar_confs[np.argmax(similar_energies)]
-                optimal_mol.RemoveConformer(max_id)
-                conf_id = optimal_mol.AddConformer(macro_conf, assignId=True)
-                optimal_mol.GetConformer(conf_id).SetId(max_id)
+                opt_mol.RemoveConformer(max_id)
+                conf_id = opt_mol.AddConformer(macro_conf, assignId=True)
+                opt_mol.GetConformer(conf_id).SetId(max_id)
                 opt_energies[max_id] = energies[i]
             except IndexError:
                 if len(similar_confs) == 0:
-                    conf_id = optimal_mol.AddConformer(macro_conf, assignId=True)
+                    conf_id = opt_mol.AddConformer(macro_conf, assignId=True)
                     opt_energies[conf_id] = energies[i]
 
     @staticmethod
     def filter_conformers(mol, energies, min_energy=None, energy_diff=5):
 
         remove_flag = False
-        if min_energy is None:
-            min_energy = min(energies)
+        min_energy = ConformerGenerator.get_lowest_energy(energies, min_energy)
 
         # filter high energy confs
         for conf_id, energy in zip(range(mol.GetNumConformers()), deepcopy(energies)):
@@ -2022,11 +2075,30 @@ class ConformerGenerator(Base):
             for i, conformer in enumerate(mol.GetConformers()):
                 conformer.SetId(i)
 
+
+    @staticmethod
+    def get_lowest_energy(energies, min_energy=None):
+
+        try:
+            candidate_energy = min(energies)
+            min_energy = candidate_energy if candidate_energy < min_energy else min_energy
+        except TypeError:
+            return candidate_energy
+
+        return min_energy
+
     @staticmethod
     def cleanup():
 
         outputs = ConformerGenerator._defaults['outputs']
-        for file in (outputs['tmp_molecule'], outputs['tmp_genetic_results']):
+        mol_file, results_file = outputs['tmp_molecule'], outputs['tmp_genetic_results']
+
+        ext_idx = mol_file.index('.')
+        mol_file = mol_file[:ext_idx] + str(os.getpid()) + mol_file[ext_idx:]
+        ext_idx = results_file.index('.')
+        results_file = results_file[:ext_idx] + str(os.getpid()) + results_file[ext_idx:]
+
+        for file in (mol_file, results_file):
             if os.path.exists(file):
                 os.remove(file)
 
