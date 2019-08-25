@@ -1496,7 +1496,6 @@ class MacrocycleGenerator(Base):
 ########################################################################################################################
 
 NewConformers = namedtuple('NewConformers', 'macrocycle_doc macrocycle_mol energies rms ring_rms')
-CleavedInfo = namedtuple('CleavedInfo', 'cleaved_atom1 cleaved_atom2 double_bond_flag')
 
 class ConformerGenerator(Base):
 
@@ -1615,7 +1614,6 @@ class ConformerGenerator(Base):
         start = time()
         storage_mol = Chem.Mol(macrocycle['binary'])
 
-
         old_smiles = Chem.MolToSmiles(storage_mol)
         cleavable_bonds = ConformerGenerator.get_cleavable_bonds(storage_mol, ring_size)
         dihedrals = ConformerGenerator.get_dihedral_atoms(storage_mol, ring_size)
@@ -1628,64 +1626,63 @@ class ConformerGenerator(Base):
         for bond in cleavable_bonds:
 
             # cleave the bond and update the dihedral list
-            linear_mol, cleaved_info = ConformerGenerator.cleave_bond(Chem.Mol(macrocycle['binary']), bond)
+            linear_mol, cleaved_atom1, cleaved_atom2 = ConformerGenerator.cleave_bond(Chem.Mol(macrocycle['binary']), bond)
             linear_mol = Chem.AddHs(linear_mol)
-            new_dihedrals = ConformerGenerator.update_dihedrals(linear_mol, dihedrals, cleaved_info.cleaved_atom1,
-                                                                cleaved_info.cleaved_atom2)
+            new_dihedrals = ConformerGenerator.update_dihedrals(linear_mol, dihedrals, cleaved_atom1, cleaved_atom2)
 
             # use genetic algorithm to generate linear rotamers and optimize via force field then via dihedral rotations
             # and keep best results then repeat
             opt_linear_rotamers = []
             for i in range(repeats):
                 rotamers = deepcopy(linear_mol)
-                try:
-                    ConformerGenerator.embed_molecule(rotamers, seed, max_iters, num_embed_tries)
-                    ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
-                    rotamers = ConformerGenerator.genetic_algorithm(rotamers, num_confs=num_confs_genetic, score=score)
-                    energies = ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
-                    opt_linear_rotamers.extend(ConformerGenerator.optimize_linear_rotamers(rotamers,
-                                            int(np.argmin(energies)), new_dihedrals, cleaved_info.cleaved_atom1,
-                                            cleaved_info.cleaved_atom2, num_confs_keep, granularity, min_rmsd,
-                                            clash_threshold, distance_interval, max_iters))
-                except ValueError as err:
-                    print(err)
-                    print('pid', os.getpid())
-                    print('old_smiles', old_smiles)
-                    print('value error happened here1')
-                    exit()
+                ConformerGenerator.embed_molecule(rotamers, seed, max_iters, num_embed_tries)
+                ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
+                rotamers = ConformerGenerator.genetic_algorithm(rotamers, num_confs=num_confs_genetic, score=score)
+                energies = ConformerGenerator.optimize_conformers(rotamers, force_field, max_iters)
+                opt_linear_rotamers.extend(ConformerGenerator.optimize_linear_rotamers(rotamers,
+                                        int(np.argmin(energies)), new_dihedrals, cleaved_atom1, cleaved_atom2,
+                                        num_confs_keep, granularity, min_rmsd, clash_threshold, distance_interval,
+                                        max_iters))
+
             # add best resulting rotamers to mol
             for optimized_linear in opt_linear_rotamers:
                 linear_mol.AddConformer(optimized_linear, assignId=True)
 
-            # reform bond and make sure the molecule hasnt changed
-            macro_mol = ConformerGenerator.remake_bond(linear_mol, cleaved_info)
-            if old_smiles != Chem.MolToSmiles(macro_mol):
-                continue
+            # reform bond
+            macro_mol = ConformerGenerator.remake_bond(linear_mol, cleaved_atom1, cleaved_atom2)
             macro_mol = Chem.AddHs(macro_mol, addCoords=True)
-
             try:
+
                 # optimize macrocycle and filter out conformers
                 energies = ConformerGenerator.optimize_conformers(macro_mol, force_field, max_iters)
-                ConformerGenerator.filter_conformers(macro_mol, energies, energy_diff=energy_diff)
+                ConformerGenerator.filter_conformers(macro_mol, energies, bond_stereo=Chem.BondStereo.STEREOE, energy_diff=energy_diff)
                 mols = [ConformerGenerator.genetic_algorithm(macro_mol, conf_id=i, num_confs=num_confs_genetic,
                                                              score=score) for i in range(macro_mol.GetNumConformers())]
                 macro_mol = ConformerGenerator.aggregate_conformers(mols)
                 energies = ConformerGenerator.optimize_conformers(macro_mol, force_field, max_iters)
-
 
                 # compare newly generated conformers to optimum conformers and if it is valid then add it to the list of
                 # optimum conformers
                 min_energy = ConformerGenerator.get_lowest_energy(energies, min_energy)
                 ConformerGenerator.evaluate_conformers(macro_mol, energies, storage_mol, opt_energies, min_energy, energy_diff,
                                                        min_rmsd, max_iters)
-            except IndexError:  # number of conformers after filtering is 0
-                continue
-            except ValeuError as err:
+
+            except IndexError as err:  # number of conformers after filtering is 0
+                print('INDEX ERROR!!!')
                 print(err)
+                continue
+            except ValueError as err:
+                print(err)
+                print('bond idx', bond.GetIdx())
+                print('begin_atom', bond.GetBeginAtomIdx())
+                print('end_atom', bond.GetEndAtomIdx())
                 print('pid', os.getpid())
                 print('old_smiles', old_smiles)
                 print('value error happened here2')
-                exit()
+                print('num confs', macro_mol.GetNumConformers())
+                for i, conf in enumerate(macro_mol.GetConformers()):
+                    print(i, conf.GetId())
+                continue
 
         # add conformers to opt_macrocycle in order of increasing energy
         energies, rms, ring_rms = [], [], []
@@ -1706,22 +1703,48 @@ class ConformerGenerator(Base):
     @staticmethod
     def get_cleavable_bonds(macrocycle, ring_size=10):
 
-        cleavable_bonds = []
-
-        # identify the macrocycle rings' atoms and bonds
-        macro_bonds = [ring for ring in macrocycle.GetRingInfo().BondRings() if len(ring) >= ring_size - 1] # bonds in ring = ring_size - 1
-        macro_bonds = set().union(*macro_bonds)
+        # identify the macrocycle rings' bonds
+        macro_ring, small_rings = set(), set()
+        for ring in macrocycle.GetRingInfo().BondRings():
+            if len(ring) >= ring_size - 1:
+                macro_ring = macro_ring.union(ring)
+            else:
+                small_rings = small_rings.union(ring)
 
         # identify chiral atoms
         chiral_atoms = [idx for idx, stereo in Chem.FindMolChiralCenters(macrocycle)]
 
+        # identify single bonds between non-single bonds (i.e. double bonds)
+        between_doubles = []
+        for bond in macro_ring:
+            bond = macrocycle.GetBondWithIdx(bond)
+            begin_atom = bond.GetBeginAtom()
+            end_atom = bond.GetEndAtom()
+
+            # if no bonds on begin_atom are single look at next bond in macro_ring, else look at end_atom
+            for begin_bond in begin_atom.GetBonds():
+                if begin_bond.GetBondType() != Chem.BondType.SINGLE:
+                    break
+            else:
+                continue
+
+            # if a bond on end_atom is not single, then append this macro_ring bond to list of bonds between "doubles"
+            for end_bond in end_atom.GetBonds():
+                if end_bond.GetBondType() != Chem.BondType.SINGLE:
+                    between_doubles.append(bond.GetIdx())
+                    break
+
         # find cleavable bonds
-        for bond in macro_bonds:
+        cleavable_bonds = []
+        for bond in macro_ring:
             bond = macrocycle.GetBondWithIdx(bond)
             begin_atom = bond.GetBeginAtomIdx()
             end_atom = bond.GetEndAtomIdx()
-            if bond.GetBondType() == Chem.BondType.SINGLE and begin_atom not in chiral_atoms \
-               and end_atom not in chiral_atoms:
+            if bond.GetBondType() == Chem.BondType.SINGLE \
+                and bond.GetIdx() not in small_rings \
+                and bond.GetIdx() not in between_doubles \
+                and begin_atom not in chiral_atoms \
+                and end_atom not in chiral_atoms:
                 cleavable_bonds.append(bond)
 
         return cleavable_bonds
@@ -1777,27 +1800,15 @@ class ConformerGenerator(Base):
 
         mol.RemoveBond(cleaved_atom1.GetIdx(), cleaved_atom2.GetIdx())
 
-        # if alkene is adjacent to cleaved bond (cinnamoyl cation double bond)
-        double_bond_flag = False
-        for bond in cleaved_atom1.GetBonds() + cleaved_atom2.GetBonds():
-            if bond.GetBondType() == Chem.BondType.DOUBLE and not bond.IsInRing() and bond.GetBeginAtom().GetSymbol() == 'C' and bond.GetEndAtom().GetSymbol() == 'C':
-                double_bond_flag = True
-                break
-
-
         # adjust hydrogen counts
         cleaved_atom1.SetNumExplicitHs(1 + cleaved_atom1.GetTotalNumHs())
         cleaved_atom2.SetNumExplicitHs(1 + cleaved_atom2.GetTotalNumHs())
         Chem.SanitizeMol(mol)
 
-        return mol, CleavedInfo(cleaved_atom1.GetIdx(), cleaved_atom2.GetIdx(), double_bond_flag)
+        return mol, cleaved_atom1.GetIdx(), cleaved_atom2.GetIdx()
 
     @staticmethod
-    def remake_bond(mol, cleaved_info):
-
-        # unpack values
-        cleaved_atom1, cleaved_atom2 = cleaved_info.cleaved_atom1, cleaved_info.cleaved_atom2
-        double_bond_flag = cleaved_info.double_bond_flag
+    def remake_bond(mol, cleaved_atom1, cleaved_atom2):
 
         mol = Chem.RWMol(Chem.RemoveHs(mol, updateExplicitCount=True))
 
@@ -1809,13 +1820,6 @@ class ConformerGenerator(Base):
         cleaved_atom2.SetNumExplicitHs(cleaved_atom2.GetTotalNumHs() - 1)
 
         mol.AddBond(cleaved_atom1.GetIdx(), cleaved_atom2.GetIdx(), Chem.BondType.SINGLE)
-
-        # reset bond stereochemistry
-        if double_bond_flag:
-            new_bond = mol.GetBondBetweenAtoms(cleaved_atom1.GetIdx(), cleaved_atom2.GetIdx())
-            new_bond.SetBondDir(Chem.BondDir.ENDUPRIGHT) # specific to cinnamoyl cation; causes double bond to be trans
-            Chem.AssignStereochemistry(mol, force=True)
-
         Chem.SanitizeMol(mol)
 
         return mol
@@ -1890,6 +1894,7 @@ class ConformerGenerator(Base):
         params.maxIterations = max_iters
         params.randomSeed = int(time()) if seed == -1 else seed
 
+        Chem.FindMolChiralCenters(mol) # assigns bond stereo chemistry when other functions wouldn't
         for i in range(num_tries):
             if AllChem.EmbedMolecule(mol, params=params) >= 0:
                 break
@@ -2008,6 +2013,7 @@ class ConformerGenerator(Base):
                     if rms < min_rmsd:
                         break
                 else:
+                    print('conf_found')
                     optimized_linear_confs.append(linear_conf)
                     mast_mol.AddConformer(linear_conf, assignId=True)
 
@@ -2075,13 +2081,29 @@ class ConformerGenerator(Base):
                     opt_energies[conf_id] = energies[i]
 
     @staticmethod
-    def filter_conformers(mol, energies, min_energy=None, energy_diff=5):
+    def filter_conformers(mol, energies, bond_stereo, min_energy=None, energy_diff=5):
 
         remove_flag = False
         min_energy = ConformerGenerator.get_lowest_energy(energies, min_energy)
+        copy_mol = deepcopy(mol)
 
-        # filter high energy confs
         for conf_id, energy in zip(range(mol.GetNumConformers()), deepcopy(energies)):
+            # filter confs with wrong stereochemistry
+            copy_mol.RemoveAllConformers()
+            Chem.RemoveStereochemistry(copy_mol)
+            new_id = copy_mol.AddConformer(mol.GetConformer(conf_id))
+            print(copy_mol.GetBondBetweenAtoms(0,1).GetIdx(), copy_mol.GetBondBetweenAtoms(0,1).GetBondType())
+            print('before stereo check', copy_mol.GetBondBetweenAtoms(0,1).GetStereo())
+            Chem.AssignStereochemistryFrom3D(copy_mol, confId=new_id, replaceExistingTags=True)
+            print('after stereo check', copy_mol.GetBondBetweenAtoms(0,1).GetStereo())
+            if copy_mol.GetBondBetweenAtoms(0,1).GetStereo() != bond_stereo:
+                mol.RemoveConformer(conf_id)
+                energies.remove(energy)
+                if energy == min_energy:
+                    min_energy = min(energies)
+                continue
+
+            # filter high energy confs
             if energy > min_energy + energy_diff:
                 mol.RemoveConformer(conf_id)
                 energies.remove(energy)
@@ -2092,6 +2114,14 @@ class ConformerGenerator(Base):
             for i, conformer in enumerate(mol.GetConformers()):
                 conformer.SetId(i)
 
+        for conf_id in range(mol.GetNumConformers()):
+            copy_mol.RemoveAllConformers()
+            Chem.RemoveStereochemistry(copy_mol)
+            new_id = copy_mol.AddConformer(mol.GetConformer(conf_id))
+            print(copy_mol.GetBondBetweenAtoms(0,1).GetIdx(), copy_mol.GetBondBetweenAtoms(0,1).GetBondType())
+            print('before double stereo check', copy_mol.GetBondBetweenAtoms(0,1).GetStereo())
+            Chem.AssignStereochemistryFrom3D(copy_mol, confId=new_id, replaceExistingTags=True)
+            print('after double stereo check', copy_mol.GetBondBetweenAtoms(0,1).GetStereo())
 
     @staticmethod
     def get_lowest_energy(energies, min_energy=None):
