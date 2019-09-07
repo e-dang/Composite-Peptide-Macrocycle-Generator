@@ -113,7 +113,11 @@ class MongoDataBase():
         """
 
         try:
-            self.logger = logger
+            if logger is None:
+                self.logger = logging.getLogger('NULL')
+                self.logger.addHandler(logging.NullHandler)
+            else:
+                self.logger = logger
             self.client = MongoClient(settings.host, settings.port) if client is None else client
             self.database = self.client[settings.database]
         except (errors.ConnectionFailure, errors.InvalidName, TypeError):
@@ -471,7 +475,11 @@ class Base():
 
         # I/O
         self.mongo_db = MongoDataBase(logger=logger) if make_db_connection else None
-        self.logger = logger
+        if logger is None:
+            self.logger = logging.getLogger('NULL')
+            self.logger.addHandler(logging.NullHandler)
+        else:
+            self.logger = logger
 
         # data
         self.result_data = []
@@ -539,7 +547,7 @@ class Base():
 
         # create bond, remove hydrogens, and sanitize
         combo.AddBond(atom1.GetIdx(), atom2.GetIdx(), order=Chem.rdchem.BondType.SINGLE)
-        Chem.rdmolops.RemoveHs(combo)
+        Chem.RemoveHs(combo)
         Chem.SanitizeMol(combo)
 
         # add stereochemistry as specified

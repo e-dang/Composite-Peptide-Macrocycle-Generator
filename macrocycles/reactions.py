@@ -1,6 +1,7 @@
 
 import macrocycles.config as config
 import macrocycles.utils as utils
+from macrocycles.molecules import MonomerGenerator
 from rdkit import Chem
 from collections import namedtuple
 from pprint import pprint
@@ -8,6 +9,7 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 import multiprocessing
 from itertools import product
+from copy import deepcopy
 
 from logging import INFO
 
@@ -23,27 +25,43 @@ ReactionInfo = namedtuple('ReactionInfo', 'binary rxn_atom_idx type')
 
 class Reaction():
 
-    def __init__(self, side_chain, template, reacting_atom, name, validation):
+    def __init__(self, validation, product_generator, name, reacting_atom, *reactants):
 
         self.validation = validation
+        self.product_generator = product_generator
         self.name = name
-        self.side_chain = side_chain
-        self.template = template
         self.reacting_atom = reacting_atom
-        self.product = utils.Base.merge(side_chain, template, ignored_map_nums=[
-                                        config.TEMP_WILDCARD_MAP_NUM, config.SC_WILDCARD_MAP_NUM], clear_map_nums=False) if self else None
+        self.reactants = reactants
 
     def __repr__(self):
-        return 'name: {self.name}\nside_chain: {self.side_chain}\ntemplate: {self.template}\nproduct:{self.product}\n'
+        name = f'name: {self.name}'
+        reactants = f'reactants: {[Chem.MolToSmiles(reactant) for reactant in self.reactants]}'
+        product = f'product: {Chem.MolToSmiles(self.product)}'
+        return '\n'.join([name, reactants, product])
 
     def __str__(self):
         if self.product is None:
             return None
 
-        return '(' + Chem.MolToSmiles(self.side_chain) + '.' + Chem.MolToSmiles(self.template) + ')>>' + Chem.MolToSmiles(self.product)
+        reactants = [Chem.MolToSmiles(reactant) for reactant in self.reactants]
+        return '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(self.product)
 
     def __bool__(self):
-        return self.validation(self.reacting_atom)
+        return self.validation()
+
+    @property
+    def product(self):
+        try:
+            return self.cached_product  # pylint: disable=access-member-before-definition
+        except AttributeError:
+            pass
+
+        if self:
+            self.cached_product = self.product_generator()
+            return self.cached_product
+
+        self.cached_product = None
+        return self.cached_product
 
     @property
     def reaction(self):
@@ -68,32 +86,155 @@ class FriedelCafts(Reaction):
 
     def __init__(self, side_chain, template, reacting_atom):
 
-        super().__init__(side_chain, template, reacting_atom, 'friedel_crafts', FriedelCafts.is_valid)
+        super().__init__(self.is_valid, self.generate_product, 'friedel_crafts', reacting_atom, side_chain, template)
 
-    @staticmethod
-    def is_valid(atom):
+    def is_valid(self):
 
-        return atom.GetSymbol() == 'C' and atom.GetTotalNumHs() != 0 and atom.GetIsAromatic()
+        return self.reacting_atom.GetSymbol() == 'C' \
+            and self.reacting_atom.GetTotalNumHs() != 0 \
+            and self.reacting_atom.GetIsAromatic()
+
+    def generate_product(self):
+        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.SC_WILDCARD_MAP_NUM]
+        return utils.Base.merge(*self.reactants, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
 
 
 class TsujiTrost(Reaction):
 
     def __init__(self, side_chain, template, reacting_atom):
-        super().__init__(side_chain, template, reacting_atom, 'tsuji_trost', TsujiTrost.is_valid)
+        super().__init__(self.is_valid, self.generate_product, 'tsuji_trost', reacting_atom, side_chain, template)
 
-    @staticmethod
-    def is_valid(atom):
-        return atom.GetSymbol() in ['N', 'O', 'S'] and atom.GetTotalNumHs() > 0
+    def is_valid(self):
+        return self.reacting_atom.GetSymbol() in ['N', 'O', 'S'] \
+            and self.reacting_atom.GetTotalNumHs() > 0
+
+    def generate_product(self):
+        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.SC_WILDCARD_MAP_NUM]
+        return utils.Base.merge(*self.reactants, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
 
 
 class PictetSpangler(Reaction):
+    CARBON_PS_MAP_NUM = 5
+    CARBON_PEP_MAP_NUM = 6
+    NITROGEN_PS_MAP_NUM = 7
+    OXYGEN_PS_MAP_NUM = 8
+    NEW_WILDCARD_MAP_NUM = 9
 
     def __init__(self, side_chain, template, reacting_atom):
-        pass
 
-    @staticmethod
-    def is_valid(atom):
-        pass
+        self.valid = False
+        super().__init__(self.is_valid, self.generate_product, 'pictet_spangler', reacting_atom, side_chain, template)
+
+    def is_valid(self):
+        if self.valid:
+            return True
+
+        side_chain, template = self.reactants
+        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
+        paths = Chem.FindAllPathsOfLengthN(side_chain, 3, useBonds=False, rootedAtAtom=self.reacting_atom.GetIdx())
+        atoms = set().union([atom for path in paths for atom in path])
+
+        # check reacting atom is aromatic carbon
+        if not self.reacting_atom.GetIsAromatic() \
+                or not self.reacting_atom.GetSymbol() == 'C' \
+                or self.reacting_atom.GetTotalNumHs() == 0:
+            return False
+
+        # check that attachment point of side_chain is two atoms away from reacting atom
+        if wild_card.GetIdx() not in atoms - set(atom.GetIdx() for atom in wild_card.GetNeighbors()):
+            return False
+
+        # check that template has unmasked aldehyde (this aldehyde will participate in pictet spangler)
+        match = template.GetSubstructMatch(Chem.MolFromSmarts('C(=O)'))
+        if not match:
+            return False
+
+        # change side_chain wild_card back to carbon
+        wild_card.SetAtomicNum(6)
+
+        # tag substruct match in template
+        for atom in match:
+            atom = template.GetAtomWithIdx(atom)
+            if atom.GetSymbol() == 'C':
+                atom.SetAtomMapNum(self.CARBON_PS_MAP_NUM)
+            elif atom.GetSymbol() == 'O':
+                atom.SetAtomMapNum(self.OXYGEN_PS_MAP_NUM)
+
+        self.preprocess()
+        self.valid = True
+        return True
+
+    def preprocess(self):
+        monomers = self.create_monomers()
+        template = self.modify_template()
+        self.create_reactant(monomers, template)
+
+    def create_monomers(self):
+        # get backbone and side_chain
+        db = utils.MongoDataBase(logger=None)
+        side_chain = self.reactants[0]
+        backbone = Chem.Mol(db['molecules'].find_one({'_id': 'alpha'})['binary'])
+
+        # tag backbone nitrogen and remove carboxyl group
+        backbone = AllChem.ReplaceSubstructs(backbone, Chem.MolFromSmarts(
+            'C(=O)O'), Chem.MolFromSmarts(f'[*:{self.NEW_WILDCARD_MAP_NUM}]'))[0]
+        for match in backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]')):
+            for atom in match:
+                atom = backbone.GetAtomWithIdx(atom)
+                if atom.GetSymbol() == 'N':
+                    atom.SetAtomMapNum(self.NITROGEN_PS_MAP_NUM)
+
+        # create monomer
+        ignored_map_nums = [config.SC_EAS_MAP_NUM, self.NITROGEN_PS_MAP_NUM, self.NEW_WILDCARD_MAP_NUM]
+        return utils.Base.merge(side_chain, backbone, ignored_map_nums=ignored_map_nums)
+
+    def modify_template(self):
+        unique = {}
+
+        # change wild card atom to carbonyl
+        template = self.reactants[1]
+        rxn = AllChem.ReactionFromSmarts('[#0:1][*:2]>>[C:1](=O)[*:2]')
+        for prod in rxn.RunReactants((template,)):
+            for mol in prod:
+                unique[Chem.MolToSmiles(mol)] = mol
+
+        # set atom map number of peptide carbonyl
+        template = list(unique.values())[0]
+        Chem.SanitizeMol(template)
+        matches = template.GetSubstructMatches(Chem.MolFromSmarts('C(=O)'))
+        for match in matches:
+            for atom in match:
+                atom = template.GetAtomWithIdx(atom)
+                if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != self.CARBON_PS_MAP_NUM:
+                    atom.SetAtomMapNum(self.CARBON_PEP_MAP_NUM)
+
+        return template
+
+    def create_reactant(self, monomer, template):
+
+        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, config.SC_EAS_MAP_NUM, self.NEW_WILDCARD_MAP_NUM,
+                            self.CARBON_PS_MAP_NUM, self.OXYGEN_PS_MAP_NUM]
+        self.reactants = [utils.Base.merge(monomer, template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)]
+
+    def generate_product(self):
+        reactant = Chem.RWMol(self.reactants[0])
+
+        # remove oxygen from unmasked aldehyde
+        for atom in list(reactant.GetAtoms()):
+            if atom.GetAtomMapNum() == self.OXYGEN_PS_MAP_NUM:
+                reactant.RemoveAtom(atom.GetIdx())
+                break
+
+        # create bond between side_chain EAS carbon and unmasked aldehyde carbon
+        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, self.CARBON_PEP_MAP_NUM,
+                            self.NITROGEN_PS_MAP_NUM, self.NEW_WILDCARD_MAP_NUM]
+        reactant = utils.Base.merge(reactant, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+
+        # create bond between peptide nitrogen and unmasked aldehyde carbon
+        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, config.SC_EAS_MAP_NUM,
+                            self.CARBON_PEP_MAP_NUM, self.NEW_WILDCARD_MAP_NUM]
+        return utils.Base.merge(reactant, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+
 
 ########################################################################################################################
 ########################################################################################################################
@@ -147,7 +288,7 @@ class ReactionGenerator(utils.Base):
         try:
             params = self._defaults['inputs']
             self.side_chains = self.from_mongo(params['col_side_chains'], {
-                                               'type': 'side_chain', 'connection': 'methyl'})
+                'type': 'side_chain', 'connection': 'methyl'})
             self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
         except Exception:
             self.logger.exception('Unexpected exception occured.')
@@ -156,7 +297,7 @@ class ReactionGenerator(utils.Base):
 
         return False
 
-    def generate(self, reactions=[FriedelCafts, TsujiTrost]):
+    def generate(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler]):
 
         try:
             args = product(self.side_chains, self.templates, reactions)
@@ -171,14 +312,29 @@ class ReactionGenerator(utils.Base):
 
         return False
 
-    def generate_from_ids(self, side_chain_ids, template_ids, reactions=[FriedelCafts, TsujiTrost]):
+    def generate_serial(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler]):
+        try:
+            for side_chain in self.side_chains:
+                print(side_chain['_id'])
+                for template in self.templates:
+                    for reaction in reactions:
+                        rxn, _, _ = ReactionGenerator.create_reaction(side_chain, template, reaction)
+                        self.accumulate_data(rxn, side_chain, template)
+        except Exception:
+            raise
+        else:
+            return True
+
+        return False
+
+    def generate_from_ids(self, side_chain_ids, template_ids, reactions=[FriedelCafts, TsujiTrost, PictetSpangler]):
 
         try:
             params = self._defaults['inputs']
             self.side_chains = self.from_mongo(params['col_side_chains'], {
-                                               'type': 'side_chain', '_id': {'$in': side_chain_ids}})
+                'type': 'side_chain', '_id': {'$in': side_chain_ids}})
             self.templates = list(self.from_mongo(params['col_templates'], {
-                                  'type': 'template', '_id': {'$in': template_ids}}))
+                'type': 'template', '_id': {'$in': template_ids}}))
             for side_chain in self.side_chains:
                 for template in self.templates:
                     for reaction in reactions:
@@ -229,7 +385,7 @@ class ReactionGenerator(utils.Base):
                 continue
 
             atom.SetAtomMapNum(config.SC_EAS_MAP_NUM)
-            rxn = reaction(sc_mol, temp_mol, atom)
+            rxn = reaction(deepcopy(sc_mol), deepcopy(temp_mol), atom)
             if rxn:
                 reactions[str(rxn)] = rxn.data
 
