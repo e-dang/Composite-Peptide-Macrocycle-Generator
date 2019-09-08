@@ -5,7 +5,7 @@ email: edang830@gmail.com
 """
 
 from logging import INFO
-from collections import ChainMap, namedtuple, deque, Counter
+from collections import ChainMap, namedtuple, deque, Counter, defaultdict
 from copy import deepcopy, copy
 from rdkit import Chem
 from rdkit.Chem import Draw
@@ -1393,18 +1393,23 @@ class MacrocycleGenerator(Base):
     def generate(self):
 
         try:
-            parent_sc_filter = partial(MacrocycleGenerator.is_applicable, attr='parent_side_chain')
-            conn_atom_filter = partial(MacrocycleGenerator.is_applicable, attr='conn_atom_idx')
-            template_filter = partial(MacrocycleGenerator.is_applicable, attr='template')
-            first_filter = filter(parent_sc_filter, product(self.tp_hybrids, self.reactions))
-            second_filter = filter(conn_atom_filter, first_filter)
-            args = filter(template_filter, second_filter)
-
+            args = self.get_args()
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(MacrocycleGenerator.apply_reaction, args)
+                for macrocycles, tp_hybrid, reactions in results.get():
+                    self.accumulate_data(macrocycles, tp_hybrid, reactions)
+        except Exception:
+            raise
+        else:
+            return True
 
-                for macrocycles, tp_hybrid, reaction in results.get():
-                    self.accumulate_data(macrocycles, tp_hybrid, reaction)
+        return False
+
+    def generate_serial(self):
+        try:
+            for tp_hybrid, reactions in self.get_args():
+                macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reactions)
+                self.accumulate_data(macrocycles, tp_hybrid, reactions)
         except Exception:
             raise
         else:
@@ -1430,26 +1435,31 @@ class MacrocycleGenerator(Base):
         return False
 
 
-    def accumulate_data(self, macrocycles, tp_hybrid, reaction):
+    def accumulate_data(self, macrocycles, tp_hybrid, reactions):
 
-        sc_id = reaction['side_chain']['_id']
-        rxn_idx = reaction['rxn_atom_idx']
+        rxns = []
+        sc_id, rxn_idx = '', ''
+        for reaction in reactions:
+            sc_id += reaction['side_chain']['_id']
+            rxn_idx += str(reaction['rxn_atom_idx'])
+            rxns.append({'_id': reaction['_id'],
+                        'side_chain': reaction['side_chain']['_id'],
+                        'rxn_atom_idx': reaction['rxn_atom_idx']})
+
         for i, (binary, kekule) in enumerate(macrocycles.items()):
             doc = {
-                '_id': tp_hybrid['_id'] + str(sc_id) + str(rxn_idx) + str(i),
+                '_id': tp_hybrid['_id'] + sc_id + rxn_idx + str(i),
                 'type': 'macrocycle',
                 'binary': binary,
                 'kekule': kekule,
                 'tp_hybrid': tp_hybrid['_id'],
-                'reaction': {'_id': reaction['_id'],
-                             'side_chain': sc_id,
-                             'rxn_atom_idx': rxn_idx},
+                'reaction': rxns,
                 'has_confs': False
             }
             self.result_data.append(doc)
 
     @staticmethod
-    def apply_reaction(tp_hybrid, reaction):
+    def apply_reaction(tp_hybrid, reactions):
         """
         Applys all reaction templates to a reactant and collects all unique products
 
@@ -1463,35 +1473,54 @@ class MacrocycleGenerator(Base):
             list: A list of reacting atom indices in the side_chains that formed products
         """
 
-        reactant = Chem.Mol(tp_hybrid['binary'])
-        rxn = AllChem.ChemicalReaction(reaction['binary'])
+        reactants = [Chem.Mol(tp_hybrid['binary'])]
+        rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in reactions]
+
+        for i, rxn in enumerate(rxns):
+            results = {}
+            for reactant in reactants:
+                for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
+                    for atom in chain.from_iterable(rxn.GetReactingAtoms()):
+                        macrocycle.GetAtomWithIdx(atom).SetProp('_protected', '1')
+                    Chem.SanitizeMol(macrocycle)
+                    results[macrocycle.ToBinary()] = macrocycle
+            reactants = list(results.values())
 
         results = {}
-        for products in rxn.RunReactants((reactant,)):
-            for macrocycle in products:
-                Chem.SanitizeMol(macrocycle)
-                binary = macrocycle.ToBinary()
-                Chem.Kekulize(macrocycle)
-                results[binary] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
+        for macrocycle in reactants:
+            binary = macrocycle.ToBinary()
+            Chem.Kekulize(macrocycle)
+            results[binary] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
 
-        return NewMacrocycles(results, tp_hybrid, reaction)
+        return NewMacrocycles(results, tp_hybrid, reactions)
 
-    @staticmethod
-    def is_applicable(args, attr):
+    def get_args(self):
 
-        tp_hybrid, reaction = args
-        if attr in ('parent_side_chain', 'conn_atom_idx'):
-            for monomer in tp_hybrid['peptide']['monomers']:
-                side_chain = monomer['side_chain']
-                if side_chain is None or isinstance(side_chain, str):
-                    continue
-                if side_chain[attr] == reaction['side_chain'][attr]:
-                    return True
-        else:
-            if tp_hybrid[attr] == reaction[attr]:
-                return True
+        # hash all reactions based on side_chain _id
+        reactions = defaultdict(list)
+        for reaction in self.reactions:
+            reactions[reaction['side_chain']['_id']].append(reaction)
 
-        return False
+        for tp_hybrid in self.tp_hybrids:
+            args = []
+            side_chain_ids = set(monomer['side_chain']['_id'] for monomer in tp_hybrid['peptide']['monomers'] if isinstance(monomer['side_chain'], dict))
+            for side_chain_id in side_chain_ids:
+                args.extend(filter(lambda x: x['template'] in ('all', tp_hybrid['template']), reactions[side_chain_id]))
+
+            if tp_hybrid['template'] != 'temp1':
+                args = filter(lambda x: (x['type'] == 'pictet_spangler' \
+                              and x['side_chain']['_id'] == tp_hybrid['peptide']['monomers'][0]['side_chain']['_id']) \
+                              or x['type'] in ('friedel_crafts', 'tsuji_trost'), args)
+
+                pictet, other = [], []
+                for rxn in args:
+                    other.append(rxn) if rxn['type'] != 'pictet_spangler' else pictet.append(rxn)
+
+                for arg in product(pictet, other):
+                    yield tp_hybrid, arg
+            else:
+                for arg in args:
+                    yield tp_hybrid, [arg]
 
 ########################################################################################################################
 ########################################################################################################################
