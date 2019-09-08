@@ -253,7 +253,8 @@ RG_DEFAULTS = {
     },
     'outputs': {
         'col_reactions': COL2
-    }
+    },
+    'template_dependent_rxns': ['PictetSpangler']
 }
 
 ####################################### RegioSQMFilter #######################################
