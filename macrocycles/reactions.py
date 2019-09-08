@@ -6,7 +6,7 @@ from itertools import chain, product
 from logging import INFO
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, Draw
 
 import macrocycles.config as config
 import macrocycles.utils as utils
@@ -80,6 +80,26 @@ class Reaction():
 
         return ReactionInfo(self.binary, self.reacting_atom.GetIdx(), self.name)
 
+    def sc_attach_adjacent_N(self, carboxyl_map_num, nitrogen_map_num, clear_map_nums=True):
+
+        # get side_chain and backbone
+        side_chain = self.reactants[0]
+        db = utils.MongoDataBase(logger=None)
+        backbone = Chem.Mol(db['molecules'].find_one({'_id': 'alpha'})['binary'])
+
+        # tag backbone nitrogen and remove carboxyl group
+        backbone = AllChem.ReplaceSubstructs(backbone, Chem.MolFromSmarts(
+            'C(=O)O'), Chem.MolFromSmarts(f'[*:{carboxyl_map_num}]'))[0]
+        for atom in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
+            atom = backbone.GetAtomWithIdx(atom)
+            if atom.GetSymbol() == 'N':
+                atom.SetAtomMapNum(nitrogen_map_num)
+                break
+
+        # create monomer with side_chain adjacent to nitrogen
+        ignored_map_nums = [config.SC_EAS_MAP_NUM, nitrogen_map_num, carboxyl_map_num]
+        return utils.Base.merge(side_chain, backbone, ignored_map_nums=ignored_map_nums, clear_map_nums=clear_map_nums)
+
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
@@ -151,7 +171,7 @@ class PictetSpangler(Reaction):
     CARBON_PEP_MAP_NUM = 6
     NITROGEN_PS_MAP_NUM = 7
     OXYGEN_PS_MAP_NUM = 8
-    CARBOX_WILDCARD_MAP_NUM = 9
+    C_TERM_WILDCARD_MAP_NUM = 9
     ALKYN_WILDCARD_MAP_NUM = 10
 
     def __init__(self, side_chain, template, reacting_atom):
@@ -163,17 +183,17 @@ class PictetSpangler(Reaction):
             return True
 
         side_chain, template = self.reactants
-        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
-        paths = Chem.FindAllPathsOfLengthN(side_chain, 3, useBonds=False, rootedAtAtom=self.reacting_atom.GetIdx())
-        atoms = set().union([atom for path in paths for atom in path])
 
         # check reacting atom is aromatic carbon
         if not self.reacting_atom.GetIsAromatic() \
-                or not self.reacting_atom.GetSymbol() == 'C' \
+                or self.reacting_atom.GetSymbol() != 'C' \
                 or self.reacting_atom.GetTotalNumHs() == 0:
             return False
 
         # check that attachment point of side_chain is two atoms away from reacting atom
+        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
+        paths = Chem.FindAllPathsOfLengthN(side_chain, 3, useBonds=False, rootedAtAtom=self.reacting_atom.GetIdx())
+        atoms = set().union([atom for path in paths for atom in path])
         if wild_card.GetIdx() not in atoms - set(atom.GetIdx() for atom in wild_card.GetNeighbors()):
             return False
 
@@ -187,32 +207,17 @@ class PictetSpangler(Reaction):
         return True
 
     def preprocess(self, wild_card, substruct_match):
-        monomers = self.create_monomers(wild_card)
+        monomers = self.modify_side_chain(wild_card)
         template = self.modify_template(substruct_match)
         self.create_reactant(monomers, template)
 
-    def create_monomers(self, wild_card):
+    def modify_side_chain(self, wild_card):
 
         # change side_chain wild_card back to carbon
         wild_card.SetAtomicNum(6)
 
-        # get backbone and side_chain
-        db = utils.MongoDataBase(logger=None)
-        side_chain = self.reactants[0]
-        backbone = Chem.Mol(db['molecules'].find_one({'_id': 'alpha'})['binary'])
-
-        # tag backbone nitrogen and remove carboxyl group
-        backbone = AllChem.ReplaceSubstructs(backbone, Chem.MolFromSmarts(
-            'C(=O)O'), Chem.MolFromSmarts(f'[*:{self.CARBOX_WILDCARD_MAP_NUM}]'))[0]
-        for atom in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
-            atom = backbone.GetAtomWithIdx(atom)
-            if atom.GetSymbol() == 'N':
-                atom.SetAtomMapNum(self.NITROGEN_PS_MAP_NUM)
-                break
-
         # create monomer
-        ignored_map_nums = [config.SC_EAS_MAP_NUM, self.NITROGEN_PS_MAP_NUM, self.CARBOX_WILDCARD_MAP_NUM]
-        return utils.Base.merge(side_chain, backbone, ignored_map_nums=ignored_map_nums)
+        return super().sc_attach_adjacent_N(self.C_TERM_WILDCARD_MAP_NUM, self.NITROGEN_PS_MAP_NUM)
 
     def modify_template(self, substruct_match):
         template = self.reactants[1]
@@ -263,7 +268,7 @@ class PictetSpangler(Reaction):
 
     def create_reactant(self, monomer, template):
 
-        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, config.SC_EAS_MAP_NUM, self.CARBOX_WILDCARD_MAP_NUM,
+        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, config.SC_EAS_MAP_NUM, self.C_TERM_WILDCARD_MAP_NUM,
                             self.CARBON_PS_MAP_NUM, self.OXYGEN_PS_MAP_NUM, self.ALKYN_WILDCARD_MAP_NUM]
         self.reactants = [utils.Base.merge(monomer, template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)]
 
@@ -283,14 +288,121 @@ class PictetSpangler(Reaction):
 
         # create bond between side_chain EAS carbon and unmasked aldehyde carbon
         ignored_map_nums = [config.TEMP_EAS_MAP_NUM, self.CARBON_PEP_MAP_NUM, self.ALKYN_WILDCARD_MAP_NUM,
-                            self.NITROGEN_PS_MAP_NUM, self.CARBOX_WILDCARD_MAP_NUM]
+                            self.NITROGEN_PS_MAP_NUM, self.C_TERM_WILDCARD_MAP_NUM]
         reactant = utils.Base.merge(reactant, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
 
         # create bond between peptide nitrogen and unmasked aldehyde carbon
         ignored_map_nums = [config.TEMP_EAS_MAP_NUM, config.SC_EAS_MAP_NUM, self.ALKYN_WILDCARD_MAP_NUM,
-                            self.CARBON_PEP_MAP_NUM, self.CARBOX_WILDCARD_MAP_NUM]
+                            self.CARBON_PEP_MAP_NUM, self.C_TERM_WILDCARD_MAP_NUM]
         return utils.Base.merge(reactant, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
 
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+
+class PyrroloIndolene(Reaction):
+
+    ADJ_CARBON_MAP_NUM = 5
+    NITROGEN_MAP_NUM = 6
+    C_TERM_WILDCARD_MAP_NUM = 7
+    N_TERM_WILDCARD_MAP_NUM = 8
+
+    def __init__(self, side_chain, template, reacting_atom):
+
+        super().__init__(self.is_valid, self.generate_product, 'pyrolo_indolene', reacting_atom, side_chain, template)
+
+    def is_valid(self):
+        if self.valid:
+            return True
+
+        side_chain, template = self.reactants
+
+        # side_chain must be an indole
+        match = side_chain.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12'))
+        if not match:
+            return False
+
+        # reaction initiated at carbon that is the attachment point to amino acid backbone, which contains no hydrogens
+        if self.reacting_atom.GetTotalNumHs() != 0 or self.reacting_atom.GetSymbol() != 'C':
+            return False
+
+        # reaction also involves carbon adjacent to reacting_atom which must have a hydrogen
+        if 1 not in [atom.GetTotalNumHs() for atom in self.reacting_atom.GetNeighbors()]:
+            return False
+
+        # check if carbon is the correct bridged carbon (adjacent to nitrogen)
+        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
+        if self.reacting_atom.GetIdx() not in [atom.GetIdx() for atom in wild_card.GetNeighbors()]:
+            return False
+
+        self.preprocess()
+        self.valid = True
+        return True
+
+    def preprocess(self):
+        side_chain = self.modify_side_chain()
+        self.reactants = [side_chain, Chem.MolFromSmarts(
+            f'[*:{config.TEMP_WILDCARD_MAP_NUM}]/C=C/[CH3:{config.TEMP_EAS_MAP_NUM}]')]
+
+    def modify_side_chain(self):
+
+        # change side_chain wild card back to carbon
+        for atom in self.reactants[0].GetAtoms():
+            if atom.GetAtomicNum() == 0:
+                atom.SetAtomicNum(6)
+                break
+
+        # get side_chain and backbone
+        side_chain = super().sc_attach_adjacent_N(self.C_TERM_WILDCARD_MAP_NUM, self.NITROGEN_MAP_NUM)
+
+        # add wildcard atom to backbone nitrogen
+        unique = set()
+        rxn = AllChem.ReactionFromSmarts('[NH2:1][*:2]>>*[NH1:1][*:2]')
+        for prod in chain.from_iterable(rxn.RunReactants((side_chain,))):
+            Chem.SanitizeMol(prod)
+            unique.add(prod.ToBinary())
+
+        # tag new wildcard atom, peptide nitrogen, and carbon adjacent to reacting atom that has a hydrogen
+        side_chain = Chem.Mol(unique.pop())
+        for atom in side_chain.GetAtoms():
+            if atom.GetAtomMapNum() == 0 and atom.GetAtomicNum() == 0:
+                atom.SetAtomMapNum(self.N_TERM_WILDCARD_MAP_NUM)
+                neighbor = atom.GetNeighbors()[0]
+                neighbor.SetAtomMapNum(self.NITROGEN_MAP_NUM)
+            elif atom.GetAtomMapNum() == config.SC_EAS_MAP_NUM:
+                for neighbor in atom.GetNeighbors():
+                    if neighbor.GetTotalNumHs() == 1 and neighbor.GetIsAromatic():
+                        neighbor.SetAtomMapNum(self.ADJ_CARBON_MAP_NUM)
+                        break
+
+        return side_chain
+
+    def generate_product(self):
+
+        side_chain, template = deepcopy(self.reactants)
+
+        atoms = []
+        for atom in side_chain.GetAtoms():
+            if atom.GetAtomMapNum() in (config.SC_EAS_MAP_NUM, self.ADJ_CARBON_MAP_NUM):
+                atoms.append(atom)
+                if len(atoms) == 2:
+                    break
+
+        # bond between reacting_atom and adjacent atom becomes single bond
+        bond = side_chain.GetBondBetweenAtoms(atoms[0].GetIdx(), atoms[1].GetIdx())
+        bond.SetBondType(Chem.BondType.SINGLE)
+        atoms[0].SetNumExplicitHs(atoms[0].GetTotalNumHs() + 1)
+        atoms[1].SetNumExplicitHs(atoms[1].GetTotalNumHs() + 1)
+
+        # merge peptide nitrogen to adj carbon
+        ignored_map_nums = [self.C_TERM_WILDCARD_MAP_NUM, config.SC_EAS_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM]
+        side_chain = utils.Base.merge(side_chain, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+
+        # merge template with side_chain
+        ignored_map_nums = [self.C_TERM_WILDCARD_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM,
+                            config.TEMP_WILDCARD_MAP_NUM, self.ADJ_CARBON_MAP_NUM, self.NITROGEN_MAP_NUM]
+        return utils.Base.merge(side_chain, template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
 
 ########################################################################################################################
 ########################################################################################################################
