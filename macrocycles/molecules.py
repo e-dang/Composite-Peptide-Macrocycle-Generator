@@ -4,27 +4,31 @@ github: https://github.com/e-dang
 email: edang830@gmail.com
 """
 
-from logging import INFO
-from collections import ChainMap, namedtuple, deque, Counter, defaultdict
-from copy import deepcopy, copy
-from rdkit import Chem
-from rdkit.Chem import Draw
-from rdkit.Chem import AllChem
 import json
-from bson import json_util
-from itertools import cycle, chain, islice, product, combinations
-from functools import partial
 import multiprocessing
-from random import sample, seed, shuffle
-from pprint import pprint
-import numpy as np
-from time import time
 import os
 import sys
+from collections import ChainMap, Counter, defaultdict, deque, namedtuple
+from copy import copy, deepcopy
+from functools import partial
+from itertools import chain, combinations, cycle, islice, product
+from logging import INFO
+from pprint import pprint
+from random import sample, seed, shuffle
+from time import time
 
-from macrocycles.exceptions import MissingMapNumberError, AtomSearchError, DataNotFoundError, MergeError, FailedEmbeddingError
-from macrocycles.utils import Base, create_logger, read_mols, write_mol, get_user_approval, get_user_atom_idx, atom_to_wildcard, ranges, window
+import numpy as np
+from bson import json_util
+from rdkit import Chem
+from rdkit.Chem import AllChem, Draw
+
 import macrocycles.config as config
+from macrocycles.exceptions import (AtomSearchError, DataNotFoundError,
+                                    FailedEmbeddingError, MergeError,
+                                    MissingMapNumberError)
+from macrocycles.utils import (Base, atom_to_wildcard, create_logger,
+                               get_user_approval, get_user_atom_idx, ranges,
+                               read_mols, window, write_mol)
 
 LOGGER = create_logger(name=__name__, level=INFO)
 
@@ -1454,6 +1458,7 @@ class MacrocycleGenerator(Base):
                 'kekule': kekule,
                 'tp_hybrid': tp_hybrid['_id'],
                 'reaction': rxns,
+                'modifications': [],
                 'has_confs': False
             }
             self.result_data.append(doc)
@@ -2298,4 +2303,3 @@ class ConformerGenerator(Base):
         for file in (mol_file, results_file):
             if os.path.exists(file):
                 os.remove(file)
-
