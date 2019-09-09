@@ -268,6 +268,16 @@ RSQM_DEFAULTS = {
     }
 }
 
+####################################### MacrocycleModifier #######################################
+MCM_DEFAULTS = {
+    'inputs': {
+        'col_macrocycles': COL1
+    },
+    'outputs': {
+        'col_macrocycles': COL1
+    }
+}
+
 ####################################### DEFAULT #######################################
 DEFAULTS = {
     'DataInitializer': DI_DEFAULTS,
@@ -278,5 +288,6 @@ DEFAULTS = {
     'MacrocycleGenerator': MCG_DEFAULTS,
     'ConformerGenerator': CG_DEFAULTS,
     'ReactionGenerator': RG_DEFAULTS,
-    'RegioSQMFilter': RSQM_DEFAULTS
+    'RegioSQMFilter': RSQM_DEFAULTS,
+    'MacrocycleModifier': MCM_DEFAULTS
 }
