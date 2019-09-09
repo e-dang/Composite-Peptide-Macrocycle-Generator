@@ -6,7 +6,7 @@ from itertools import chain, product
 from logging import INFO
 
 from rdkit import Chem
-from rdkit.Chem import AllChem, Draw
+from rdkit.Chem import AllChem
 
 import macrocycles.config as config
 import macrocycles.utils as utils
@@ -310,7 +310,7 @@ class PyrroloIndolene(Reaction):
 
     def __init__(self, side_chain, template, reacting_atom):
 
-        super().__init__(self.is_valid, self.generate_product, 'pyrolo_indolene', reacting_atom, side_chain, template)
+        super().__init__(self.is_valid, self.generate_product, 'pyrrolo_indolene', reacting_atom, side_chain, template)
 
     def is_valid(self):
         if self.valid:
@@ -465,7 +465,7 @@ class ReactionGenerator(utils.Base):
 
         return False
 
-    def generate(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler]):
+    def generate(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
 
         try:
             dependent_rxns, independent_rxns = self.classify_reactions(reactions)
@@ -487,7 +487,7 @@ class ReactionGenerator(utils.Base):
 
         return False
 
-    def generate_serial(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler]):
+    def generate_serial(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
 
         try:
             dependent_rxns, independent_rxns = self.classify_reactions(reactions)
@@ -507,7 +507,7 @@ class ReactionGenerator(utils.Base):
 
         return False
 
-    def generate_from_ids(self, side_chain_ids, template_ids, reactions=[FriedelCafts, TsujiTrost, PictetSpangler]):
+    def generate_from_ids(self, side_chain_ids, template_ids, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
 
         try:
             params = self._defaults['inputs']
@@ -551,7 +551,7 @@ class ReactionGenerator(utils.Base):
             applicable_template = 'all'
 
         for i, (smarts, (binary, rxn_atom_idx, rxn_type)) in enumerate(reactions.items()):
-            doc = {'_id': side_chain['_id'] + str(chunk + i) + rxn_type[0],
+            doc = {'_id': side_chain['_id'] + str(chunk + i) + rxn_type[:2],
                    'type': rxn_type,
                    'binary': binary,
                    'smarts': smarts,
@@ -605,42 +605,3 @@ class ReactionGenerator(utils.Base):
             dependent_rxns.append(func) if func.__name__ in params else independent_rxns.append(func)
 
         return dependent_rxns, independent_rxns
-
-    # def reaction_from_vector(mol, vector=None):
-
-    #     mol = mol.split('*')
-    #     for i, substr in enumerate(mol):
-    #         if i == 0:
-    #             mol = substr
-    #         else:
-    #             mol = f'[*:{i}]'.join([mol, substr])
-
-    #     print(mol)
-    #     mol = Chem.MolFromSmiles(mol)
-
-    #     idxs = [idx for idx_tup in vector if 0 not in idx_tup for idx in idx_tup]
-    #     idxs = set(idxs)
-    #     print(idxs)
-    #     for i, idx in enumerate(idxs, start=i + 1):
-    #         mol.GetAtomWithIdx(idx).SetAtomMapNum(i)
-
-    #     old_mol = deepcopy(mol)
-    #     mol = Chem.RWMol(mol)
-    #     idxs = set()
-    #     for idx_tup in vector:
-    #         idx1, idx2 = idx_tup
-    #         idxs.add(idx1)
-    #         idxs.add(idx2)
-
-    #         if 0 in idx_tup:
-    #             idx = idx_tup[0] if idx_tup[0] != 0 else idx_tup[1]
-    #             mol.RemoveAtom(idx)
-    #         else:
-    #             idx1, idx2 = idx_tup
-    #             idxs.add(idx1)
-    #             idxs.add(idx2)
-    #             mol.AddBond(idx1, idx2, Chem.rdchem.BondType.SINGLE)
-
-    #     reaction = '(' + Chem.MolToSmiles(old_mol) + ')>>' + Chem.MolToSmiles(mol)
-
-    #     return reaction
