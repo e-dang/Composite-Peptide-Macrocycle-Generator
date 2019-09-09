@@ -1507,10 +1507,11 @@ class MacrocycleGenerator(Base):
             for side_chain_id in side_chain_ids:
                 args.extend(filter(lambda x: x['template'] in ('all', tp_hybrid['template']), reactions[side_chain_id]))
 
+            # can apply pictet_spangler reaction
             if tp_hybrid['template'] != 'temp1':
                 args = filter(lambda x: (x['type'] == 'pictet_spangler' \
                               and x['side_chain']['_id'] == tp_hybrid['peptide']['monomers'][0]['side_chain']['_id']) \
-                              or x['type'] in ('friedel_crafts', 'tsuji_trost'), args)
+                              or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene'), args)
 
                 pictet, other = [], []
                 for rxn in args:
@@ -1518,7 +1519,7 @@ class MacrocycleGenerator(Base):
 
                 for arg in product(pictet, other):
                     yield tp_hybrid, arg
-            else:
+            else: # friedel_crafts, tsuji_trost, pyrrolo_indolene
                 for arg in args:
                     yield tp_hybrid, [arg]
 
