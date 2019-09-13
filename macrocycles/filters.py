@@ -35,12 +35,13 @@ class RegioSQMFilter(utils.Base):
         params = self._defaults['outputs']
         return self.to_mongo(params['col_regiosqm'])
 
-    def load_data(self):
+    def load_data(self, solvent, cut_off):
 
         try:
             params = self._defaults['inputs']
             self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'})
-            self.regio_predictions = self.from_mongo(params['col_filters'], {'type': 'regiosqm'})
+            self.regio_predictions = self.from_mongo(
+                params['col_filters'], {'type': 'regiosqm', 'solvent': solvent, 'cut_off': cut_off})
         except Exception:
             raise
         else:
@@ -69,7 +70,15 @@ class RegioSQMFilter(utils.Base):
     @staticmethod
     def apply_filters(macrocycle, filter_doc):
 
-        macrocycle.update({'regio_filter': macrocycle['reaction']['rxn_atom_idx'] in filter_doc['prediction']})
+        try:
+            if not macrocycle['regio_filter']:
+                return macrocycle, filter_doc
+        except KeyError:
+            for reaction in macrocycle['reaction']:
+                if reaction['side_chain'] == filter_doc['_id']:
+                    macrocycle.update({'regio_filter': reaction['rxn_atom_idx'] in filter_doc['prediction']})
+                    if not macrocycle['regio_filter']:
+                        break
 
         return macrocycle, filter_doc
 
@@ -77,8 +86,11 @@ class RegioSQMFilter(utils.Base):
     def is_applicable(args):
 
         macrocycle, filter_doc = args
-        if macrocycle['reaction']['side_chain'] == filter_doc['_id']:
-            return True
+        # print(macrocycle['reaction'])
+        # print(filter_doc)
+        for reaction in macrocycle['reaction']:
+            if reaction['side_chain'] == filter_doc['_id']:
+                return True
 
         return False
 
