@@ -101,7 +101,7 @@ class DataInitializer(Base):
 
         return True
 
-    def load_parent_side_chains(self, fp=None, group=None, collection=None):
+    def load_parent_side_chains(self, fp=None, groups=None, collection=None):
         """
         Top level function that sets up a template document for parent side chains to be stored in, and passes it to
         self.load_files() for filling. If call to self.load_files() is successful then makes call to self.save_data().
@@ -118,19 +118,23 @@ class DataInitializer(Base):
         if fp is None:
             fp = self._defaults['inputs']['fp_psc']
 
-        if group is None:
-            group = input(f'Enter group name for parent side chains in {fp}: ')
-
         if collection is None:
-            collection = self._defaults['outputs']['col_psc']
+                collection = self._defaults['outputs']['col_psc']
 
-        template_doc = {'_id': None,
-                        'type': 'parent_side_chain',
-                        'binary': None,
-                        'kekule': None,
-                        'group': group}
+        if groups is None:
+            groups = input(f'Enter group name(s) (comma separated) for parent side chains in {fp}: ')
+            groups = groups.split(',')
 
-        if self.from_sdf(fp, template_doc):
+        for path, group in zip(fp, groups):
+            template_doc = {'_id': None,
+                            'type': 'parent_side_chain',
+                            'binary': None,
+                            'kekule': None,
+                            'group': group}
+
+            if not self.from_sdf(path, template_doc):
+                break
+        else:
             return self.to_mongo(collection, create_id=True)
 
         return False
