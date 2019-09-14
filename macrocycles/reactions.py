@@ -82,8 +82,8 @@ class Reaction():
 
     def sc_attach_adjacent_N(self, carboxyl_map_num, nitrogen_map_num, clear_map_nums=True):
 
-        # get side_chain and backbone
-        side_chain = self.reactants[0]
+        # get nucleophile and backbone
+        nucleophile = self.reactants[0]
         db = utils.MongoDataBase(logger=None)
         backbone = Chem.Mol(db['molecules'].find_one({'_id': 'alpha'})['binary'])
 
@@ -96,9 +96,9 @@ class Reaction():
                 atom.SetAtomMapNum(nitrogen_map_num)
                 break
 
-        # create monomer with side_chain adjacent to nitrogen
+        # create monomer with nucleophile adjacent to nitrogen
         ignored_map_nums = [config.SC_EAS_MAP_NUM, nitrogen_map_num, carboxyl_map_num]
-        return utils.Base.merge(side_chain, backbone, ignored_map_nums=ignored_map_nums, clear_map_nums=clear_map_nums)
+        return utils.Base.merge(nucleophile, backbone, ignored_map_nums=ignored_map_nums, clear_map_nums=clear_map_nums)
 
 ########################################################################################################################
 ########################################################################################################################
@@ -107,9 +107,9 @@ class Reaction():
 
 class FriedelCafts(Reaction):
 
-    def __init__(self, side_chain, template, reacting_atom):
+    def __init__(self, nucleophile, template, reacting_atom):
 
-        super().__init__(self.is_valid, self.generate_product, 'friedel_crafts', reacting_atom, side_chain, template)
+        super().__init__(self.is_valid, self.generate_product, 'friedel_crafts', reacting_atom, nucleophile, template)
 
     def is_valid(self):
 
@@ -139,9 +139,9 @@ class FriedelCafts(Reaction):
 
 class TsujiTrost(Reaction):
 
-    def __init__(self, side_chain, template, reacting_atom):
+    def __init__(self, nucleophile, template, reacting_atom):
 
-        super().__init__(self.is_valid, self.generate_product, 'tsuji_trost', reacting_atom, side_chain, template)
+        super().__init__(self.is_valid, self.generate_product, 'tsuji_trost', reacting_atom, nucleophile, template)
 
     def is_valid(self):
         if self.valid:
@@ -174,25 +174,25 @@ class PictetSpangler(Reaction):
     C_TERM_WILDCARD_MAP_NUM = 9
     ALKYN_WILDCARD_MAP_NUM = 10
 
-    def __init__(self, side_chain, template, reacting_atom):
+    def __init__(self, nucleophile, template, reacting_atom):
 
-        super().__init__(self.is_valid, self.generate_product, 'pictet_spangler', reacting_atom, side_chain, template)
+        super().__init__(self.is_valid, self.generate_product, 'pictet_spangler', reacting_atom, nucleophile, template)
 
     def is_valid(self):
         if self.valid:
             return True
 
-        side_chain, template = self.reactants
+        nucleophile, template = self.reactants
 
-        # check reacting atom is aromatic carbon
+        # check reacting atom is aromatic carbon with hydrogens
         if not self.reacting_atom.GetIsAromatic() \
                 or self.reacting_atom.GetSymbol() != 'C' \
                 or self.reacting_atom.GetTotalNumHs() == 0:
             return False
 
-        # check that attachment point of side_chain is two atoms away from reacting atom
-        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
-        paths = Chem.FindAllPathsOfLengthN(side_chain, 3, useBonds=False, rootedAtAtom=self.reacting_atom.GetIdx())
+        # check that attachment point of nucleophile is two atoms away from reacting atom
+        wild_card = [atom for atom in nucleophile.GetAtoms() if atom.GetAtomicNum() == 0][0]
+        paths = Chem.FindAllPathsOfLengthN(nucleophile, 3, useBonds=False, rootedAtAtom=self.reacting_atom.GetIdx())
         atoms = set().union([atom for path in paths for atom in path])
         if wild_card.GetIdx() not in atoms - set(atom.GetIdx() for atom in wild_card.GetNeighbors()):
             return False
@@ -207,13 +207,13 @@ class PictetSpangler(Reaction):
         return True
 
     def preprocess(self, wild_card, substruct_match):
-        monomers = self.modify_side_chain(wild_card)
+        monomers = self.modify_nucleophile(wild_card)
         template = self.modify_template(substruct_match)
         self.create_reactant(monomers, template)
 
-    def modify_side_chain(self, wild_card):
+    def modify_nucleophile(self, wild_card):
 
-        # change side_chain wild_card back to carbon
+        # change nucleophile wild_card back to carbon
         wild_card.SetAtomicNum(6)
 
         # create monomer
@@ -286,7 +286,7 @@ class PictetSpangler(Reaction):
                 reactant.RemoveAtom(atom.GetIdx())
                 break
 
-        # create bond between side_chain EAS carbon and unmasked aldehyde carbon
+        # create bond between nucleophile EAS carbon and unmasked aldehyde carbon
         ignored_map_nums = [config.TEMP_EAS_MAP_NUM, self.CARBON_PEP_MAP_NUM, self.ALKYN_WILDCARD_MAP_NUM,
                             self.NITROGEN_PS_MAP_NUM, self.C_TERM_WILDCARD_MAP_NUM]
         reactant = utils.Base.merge(reactant, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
@@ -308,23 +308,25 @@ class PyrroloIndolene(Reaction):
     C_TERM_WILDCARD_MAP_NUM = 7
     N_TERM_WILDCARD_MAP_NUM = 8
 
-    def __init__(self, side_chain, template, reacting_atom):
+    def __init__(self, nucleophile, template, reacting_atom):
 
-        super().__init__(self.is_valid, self.generate_product, 'pyrrolo_indolene', reacting_atom, side_chain, template)
+        super().__init__(self.is_valid, self.generate_product, 'pyrrolo_indolene', reacting_atom, nucleophile, template)
 
     def is_valid(self):
         if self.valid:
             return True
 
-        side_chain, template = self.reactants
+        nucleophile, template = self.reactants
 
-        # side_chain must be an indole
-        match = side_chain.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12'))
+        # nucleophile must be an indole
+        match = nucleophile.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12'))
         if not match:
             return False
 
         # reaction initiated at carbon that is the attachment point to amino acid backbone, which contains no hydrogens
-        if self.reacting_atom.GetTotalNumHs() != 0 or self.reacting_atom.GetSymbol() != 'C':
+        if self.reacting_atom.GetTotalNumHs() != 0 \
+                or self.reacting_atom.GetSymbol() != 'C' \
+                or not self.reacting_atom.GetIsAromatic():
             return False
 
         # reaction also involves carbon adjacent to reacting_atom which must have a hydrogen
@@ -332,7 +334,7 @@ class PyrroloIndolene(Reaction):
             return False
 
         # check if carbon is the correct bridged carbon (adjacent to nitrogen)
-        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
+        wild_card = [atom for atom in nucleophile.GetAtoms() if atom.GetAtomicNum() == 0][0]
         if self.reacting_atom.GetIdx() not in [atom.GetIdx() for atom in wild_card.GetNeighbors()]:
             return False
 
@@ -341,31 +343,31 @@ class PyrroloIndolene(Reaction):
         return True
 
     def preprocess(self):
-        side_chain = self.modify_side_chain()
-        self.reactants = [side_chain, Chem.MolFromSmarts(
+        nucleophile = self.modify_nucleophile()
+        self.reactants = [nucleophile, Chem.MolFromSmarts(
             f'[*:{config.TEMP_WILDCARD_MAP_NUM}]/C=C/[CH3:{config.TEMP_EAS_MAP_NUM}]')]
 
-    def modify_side_chain(self):
+    def modify_nucleophile(self):
 
-        # change side_chain wild card back to carbon
+        # change nucleophile wild card back to carbon
         for atom in self.reactants[0].GetAtoms():
             if atom.GetAtomicNum() == 0:
                 atom.SetAtomicNum(6)
                 break
 
-        # get side_chain and backbone
-        side_chain = super().sc_attach_adjacent_N(self.C_TERM_WILDCARD_MAP_NUM, self.NITROGEN_MAP_NUM)
+        # get nucleophile and backbone
+        nucleophile = super().sc_attach_adjacent_N(self.C_TERM_WILDCARD_MAP_NUM, self.NITROGEN_MAP_NUM)
 
         # add wildcard atom to backbone nitrogen
         unique = set()
         rxn = AllChem.ReactionFromSmarts('[NH2:1][*:2]>>*[NH1:1][*:2]')
-        for prod in chain.from_iterable(rxn.RunReactants((side_chain,))):
+        for prod in chain.from_iterable(rxn.RunReactants((nucleophile,))):
             Chem.SanitizeMol(prod)
             unique.add(prod.ToBinary())
 
         # tag new wildcard atom, peptide nitrogen, and carbon adjacent to reacting atom that has a hydrogen
-        side_chain = Chem.Mol(unique.pop())
-        for atom in side_chain.GetAtoms():
+        nucleophile = Chem.Mol(unique.pop())
+        for atom in nucleophile.GetAtoms():
             if atom.GetAtomMapNum() == 0 and atom.GetAtomicNum() == 0:
                 atom.SetAtomMapNum(self.N_TERM_WILDCARD_MAP_NUM)
                 neighbor = atom.GetNeighbors()[0]
@@ -376,40 +378,40 @@ class PyrroloIndolene(Reaction):
                         neighbor.SetAtomMapNum(self.ADJ_CARBON_MAP_NUM)
                         break
 
-        return side_chain
+        return nucleophile
 
     def generate_product(self):
 
-        side_chain, template = deepcopy(self.reactants)
+        nucleophile, template = deepcopy(self.reactants)
 
         atoms = []
-        for atom in side_chain.GetAtoms():
+        for atom in nucleophile.GetAtoms():
             if atom.GetAtomMapNum() in (config.SC_EAS_MAP_NUM, self.ADJ_CARBON_MAP_NUM):
                 atoms.append(atom)
                 if len(atoms) == 2:
                     break
 
         # bond between reacting_atom and adjacent atom becomes single bond
-        bond = side_chain.GetBondBetweenAtoms(atoms[0].GetIdx(), atoms[1].GetIdx())
+        bond = nucleophile.GetBondBetweenAtoms(atoms[0].GetIdx(), atoms[1].GetIdx())
         bond.SetBondType(Chem.BondType.SINGLE)
         atoms[0].SetNumExplicitHs(atoms[0].GetTotalNumHs() + 1)
         atoms[1].SetNumExplicitHs(atoms[1].GetTotalNumHs() + 1)
 
         # merge peptide nitrogen to adj carbon
         ignored_map_nums = [self.C_TERM_WILDCARD_MAP_NUM, config.SC_EAS_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM]
-        side_chain = utils.Base.merge(side_chain, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+        nucleophile = utils.Base.merge(nucleophile, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
 
-        # merge template with side_chain
+        # merge template with nucleophile
         ignored_map_nums = [self.C_TERM_WILDCARD_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM,
                             config.TEMP_WILDCARD_MAP_NUM, self.ADJ_CARBON_MAP_NUM, self.NITROGEN_MAP_NUM]
-        return utils.Base.merge(side_chain, template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+        return utils.Base.merge(nucleophile, template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
 
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
 
 
-NewReactions = namedtuple('NewReactions', 'reactions side_chain template')
+NewReactions = namedtuple('NewReactions', 'reactions nucleophile template')
 
 
 class ReactionGenerator(utils.Base):
@@ -418,7 +420,7 @@ class ReactionGenerator(utils.Base):
     Inherits from Base.
 
     Attributes:
-        side_chains (list): Contains the different atom mapped side chains.
+        nucleophiles (list): Contains the different atom mapped side chains.
         templates (list): Contains the different atom mapped templates.
         reaction (str): The type of reaction that is being performed (i.e. Friedel-Crafts, Pictet-Spengler,..).
     """
@@ -436,7 +438,7 @@ class ReactionGenerator(utils.Base):
         super().__init__(LOGGER, make_db_connection)
 
         # data
-        self.side_chains = []
+        self.nucleophiles = []
         self.templates = []
 
     def save_data(self):
@@ -455,8 +457,10 @@ class ReactionGenerator(utils.Base):
 
         try:
             params = self._defaults['inputs']
-            self.side_chains = list(self.from_mongo(params['col_side_chains'], {
+            self.nucleophiles = list(self.from_mongo(params['col_nucleophiles'], {
                 'type': 'side_chain', 'connection': 'methyl'}))
+            self.nucleophiles.extend(list(self.from_mongo(params['col_nucleophiles'], {
+                'type': 'monomer', 'group': 'modified_prolines'})))
             self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
         except Exception:
             self.logger.exception('Unexpected exception occured.')
@@ -469,17 +473,17 @@ class ReactionGenerator(utils.Base):
 
         try:
             dependent_rxns, independent_rxns = self.classify_reactions(reactions)
-            dependent_args = product(self.side_chains, dependent_rxns, self.templates)
-            independent_args = product(self.side_chains, independent_rxns)
+            dependent_args = product(self.nucleophiles, dependent_rxns, self.templates)
+            independent_args = product(self.nucleophiles, independent_rxns)
 
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(ReactionGenerator.create_reaction, dependent_args)
-                for rxns, side_chain, template in results.get():
-                    self.accumulate_data(rxns, side_chain, template)
+                for rxns, nucleophile, template in results.get():
+                    self.accumulate_data(rxns, nucleophile, template)
 
                 results = pool.starmap_async(ReactionGenerator.create_reaction, independent_args)
-                for rxns, side_chain, template in results.get():
-                    self.accumulate_data(rxns, side_chain, template)
+                for rxns, nucleophile, template in results.get():
+                    self.accumulate_data(rxns, nucleophile, template)
         except Exception:
             raise
         else:
@@ -492,14 +496,14 @@ class ReactionGenerator(utils.Base):
         try:
             dependent_rxns, independent_rxns = self.classify_reactions(reactions)
 
-            for side_chain in self.side_chains:
+            for nucleophile in self.nucleophiles:
                 for template in self.templates:
                     for reaction in dependent_rxns:
-                        rxn, _, _ = ReactionGenerator.create_reaction(side_chain, reaction, template)
-                        self.accumulate_data(rxn, side_chain, template)
+                        rxn, _, _ = ReactionGenerator.create_reaction(nucleophile, reaction, template)
+                        self.accumulate_data(rxn, nucleophile, template)
                 for reaction in independent_rxns:
-                    rxn, _, template = ReactionGenerator.create_reaction(side_chain, reaction)
-                    self.accumulate_data(rxn, side_chain, template)
+                    rxn, _, template = ReactionGenerator.create_reaction(nucleophile, reaction)
+                    self.accumulate_data(rxn, nucleophile, template)
         except Exception:
             raise
         else:
@@ -507,25 +511,25 @@ class ReactionGenerator(utils.Base):
 
         return False
 
-    def generate_from_ids(self, side_chain_ids, template_ids, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
+    def generate_from_ids(self, nucleophile_ids, template_ids, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
 
         try:
             params = self._defaults['inputs']
-            self.side_chains = list(self.from_mongo(params['col_side_chains'], {
-                'type': 'side_chain', '_id': {'$in': side_chain_ids}}))
+            self.nucleophiles = list(self.from_mongo(params['col_nucleophiles'], {
+                'type': 'nucleophile', '_id': {'$in': nucleophile_ids}}))
             self.templates = list(self.from_mongo(params['col_templates'], {
                 'type': 'template', '_id': {'$in': template_ids}}))
             dependent_rxns, independent_rxns = self.classify_reactions(reactions)
 
-            for side_chain in self.side_chains:
+            for nucleophile in self.nucleophiles:
                 for template in self.templates:
                     for reaction in dependent_rxns:
-                        rxn, _, _ = ReactionGenerator.create_reaction(side_chain, reaction, template)
-                        self.accumulate_data(rxn, side_chain, template)
+                        rxn, _, _ = ReactionGenerator.create_reaction(nucleophile, reaction, template)
+                        self.accumulate_data(rxn, nucleophile, template)
 
                 for reaction in independent_rxns:
-                    rxn, _, template = ReactionGenerator.create_reaction(side_chain, reaction)
-                    self.accumulate_data(rxn, side_chain, template)
+                    rxn, _, template = ReactionGenerator.create_reaction(nucleophile, reaction)
+                    self.accumulate_data(rxn, nucleophile, template)
         except Exception:
             raise
         else:
@@ -533,13 +537,13 @@ class ReactionGenerator(utils.Base):
 
         return False
 
-    def accumulate_data(self, reactions, side_chain, template):
+    def accumulate_data(self, reactions, nucleophile, template):
         """
         Stores all data associated with the different reactions into a dictionary and appends it so self.result_data.
 
         Args:
             template (dict): The associated data of the templates.
-            side_chain (dict): The associated data of the side chain that the regioisomers are derived from.
+            nucleophile (dict): The associated data of the side chain that the regioisomers are derived from.
             reaction (str): The atom mapped reaction SMARTS string.
         """
 
@@ -551,52 +555,81 @@ class ReactionGenerator(utils.Base):
             applicable_template = 'all'
 
         for i, (smarts, (binary, rxn_atom_idx, rxn_type)) in enumerate(reactions.items()):
-            doc = {'_id': side_chain['_id'] + str(chunk + i) + rxn_type[:2],
+            doc = {'_id': nucleophile['_id'] + str(chunk + i) + rxn_type[:2],
                    'type': rxn_type,
                    'binary': binary,
                    'smarts': smarts,
                    'rxn_atom_idx': rxn_atom_idx,
                    'template': applicable_template,
-                   'side_chain': {'_id': side_chain['_id'],
-                                  'parent_side_chain': side_chain['parent_side_chain']['_id'],
-                                  'conn_atom_idx': side_chain['conn_atom_idx']}}
+                   'nucleophile': nucleophile['_id']}
             self.result_data.append(doc)
 
     @staticmethod
-    def create_reaction(side_chain, reaction, template=None):
+    def create_reaction(nucleophile, reaction, template=None):
 
         try:
-            sc_mol = Chem.Mol(side_chain['binary'])
+            nuc_mol = Chem.Mol(nucleophile['binary'])
             temp_mol = Chem.Mol(template['binary'])
         except TypeError:
             temp_mol = None
 
-        reactions = {}
-        ReactionGenerator.tag_wildcard_atom(sc_mol)
+        ReactionGenerator.tag_wildcard_atom(nuc_mol, nucleophile['type'])
 
-        for atom in sc_mol.GetAtoms():
+        reactions = {}
+        for atom in nuc_mol.GetAtoms():
 
             if atom.GetAtomMapNum() == config.SC_WILDCARD_MAP_NUM:
                 continue
 
             atom.SetAtomMapNum(config.SC_EAS_MAP_NUM)
-            rxn = reaction(deepcopy(sc_mol), deepcopy(temp_mol), atom)
+            rxn = reaction(deepcopy(nuc_mol), deepcopy(temp_mol), atom)
             if rxn:
                 reactions[str(rxn)] = rxn.data
 
             atom.SetAtomMapNum(0)
 
-        return NewReactions(reactions, side_chain, template)
+        return NewReactions(reactions, nucleophile, template)
 
     @staticmethod
-    def tag_wildcard_atom(side_chain):
-        matches = side_chain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
-        for pair in matches:
-            for atom_idx in pair:
-                atom = side_chain.GetAtomWithIdx(atom_idx)
-                atom.SetAtomMapNum(config.SC_WILDCARD_MAP_NUM)
-                utils.atom_to_wildcard(atom)
-                return atom
+    def tag_wildcard_atom(nucleophile, mol_type):
+        if mol_type == 'side_chain':
+            matches = nucleophile.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+            for pair in matches:
+                for atom_idx in pair:
+                    atom = nucleophile.GetAtomWithIdx(atom_idx)
+                    if atom.GetAtomMapNum() != 0:
+                        atom.SetAtomMapNum(0)
+                    else:
+                        atom.SetAtomMapNum(config.SC_WILDCARD_MAP_NUM)
+                        utils.atom_to_wildcard(atom)
+        else:
+            # change cterm to have wildcard atom
+            cterm_rxn = AllChem.ReactionFromSmarts('[*:2][C:1](=O)OH>>[*:2][*:1]')
+            mols = {}
+            for prod in chain.from_iterable(cterm_rxn.RunReactants((nucleophile,))):
+                Chem.SanitizeMol(prod)
+                mols[Chem.MolToSmiles(prod)] = prod
+
+            # set atom map num of new wildcard
+            mol = list(mols.values())[0]
+            for atom in mol.GetAtoms():
+                if atom.GetAtomicNum() == 0:
+                    atom.SetAtomMapNum(100)
+
+            # change nterm to have wildcard atom
+            new_atom = Chem.MolFromSmarts('C')
+            new_atom.GetAtomWithIdx(0).SetAtomMapNum(1)
+            for atom in mol.GetSubstructMatches(Chem.MolFromSmarts('[NH2,NH1]')):
+                atom.SetAtomMapNum(2)
+                break
+
+            mol = utils.Base.merge(mol, new_atom, ignored_map_nums=[100])
+            for atom in mol.GetAtoms()
+                if atom.GetAtomicNum() == 0 and atom.GetAtomicNum() == 0:
+                    atom.SetAtomMapNum(101)
+                    break
+
+        return atom
 
     def classify_reactions(self, reactions):
         params = self._defaults['template_dependent_rxns']
