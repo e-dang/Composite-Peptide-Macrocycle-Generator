@@ -1526,8 +1526,13 @@ class MacrocycleGenerator(Base):
 
             # can apply pictet_spangler reaction
             if tp_hybrid['template'] != 'temp1':
+                try:
+                    first_monomer = tp_hybrid['peptide']['monomers'][0]['side_chain']['_id']
+                except TypeError:
+                    first_monomer = None
+
                 args = filter(lambda x: (x['type'] == 'pictet_spangler' \
-                              and x['side_chain']['_id'] == tp_hybrid['peptide']['monomers'][0]['side_chain']['_id']) \
+                              and x['side_chain']['_id'] == first_monomer) \
                               or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene'), args)
 
                 pictet, other = [], []

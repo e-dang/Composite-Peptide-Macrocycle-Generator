@@ -594,9 +594,11 @@ class ReactionGenerator(utils.Base):
         for pair in matches:
             for atom_idx in pair:
                 atom = side_chain.GetAtomWithIdx(atom_idx)
-                atom.SetAtomMapNum(config.SC_WILDCARD_MAP_NUM)
-                utils.atom_to_wildcard(atom)
-                return atom
+                if atom.GetAtomMapNum() != 0:
+                    atom.SetAtomMapNum(0)
+                else:
+                    atom.SetAtomMapNum(config.SC_WILDCARD_MAP_NUM)
+                    utils.atom_to_wildcard(atom)
 
     def classify_reactions(self, reactions):
         params = self._defaults['template_dependent_rxns']
