@@ -672,6 +672,14 @@ class SideChainGenerator(Base):
         conn_mol = Chem.Mol(connection['binary'])
         parent_mol = Chem.Mol(parent_sc['binary'])
 
+        # tag any methyl groups on parent_mol so they are not confused with methyl connection atoms in the monomer
+        # generation step
+        ignored_map_nums = []
+        patt = Chem.MolFromSmarts('[CH3]')
+        for i, atom in enumerate(chain.from_iterable(parent_mol.GetSubstructMatches(patt)), start=3):
+            ignored_map_nums.append(i)
+            parent_mol.GetAtomWithIdx(atom).SetAtomMapNum(i)
+
         # check if connecting atom is atom mapped
         SideChainGenerator.is_valid_connection(conn_mol)
 
@@ -687,8 +695,7 @@ class SideChainGenerator(Base):
 
             # merge parent side chain with conenction and record results
             try:
-                # side_chain = Base.merge(parent_mol, conn_mol, config.PSC_MAP_NUM, config.CONN_MAP_NUM)
-                side_chain = Base.merge(parent_mol, conn_mol)
+                side_chain = Base.merge(parent_mol, conn_mol, ignored_map_nums=ignored_map_nums)
             except (ValueError, MergeError) as error:
                 if logger:
                     logger.exception(f'Parent Side Chain: {Chem.MolToSmiles(parent_mol)}')
@@ -877,27 +884,28 @@ class MonomerGenerator(Base):
         if not len(matches):
             raise AtomSearchError(f'Couldn\'t find attchment point of: {Chem.MolToSmiles(sc_mol)}')
 
-        monomers = {}
+        # set atom map number for attachment point of side chain
         for pairs in matches:
-
-            # set atom map number for attachment point of side chain
             for atom_idx in pairs:
                 atom = sc_mol.GetAtomWithIdx(atom_idx)
-                atom.SetAtomMapNum(config.SC_MAP_NUM)
-                break
+                if atom.GetAtomMapNum() >= 3: # map nums assigned the methyl carbons that are not attachment points
+                    atom.SetAtomMapNum(0)
+                else:
+                    atom.SetAtomMapNum(config.SC_MAP_NUM)
 
-            # connect monomer and backbone
-            try:
-                monomer = Base.merge(sc_mol, bb_mol, stereo=stereo)
-            except ValueError:
-                if logger:
-                    logger.exception(f'Sanitize Error! Side Chain: {Chem.MolToSmiles(sc_mol)}, '
-                                     f'backbone: {Chem.MolToSmiles(bb_mol)}')
-            else:
-                atom.SetAtomMapNum(0)
-                binary = monomer.ToBinary()
-                Chem.Kekulize(monomer)
-                monomers[binary] = Chem.MolToSmiles(monomer, kekuleSmiles=True)
+        # connect monomer and backbone
+        monomers = {}
+        try:
+            monomer = Base.merge(sc_mol, bb_mol, stereo=stereo)
+        except ValueError:
+            if logger:
+                logger.exception(f'Sanitize Error! Side Chain: {Chem.MolToSmiles(sc_mol)}, '
+                                    f'backbone: {Chem.MolToSmiles(bb_mol)}')
+        else:
+            atom.SetAtomMapNum(0)
+            binary = monomer.ToBinary()
+            Chem.Kekulize(monomer)
+            monomers[binary] = Chem.MolToSmiles(monomer, kekuleSmiles=True)
 
         return NewMonomer(monomers, side_chain, backbone, stereo)
 
