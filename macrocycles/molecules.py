@@ -1433,16 +1433,18 @@ class MacrocycleGenerator(Base):
 
         return False
 
-    def generate_from_ids(self, tp_hybrid_ids, reaction_ids):
+    def generate_from_ids(self, tp_hybrid_ids, reaction_ids=None):
         try:
             params = self._defaults['inputs']
             self.tp_hybrids = self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid', '_id': {'$in': tp_hybrid_ids}})
-            self.reactions = self.from_mongo(params['col_reactions'], {'type': 'reaction', '_id': {'$in': reaction_ids}})
+            if reaction_ids is None:
+                self.reactions = list(self.from_mongo(params['col_reactions'], {'type': {'$ne': 'template'}}))
+            else:
+                self.reactions = self.from_mongo(params['col_reactions'], {'type': 'reaction', '_id': {'$in': reaction_ids}})
 
-            for tp_hybrid, reaction in product(self.tp_hybrids, self.reactions):
-                if tp_hybrid['template'] == reaction['template']:
-                    macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reaction)
-                    self.accumulate_data(macrocycles, tp_hybrid, reaction)
+            for tp_hybrid, reactions in self.get_args():
+                macrocycles, _, _ = MacrocycleGenerator.apply_reaction(tp_hybrid, reactions)
+                self.accumulate_data(macrocycles, tp_hybrid, reactions)
         except Exception:
             raise
         else:
