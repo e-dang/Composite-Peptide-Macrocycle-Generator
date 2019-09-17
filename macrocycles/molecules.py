@@ -1625,6 +1625,22 @@ class ConformerGenerator(Base):
 
         return False
 
+    def generate_serial(self, repeats=5, num_confs_genetic=50, num_confs_keep=5, force_field='MMFF94s', score='energy',
+                min_rmsd=0.5, energy_diff=5, max_iters=1000, ring_size=10, granularity=5, clash_threshold=0.9,
+                distance_interval=[1.0, 2.5], seed=-1, num_embed_tries=5):
+
+        kwargs = locals()
+        del kwargs['self']
+        try:
+            for macrocycle in self.macrocycles:
+                macro_doc, macro_mol, energies, rms, ring_rms = ConformerGenerator.conformation_search(macrocycle, **kwargs)
+                self.accumulate_data(macro_doc, macro_mol, energies, rms, ring_rms)
+        except Exception:
+            raise
+        else:
+            return True
+        return False
+
     def generate_from_ids(self, macrocycle_ids, repeats=5, num_confs_genetic=50, num_confs_keep=5, force_field='MMFF94s', score='energy',
                         min_rmsd=0.5, energy_diff=5, max_iters=1000, ring_size=10, granularity=5, clash_threshold=0.9,
                         distance_interval=[1.0, 2.5], seed=-1, num_embed_tries=5):
@@ -1633,8 +1649,8 @@ class ConformerGenerator(Base):
         del kwargs['macrocycle_ids']
 
         try:
-            # params = self._defaults['inputs']
-            # self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle', '_id': {'$in': macrocycle_ids}})
+            params = self._defaults['inputs']
+            self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle', '_id': {'$in': macrocycle_ids}})
 
             for macrocycle in self.macrocycles:
                 macro_doc, macro_mol, energies, rms, ring_rms = ConformerGenerator.conformation_search(macrocycle, **kwargs)
