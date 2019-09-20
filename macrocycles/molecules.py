@@ -1501,7 +1501,10 @@ class MacrocycleGenerator(Base):
                 for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
                     for atom in chain.from_iterable(rxn.GetReactingAtoms()):
                         macrocycle.GetAtomWithIdx(atom).SetProp('_protected', '1')
-                    Chem.SanitizeMol(macrocycle)
+                    try:
+                        Chem.SanitizeMol(macrocycle)
+                    except ValueError:
+                        pass
                     results[macrocycle.ToBinary()] = macrocycle
             reactants = list(results.values())
 
