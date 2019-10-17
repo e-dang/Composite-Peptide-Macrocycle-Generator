@@ -11,6 +11,7 @@ import macrocycles.config as config
 from rdkit.Chem import Draw
 from pprint import pprint
 from macrocycles.exceptions import MergeError
+from copy import deepcopy
 
 
 class CustomFormatter(logging.Formatter):
@@ -488,6 +489,13 @@ class Base():
 
         return self.mongo_db.insert(collection, self.result_data, ordered=ordered, create_id=create_id)
 
+    def to_json(self, filepath):
+
+        with open(filepath, 'w') as file:
+            json.dump(json.loads(json_util.dumps(self.result_data)), file)
+
+        return True
+
     def from_mongo(self, collection, query, projection=None):
         """
         Queries the collection in the database defined by self.mongo_db and retrieves the documents whose 'type' field
@@ -511,6 +519,11 @@ class Base():
             return data
 
         return None
+
+    def from_json(self, filepath):
+
+        with open(filepath, 'r') as file:
+            return json_util.loads(json_util.dumps(json.load(file)))
 
     @staticmethod
     def merge(*mols, ignored_map_nums=[], stereo=None, clear_map_nums=True):
@@ -538,11 +551,15 @@ class Base():
 
         # find atoms that will form a bond together and update hydrogen counts
         combo = Chem.RWMol(combo)
+        copy_combo = deepcopy(combo)
         Chem.SanitizeMol(combo)
         try:
             atom1, atom2 = [Base.update_hydrogen_counts(atom, clear_map_nums)
                             for atom in combo.GetAtoms() if atom.GetAtomMapNum() and atom.GetAtomMapNum() not in ignored_map_nums]
         except ValueError:
+            for mol in mols:
+                print(Chem.MolToSmiles(mol))
+            print(Chem.MolToSmiles(copy_combo))
             raise MergeError('There must be exactly 2 map numbers across all molecules.')
 
         # create bond, remove hydrogens, and sanitize

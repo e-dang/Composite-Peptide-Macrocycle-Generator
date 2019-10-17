@@ -552,13 +552,19 @@ class SideChainGenerator(Base):
         self.parent_side_chains = []
         self.connections = []
 
-    def save_data(self):
+    def save_data(self, to_mongo=True, to_json=False):
 
         params = self._defaults['outputs']
 
-        return self.to_mongo(params['col_side_chains'])
+        if to_mongo:
+            self.to_mongo(params['col_side_chains'])
 
-    def load_data(self, **kwargs):
+        if to_json:
+            self.to_json(params['json_side_chains'])
+
+        return True
+
+    def load_data(self, source='mongo'):
         """
         Overloaded method for loading input data using default locations defined in config.py. Tries to load from the
         database first, but if connection is not established then tries to load from a json file.
@@ -567,11 +573,19 @@ class SideChainGenerator(Base):
             bool: True if successful.
         """
 
-        params = ChainMap(kwargs, self._defaults['inputs'])
 
         try:
-            self.parent_side_chains = self.from_mongo(params['col_psc'], {'type': 'parent_side_chain'})
-            self.connections = list(self.from_mongo(params['col_connections'], {'type': 'connection'}))
+            params = self._defaults['inputs']
+
+            if source == 'mongo':
+                self.parent_side_chains = self.from_mongo(params['col_psc'], {'type': 'parent_side_chain'})
+                self.connections = list(self.from_mongo(params['col_connections'], {'type': 'connection'}))
+            elif source == 'json':
+                self.parent_side_chains = self.from_json(params['json_psc'])
+                self.connections = self.from_json(params['json_connections'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
+
         except Exception:
             self.logger.exception('Unexpected exception occured.')
         else:
@@ -759,13 +773,19 @@ class MonomerGenerator(Base):
         self.side_chains = []
         self.backbones = []
 
-    def save_data(self):
+    def save_data(self, to_mongo=True, to_json=False):
 
         params = self._defaults['outputs']
 
-        return self.to_mongo(params['col_monomers'])
+        if to_mongo:
+            self.to_mongo(params['col_monomers'])
 
-    def load_data(self, **kwargs):
+        if to_json:
+            self.to_json(params['json_monomers'])
+
+        return True
+
+    def load_data(self, source='mongo'):
         """
         Overloaded method for loading input data.
 
@@ -773,11 +793,19 @@ class MonomerGenerator(Base):
             bool: True if successful.
         """
 
-        params = ChainMap(kwargs, self._defaults['inputs'])
 
         try:
-            self.side_chains = self.from_mongo(params['col_side_chains'], {'type': 'side_chain'})
-            self.backbones = list(self.from_mongo(params['col_backbones'], {'type': 'backbone'}))
+            params = self._defaults['inputs']
+
+            if source == 'mongo':
+                self.side_chains = self.from_mongo(params['col_side_chains'], {'type': 'side_chain'})
+                self.backbones = list(self.from_mongo(params['col_backbones'], {'type': 'backbone'}))
+            elif source == 'json':
+                self.side_chains = self.from_json(params['json_side_chains'])
+                self.backbones = self.from_json(params['json_backbones'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
+
         except Exception:
             self.logger.exception('Unexcepted exception occured.')
         else:
@@ -940,13 +968,19 @@ class PeptideGenerator(Base):
         # data
         self.monomers = []
 
-    def save_data(self):
+    def save_data(self, to_mongo=True, to_json=False):
 
         params = self._defaults['outputs']
 
-        return self.to_mongo(params['col_peptides'])
+        if to_mongo:
+            self.to_mongo(params['col_peptides'])
 
-    def load_data(self):
+        if to_json:
+            self.to_json(params['json_peptides'])
+
+        return True
+
+    def load_data(self, source='mongo'):
         """
         Overloaded method for loading input data.
 
@@ -954,10 +988,16 @@ class PeptideGenerator(Base):
             bool: True if successful.
         """
 
-        params = self._defaults['inputs']
 
         try:
-            self.monomers = self.from_mongo(params['col_monomers'], {'type': 'monomer'})
+            params = self._defaults['inputs']
+
+            if source == 'mongo':
+                self.monomers = list(self.from_mongo(params['col_monomers'], {'type': 'monomer'}))
+            elif source == 'json':
+                self.monomers = self.from_json(params['json_monomers'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
         except Exception:
             self.logger.exception('Unexcepted exception occured.')
         else:
@@ -965,7 +1005,7 @@ class PeptideGenerator(Base):
 
         return False
 
-    def generate(self, length, num_peptides=None, random=False, num_jobs=1, job_id=1):
+    def generate(self, length, num_peptides=None, gen_method='random', num_jobs=1, job_id=1):
         """
         Top level function that generates the cartesian product of monomers in self.monomers. create_peptide() is then
         called in a parallel fashion on each tuple of monomers is the cartesian product. The resulting peptide and
@@ -987,17 +1027,8 @@ class PeptideGenerator(Base):
         """
 
         try:
-            # determine how to run method
-            if num_peptides:
-                if random:
-                    self.monomers = list(self.monomers)
-                    seed(time())
-                    monomers = [sample(self.monomers, length) for i in range(num_peptides)]
-                else:
-                    monomers = islice(product(self.monomers, repeat=length), num_peptides)
-            else:
-                start, stop = ranges(len(self.monomers) ** length, num_jobs)[job_id - 1]
-                monomers = islice(product(self.monomers, repeat=length), start, stop)
+            # get set of monomers
+            monomers = self.choose_monomers(length, num_peptides, gen_method, num_jobs, job_id)
 
             # perform peptide generation in parallel
             invalids = 0
@@ -1069,6 +1100,27 @@ class PeptideGenerator(Base):
                     'monomers': monomer_data}
             self.result_data.append(doc)
 
+
+    def choose_monomers(self, length, num_peptides, gen_method, num_jobs, job_id):
+
+        seed(time())
+
+        if num_peptides:
+                if gen_method == 'random':
+                    monomers = [sample(self.monomers, length) for i in range(num_peptides)]
+                elif gen_method == 'publication': # gives a minimum of len(self.monomers) number of peptides
+                    monomers = [sample(self.monomers, length - 1) for i in range(len(self.monomers))]
+                    monomers = [[req_monomer] + rem_monomers for req_monomer, rem_monomers in zip(self.monomers, monomers)]
+                    remaining_peptides = num_peptides - len(self.monomers)
+                    monomers.extend([sample(self.monomers, length) for i in range(remaining_peptides)])
+                else:
+                    monomers = islice(product(self.monomers, repeat=length), num_peptides)
+        else:
+            start, stop = ranges(len(self.monomers) ** length, num_jobs)[job_id - 1]
+            monomers = islice(product(self.monomers, repeat=length), start, stop)
+
+        return monomers
+
     @staticmethod
     def create_peptide(monomers, logger=None):
         """
@@ -1097,13 +1149,14 @@ class PeptideGenerator(Base):
 
             # start peptide with first monomer
             if i == 0:
+                pep_size = 1
                 peptide = monomer_mol
                 backbone_prev = backbone
                 continue
 
             # assign atom map numbers
             monomer_old_attach = PeptideGenerator.tag_monomer_n_term(monomer_mol, backbone)
-            carboxyl_atom, pep_old_attach = PeptideGenerator.tag_peptide_c_term(peptide, backbone_prev)
+            carboxyl_atom, pep_old_attach = PeptideGenerator.tag_peptide_c_term(peptide, backbone_prev, pep_size)
 
             # remove oxygen atom from carboxyl
             peptide = Chem.RWMol(peptide)
@@ -1120,6 +1173,7 @@ class PeptideGenerator(Base):
                     print(f'Sanitize Error! monomer = {Chem.MolToSmiles(monomer_mol)}, '
                           f'peptide = {Chem.MolToSmiles(peptide)}')
             else:
+                pep_size += 1
                 pep_old_attach.SetAtomMapNum(0)
                 monomer_old_attach.SetAtomMapNum(0)
                 backbone_prev = backbone
@@ -1160,9 +1214,10 @@ class PeptideGenerator(Base):
                     return atom
 
     @staticmethod
-    def tag_peptide_c_term(peptide, backbone):
+    def tag_peptide_c_term(peptide, backbone, pep_size):
 
         matches = peptide.GetSubstructMatches(backbone)
+        flag = False
         for pair in matches:
             for atom_idx in pair:
                 atom = peptide.GetAtomWithIdx(atom_idx)
@@ -1170,8 +1225,15 @@ class PeptideGenerator(Base):
                     carboxyl_atom = atom_idx
                 elif atom.GetSymbol() == 'C' and atom.GetTotalNumHs() == 0 and \
                         atom.GetHybridization() == Chem.rdchem.HybridizationType.SP2:
-                    atom.SetAtomMapNum(config.PEP_CARBON_MAP_NUM)
                     attachment_atom = atom
+                elif pep_size > 1 and atom.GetSymbol() == 'N' and atom.GetTotalNumHs() <= 1:
+                    flag = True
+                elif pep_size == 1:
+                    flag = True
+
+            if flag:
+                attachment_atom.SetAtomMapNum(config.PEP_CARBON_MAP_NUM)
+                break
 
         return carboxyl_atom, attachment_atom
 
@@ -1206,13 +1268,19 @@ class TPHybridGenerator(Base):
         self.peptides = []
         self.templates = []
 
-    def save_data(self):
+    def save_data(self, to_mongo=True, to_json=False):
 
         params = self._defaults['outputs']
 
-        return self.to_mongo(params['col_tp_hybrids'])
+        if to_mongo:
+            self.to_mongo(params['col_tp_hybrids'])
 
-    def load_data(self):
+        if to_json:
+            self.to_json(params['json_tp_hybrids'])
+
+        return True
+
+    def load_data(self, source='mongo'):
         """
         Overloaded method for loading input data.
 
@@ -1220,10 +1288,17 @@ class TPHybridGenerator(Base):
             bool: True if successful.
         """
 
-        params = self._defaults['inputs']
         try:
-            self.peptides = self.from_mongo(params['col_peptides'], {'type': 'peptide'})
-            self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
+            params = self._defaults['inputs']
+
+            if source == 'mongo':
+                self.peptides = self.from_mongo(params['col_peptides'], {'type': 'peptide'})
+                self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
+            elif source == 'json':
+                self.peptides = self.from_json(params['json_peptides'])
+                self.templates = self.from_json(params['json_templates'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
         except Exception:
             self.logger.exception('Unexcepted exception occured.')
         else:
@@ -1381,13 +1456,13 @@ class MacrocycleGenerator(Base):
         params = self._defaults['outputs']
         if to_mongo:
             self.to_mongo(params['col_macrocycles'])
+
         if to_json:
-            with open(params['json_macrocycles'], 'w') as file:
-                json.dump(json.loads(json_util.dumps(self.result_data)), file)
+            self.to_json(params['json_macrocycles'])
 
         return True
 
-    def load_data(self):
+    def load_data(self, source='mongo'):
         """
         Overloaded method for loading input data.
 
@@ -1397,8 +1472,15 @@ class MacrocycleGenerator(Base):
 
         try:
             params = self._defaults['inputs']
-            self.tp_hybrids = self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid'})
-            self.reactions = list(self.from_mongo(params['col_reactions'], {'type': {'$ne': 'template'}}))
+
+            if source == 'mongo':
+                self.tp_hybrids = self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid'})
+                self.reactions = list(self.from_mongo(params['col_reactions'], {'type': {'$ne': 'template'}}))
+            elif source == 'json':
+                self.tp_hybrids = self.from_json(params['json_tp_hybrids'])
+                self.reactions = self.from_json(params['json_reactions'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
         except Exception:
             self.logger.exception('Unexpected exception occured.')
         else:
@@ -1575,12 +1657,12 @@ class ConformerGenerator(Base):
             for macrocycle in self.result_data:
                 _id = macrocycle['_id']
                 if to_pdb:
-                    Chem.MolToPDBFile(Chem.Mol(macrocycle['binary']), os.path.join(params['fp_conformers'], _id + '.pdb'))
+                    Chem.MolToPDBFile(Chem.Mol(macrocycle['binary']), os.path.join(params['pdb_conformers'], _id + '.pdb'))
                 if to_mongo:
                     self.mongo_db[params['col_conformers']].find_one_and_replace({'_id': _id}, macrocycle)
             if to_json:
-                with open(params['json_conformers'], 'w') as file:
-                    json.dump(json.loads(json_util.dumps(self.result_data)), file)
+                self.to_json(params['json_conformers'])
+
         except Exception:
             raise
         else:
@@ -1588,19 +1670,17 @@ class ConformerGenerator(Base):
 
         return False
 
-    def from_json(self):
-
-        params = self._defaults['inputs']
-        with open(params['json_macrocycles'], 'r') as file:
-            self.macrocycles = json_util.loads(json_util.dumps(json.load(file)))
-
-        return True
-
-    def load_data(self):
+    def load_data(self, source='mongo'):
 
         try:
             params = self._defaults['inputs']
-            self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'}) #, 'regio_filter': True})
+
+            if source == 'mongo':
+                self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'}) #, 'regio_filter': True})
+            elif source == 'json':
+                self.macrocycles = self.from_json(params['json_macrocycles'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
         except Exception:
             raise
         else:
