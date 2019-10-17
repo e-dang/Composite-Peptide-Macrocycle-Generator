@@ -181,9 +181,12 @@ SCM_DEFAULTS = {
     'inputs': {
         'col_psc': COL1,
         'col_connections': COL1,
+        'json_psc': DI_DEFAULTS['outputs']['fp_psc'],
+        'json_connections': DI_DEFAULTS['outputs']['fp_connections']
     },
     'outputs': {
-        'col_side_chains': COL1
+        'col_side_chains': COL1,
+        'json_side_chains': os.path.join(DATA_DIR, 'generated', 'side_chains.json')
     }
 }
 
@@ -191,20 +194,25 @@ SCM_DEFAULTS = {
 MG_DEFAULTS = {
     'inputs': {
         'col_backbones': COL1,
-        'col_side_chains': COL1
+        'col_side_chains': COL1,
+        'json_backbones': DI_DEFAULTS['outputs']['fp_backbones'],
+        'json_side_chains': SCM_DEFAULTS['outputs']['json_side_chains']
     },
     'outputs': {
-        'col_monomers': COL1
+        'col_monomers': COL1,
+        'json_monomers': os.path.join(DATA_DIR, 'generated', 'monomers.json')
     }
 }
 
 ####################################### PeptideGenerator #######################################
 PG_DEFAULTS = {
     'inputs': {
-        'col_monomers': COL1
+        'col_monomers': COL1,
+        'json_monomers': MG_DEFAULTS['outputs']['json_monomers']
     },
     'outputs': {
-        'col_peptides': COL1
+        'col_peptides': COL1,
+        'json_peptides': os.path.join(DATA_DIR, 'generated', 'peptides.json')
     }
 }
 
@@ -212,22 +220,42 @@ PG_DEFAULTS = {
 TPHG_DEFAULTS = {
     'inputs': {
         'col_peptides': COL1,
-        'col_templates': COL1
+        'col_templates': COL1,
+        'json_peptides': PG_DEFAULTS['outputs']['json_peptides'],
+        'json_templates': DI_DEFAULTS['outputs']['fp_templates']
     },
     'outputs': {
-        'col_tp_hybrids': COL1
+        'col_tp_hybrids': COL1,
+        'json_tp_hybrids': os.path.join(DATA_DIR, 'generated', 'tp_hybrids.json')
     }
+}
+
+####################################### ReactionGenerator #######################################
+RG_DEFAULTS = {
+    'inputs': {
+        'col_templates': COL2,
+        'col_side_chains': COL1,
+        'json_templates': DI_DEFAULTS['outputs']['fp_rtemplates'],
+        'json_side_chains': SCM_DEFAULTS['outputs']['json_side_chains']
+    },
+    'outputs': {
+        'col_reactions': COL2,
+        'json_reactions': os.path.join(DATA_DIR, 'generated', 'reactions.json')
+    },
+    'template_dependent_rxns': ['PictetSpangler']
 }
 
 ####################################### MacrocycleGenerator #######################################
 MCG_DEFAULTS = {
     'inputs': {
         'col_tp_hyrbids': COL1,
-        'col_reactions': COL2
+        'col_reactions': COL2,
+        'json_tp_hybrids': TPHG_DEFAULTS['outputs']['json_tp_hybrids'],
+        'json_reactions': RG_DEFAULTS['outputs']['json_reactions']
     },
     'outputs': {
         'col_macrocycles': COL1,
-        'json_macrocycles': os.path.join(DATA_DIR, 'macrocycles.json')
+        'json_macrocycles': os.path.join(DATA_DIR, 'generated', 'macrocycles.json')
     }
 }
 
@@ -239,23 +267,11 @@ CG_DEFAULTS = {
     },
     'outputs': {
         'col_conformers': COL1,
-        'json_conformers': os.path.join(DATA_DIR, 'conformers', 'conformers.json'),
-        'fp_conformers': os.path.join(DATA_DIR, 'conformers'),
+        'json_conformers': os.path.join(DATA_DIR, 'generated', 'conformers.json'),
+        'pdb_conformers': os.path.join(DATA_DIR, 'conformers'),
         'tmp_molecule': os.path.join(TMP_DIR, 'conf_macrocycle.sdf'),
         'tmp_genetic_results': os.path.join(TMP_DIR, 'genetic_results.sdf')
     }
-}
-
-####################################### ReactionGenerator #######################################
-RG_DEFAULTS = {
-    'inputs': {
-        'col_templates': COL2,
-        'col_side_chains': COL1,
-    },
-    'outputs': {
-        'col_reactions': COL2
-    },
-    'template_dependent_rxns': ['PictetSpangler']
 }
 
 ####################################### RegioSQMFilter #######################################
