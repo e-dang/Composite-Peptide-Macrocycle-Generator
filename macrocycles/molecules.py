@@ -28,7 +28,7 @@ from macrocycles.exceptions import (AtomSearchError, DataNotFoundError,
                                     MissingMapNumberError)
 from macrocycles.utils import (Base, atom_to_wildcard, create_logger,
                                get_user_approval, get_user_atom_idx, ranges,
-                               read_mols, window, write_mol)
+                               read_mols, window, write_mol, file_rotator, attach_file_num)
 
 LOGGER = create_logger(name=__name__, level=INFO)
 
@@ -552,7 +552,7 @@ class SideChainGenerator(Base):
         self.parent_side_chains = []
         self.connections = []
 
-    def save_data(self, to_mongo=True, to_json=False):
+    def save_data(self, to_mongo=True, to_json=False, mode='w'):
 
         params = self._defaults['outputs']
 
@@ -560,7 +560,7 @@ class SideChainGenerator(Base):
             self.to_mongo(params['col_side_chains'])
 
         if to_json:
-            self.to_json(params['json_side_chains'])
+            self.to_json(params['json_side_chains'], mode)
 
         return True
 
@@ -773,7 +773,7 @@ class MonomerGenerator(Base):
         self.side_chains = []
         self.backbones = []
 
-    def save_data(self, to_mongo=True, to_json=False):
+    def save_data(self, to_mongo=True, to_json=False, mode='w'):
 
         params = self._defaults['outputs']
 
@@ -781,7 +781,7 @@ class MonomerGenerator(Base):
             self.to_mongo(params['col_monomers'])
 
         if to_json:
-            self.to_json(params['json_monomers'])
+            self.to_json(params['json_monomers'], mode)
 
         return True
 
@@ -968,7 +968,7 @@ class PeptideGenerator(Base):
         # data
         self.monomers = []
 
-    def save_data(self, to_mongo=True, to_json=False):
+    def save_data(self, to_mongo=True, to_json=False, mode='w'):
 
         params = self._defaults['outputs']
 
@@ -976,7 +976,7 @@ class PeptideGenerator(Base):
             self.to_mongo(params['col_peptides'])
 
         if to_json:
-            self.to_json(params['json_peptides'])
+            self.to_json(file_rotator(params['json_peptides']), mode)
 
         return True
 
@@ -1032,6 +1032,7 @@ class PeptideGenerator(Base):
 
             # perform peptide generation in parallel
             invalids = 0
+            i = 0
             with multiprocessing.Pool() as pool:
                 result = pool.map_async(PeptideGenerator.create_peptide, monomers)
                 for peptide, monomers in result.get():
@@ -1041,8 +1042,10 @@ class PeptideGenerator(Base):
                         self.accumulate_data(peptide, monomers)
 
                     # save data if reaching size limit of python lists
-                    if len(self.result_data) > config.CAPACITY:
-                        self.save_data()
+                    if len(self.result_data) > 1000000:
+                        print(i)
+                        i += 1
+                        self.save_data(to_mongo=False, to_json=True)
                         self.result_data = []
         except Exception:
             self.logger.exception('Unexpected exception occured.')
@@ -1268,7 +1271,7 @@ class TPHybridGenerator(Base):
         self.peptides = []
         self.templates = []
 
-    def save_data(self, to_mongo=True, to_json=False):
+    def save_data(self, to_mongo=True, to_json=False, mode='w'):
 
         params = self._defaults['outputs']
 
@@ -1276,11 +1279,11 @@ class TPHybridGenerator(Base):
             self.to_mongo(params['col_tp_hybrids'])
 
         if to_json:
-            self.to_json(params['json_tp_hybrids'])
+            self.to_json(file_rotator(params['json_tp_hybrids']), mode)
 
         return True
 
-    def load_data(self, source='mongo'):
+    def load_data(self, source='mongo', file_num=None):
         """
         Overloaded method for loading input data.
 
@@ -1295,7 +1298,7 @@ class TPHybridGenerator(Base):
                 self.peptides = self.from_mongo(params['col_peptides'], {'type': 'peptide'})
                 self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
             elif source == 'json':
-                self.peptides = self.from_json(params['json_peptides'])
+                self.peptides = self.from_json(attach_file_num(params['json_peptides'], file_num))
                 self.templates = self.from_json(params['json_templates'])
             else:
                 self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
@@ -1310,10 +1313,17 @@ class TPHybridGenerator(Base):
 
         try:
             args = product(self.peptides, self.templates)
+            i = 0
             with multiprocessing.Pool() as pool:
                 results = pool.starmap_async(TPHybridGenerator.create_tp_hybrid, args)
                 for tp_hybrid, peptide, template in results.get():
                     self.accumulate_data(tp_hybrid, peptide, template)
+
+                    if len(self.result_data) > 1000000:
+                        print(i)
+                        i += 1
+                        self.save_data(to_mongo=False, to_json=True)
+                        self.result_data = []
         except Exception:
             raise
         else:
@@ -1540,11 +1550,21 @@ class MacrocycleGenerator(Base):
         rxns = []
         sc_id, rxn_idx = '', ''
         for reaction in reactions:
-            sc_id += reaction['side_chain']['_id']
             rxn_idx += str(reaction['rxn_atom_idx'])
-            rxns.append({'_id': reaction['_id'],
-                        'side_chain': reaction['side_chain']['_id'],
-                        'rxn_atom_idx': reaction['rxn_atom_idx']})
+
+            try:
+                sc_id += reaction['side_chain']['_id']
+            except KeyError:
+                sc_id += 'to'
+
+            try:
+                rxns.append({'_id': reaction['_id'],
+                            'side_chain': reaction['side_chain']['_id'],
+                            'rxn_atom_idx': reaction['rxn_atom_idx']})
+            except KeyError:
+                rxns.append({'_id': reaction['_id'],
+                            'side_chain': None,
+                            'rxn_atom_idx': reaction['rxn_atom_idx']})
 
         for i, (binary, kekule) in enumerate(macrocycles.items()):
             doc = {
@@ -1577,17 +1597,22 @@ class MacrocycleGenerator(Base):
         reactants = [Chem.Mol(tp_hybrid['binary'])]
         rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in reactions]
 
+        # gonna need to try and protect all sidechains substructs individually and run each of those as a reactant one at a time.
         for i, rxn in enumerate(rxns):
             results = {}
             for reactant in reactants:
                 for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
-                    for atom in chain.from_iterable(rxn.GetReactingAtoms()):
-                        macrocycle.GetAtomWithIdx(atom).SetProp('_protected', '1')
                     try:
                         Chem.SanitizeMol(macrocycle)
                     except ValueError:
-                        pass
-                    results[macrocycle.ToBinary()] = macrocycle
+                        # most likely there are 2 sidechains where one contains the other as a substructure which
+                        # causes this exception to be raised. This is expect to occur quite often.
+                        continue
+                    for atom in chain.from_iterable(rxn.GetReactingAtoms()):
+                        macrocycle.GetAtomWithIdx(atom).SetProp('_protected', '1')
+                        results[macrocycle.ToBinary()] = macrocycle
+                        # print(Chem.MolToSmiles(reactant))
+                        # Draw.ReactionToImage(rxn, subImgSize=(500,500)).show()
             reactants = list(results.values())
 
         results = {}
@@ -1600,10 +1625,14 @@ class MacrocycleGenerator(Base):
 
     def get_args(self):
 
-        # hash all reactions based on side_chain _id
+        # hash all reactions based on side_chain_id
         reactions = defaultdict(list)
+        template_only_reactions = defaultdict(list)
         for reaction in self.reactions:
-            reactions[reaction['side_chain']['_id']].append(reaction)
+            try:
+                reactions[reaction['side_chain']['_id']].append(reaction)
+            except KeyError: # template only reaction
+                template_only_reactions[reaction['template']].append(reaction)
 
         for tp_hybrid in self.tp_hybrids:
             args = []
@@ -1615,19 +1644,28 @@ class MacrocycleGenerator(Base):
             if tp_hybrid['template'] != 'temp1':
                 try:
                     first_monomer = tp_hybrid['peptide']['monomers'][0]['side_chain']['_id']
-                except TypeError:
+                except TypeError: # first monomer has side_chain without an _id (natural amino acid or modified proline)
                     first_monomer = None
 
+                # get pictet_spangler reactions involving only the first monomer or any other type of reaction
                 args = filter(lambda x: (x['type'] == 'pictet_spangler' \
                               and x['side_chain']['_id'] == first_monomer) \
                               or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene'), args)
 
+                # sort args based on if they are pictet_spangler or not
                 pictet, other = [], []
                 for rxn in args:
                     other.append(rxn) if rxn['type'] != 'pictet_spangler' else pictet.append(rxn)
 
-                for arg in product(pictet, other):
-                    yield tp_hybrid, arg
+                if pictet and template_only_reactions[tp_hybrid['template']]:
+                    for arg in product(pictet, other, template_only_reactions[tp_hybrid['template']]):
+                        yield tp_hybrid, arg
+                elif template_only_reactions[tp_hybrid['template']]:
+                    for arg in product(other, template_only_reactions[tp_hybrid['template']]):
+                        yield tp_hybrid, arg
+                else:
+                    for arg in product(pictet, other):
+                        yield tp_hybrid, arg
             else: # friedel_crafts, tsuji_trost, pyrrolo_indolene
                 for arg in args:
                     yield tp_hybrid, [arg]
@@ -1746,18 +1784,22 @@ class ConformerGenerator(Base):
         return False
 
     def accumulate_data(self, macro_doc, macro_mol, energies, rms, ring_rms):
-
-        doc = {
-            'binary': macro_mol.ToBinary(),
-            'has_confs': True,
-            'num_confs': macro_mol.GetNumConformers(),
-            'energies': energies,
-            'rms': rms,
-            'ring_rms': ring_rms,
-            'avg_energy': round(np.average(energies), 3),
-            'avg_rms': round(np.average(rms), 3),
-            'avg_ring_rms': round(np.average(ring_rms), 3)
-        }
+        try:
+            doc = {
+                'binary': macro_mol.ToBinary(),
+                'has_confs': True,
+                'num_confs': macro_mol.GetNumConformers(),
+                'energies': energies,
+                'rms': rms,
+                'ring_rms': ring_rms,
+                'avg_energy': round(np.average(energies), 3),
+                'avg_rms': round(np.average(rms), 3),
+                'avg_ring_rms': round(np.average(ring_rms), 3)
+            }
+        except RuntimeWarning:
+            print('energies', energies)
+            print('rms', rms)
+            print('ring_rms', ring_rms)
         macro_doc.update(doc)
 
         self.result_data.append(macro_doc)
@@ -2105,8 +2147,8 @@ class ConformerGenerator(Base):
         energy = list(energy)
         for non_converged_id in np.flatnonzero(convergence):
             while not convergence[non_converged_id]:
-                convergence[non_converged_id] = force_field[non_converged_id].Minimize(50)
-                energy[non_converged_id] = force_field[non_converged_id].CalcEnergy()
+                convergence[non_converged_id] = force_fields[non_converged_id].Minimize(50)
+                energy[non_converged_id] = force_fields[non_converged_id].CalcEnergy()
 
         return list(map(lambda x: x.CalcEnergy(), force_fields))
 

@@ -85,7 +85,8 @@ COL2_VALIDATOR = {
                 'description': 'The id of the molecule'
             },
             'type': {
-                'enum': ['template', 'friedel_crafts', 'tsuji_trost', 'pictet_spangler', 'pyrrolo_indolene'],
+                'enum': ['template', 'friedel_crafts', 'tsuji_trost', 'pictet_spangler', 'pyrrolo_indolene',
+                         'template_only_pictet_spangler'],
                 'description': 'The type of molecule or data contained in the document'
             },
             'binary': {

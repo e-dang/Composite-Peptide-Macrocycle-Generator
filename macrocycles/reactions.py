@@ -7,6 +7,7 @@ from logging import INFO
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import Draw
 
 import macrocycles.config as config
 import macrocycles.utils as utils
@@ -409,6 +410,125 @@ class PyrroloIndolene(Reaction):
 ########################################################################################################################
 
 
+class TemplateOnlyPictetSpangler(Reaction):
+
+    NITROGEN_PS_MAP_NUM = 5
+    CARBON_PS_MAP_NUM = 6
+    ALDEHYDE_CARBON = 7
+    ALDEHYDE_OXYGEN = 8
+
+    def __init__(self, template):
+        super().__init__(self.is_valid, self.generate_product, 'template_only_pictet_spangler', None, template)
+
+    def is_valid(self):
+        if self.valid:  # pylint: disable=access-member-before-definition
+            return True
+
+        self.find_reacting_atom()
+
+        # a valid reacting atom could not be found
+        if self.reacting_atom is None:
+            return False
+
+        self.preprocess()
+        self.valid = True
+        return True
+
+    def find_reacting_atom(self):
+
+        template = self.reactants[0]
+
+        # template must contain unmasked aldehyde
+        for atom in chain.from_iterable(template.GetSubstructMatches(Chem.MolFromSmarts('C(=O)'))):
+            atom = template.GetAtomWithIdx(atom)
+            if atom.GetSymbol() == 'C':
+                atom.SetAtomMapNum(self.ALDEHYDE_CARBON)
+                aldehyde_carbon = atom.GetIdx()
+            else:
+                atom.SetAtomMapNum(self.ALDEHYDE_OXYGEN)
+        try:
+            # find all atoms 5 atoms away from aldehyde_carbon
+            paths = Chem.FindAllPathsOfLengthN(template, 5, useBonds=False, rootedAtAtom=aldehyde_carbon)
+            candidate_atoms = set().union([template.GetAtomWithIdx(atom) for path in paths for atom in path])
+
+            # reacting atom must be on phenyl ring ortho to the unmasked aldehyde and para to the alkene where EAS takes
+            # place, as well as have one hydrogen
+            candidate_atoms = filter(lambda x: x.GetIsAromatic() and x.GetTotalNumHs() == 1, candidate_atoms)
+            for atom in candidate_atoms:
+                neighbor_hydrogen_counts = 0
+
+                for neighbor in atom.GetNeighbors():
+                    neighbor_hydrogen_counts += neighbor.GetTotalNumHs()
+
+                if neighbor_hydrogen_counts == 1:
+                    atom.SetAtomMapNum(self.CARBON_PS_MAP_NUM)
+                    self.reacting_atom = atom
+                    break
+        except UnboundLocalError:  # no aldehyde present in template
+            pass
+
+    def preprocess(self):
+
+        template = self.reactants[0]  # pylint: disable=access-member-before-definition
+
+        # change wild card atom to amide
+        unique = set()
+        rxn = AllChem.ReactionFromSmarts('[#0:1][*:2]>>[*:2][C:1](=O)[NH1]*')
+        for prod in chain.from_iterable(rxn.RunReactants((template,))):
+            Chem.SanitizeMol(prod)
+            unique.add(prod.ToBinary())
+
+        # tag amide nitrogen and wild card atoms
+        template = Chem.Mol(unique.pop())
+        for atom in template.GetAtoms():
+            if atom.GetSymbol() == 'N':
+                atom.SetAtomMapNum(self.NITROGEN_PS_MAP_NUM)
+            elif atom.GetAtomicNum() == 0 and atom.GetAtomMapNum() == 0:
+                atom.SetAtomMapNum(config.TEMP_WILDCARD_MAP_NUM)
+
+        # change alkene to wild card
+        unique = set()
+        rxn = AllChem.ReactionFromSmarts('[*:2]C=CC>>[*:2]*')
+        for prod in chain.from_iterable(rxn.RunReactants((template,))):
+            Chem.SanitizeMol(prod)
+            unique.add(prod.ToBinary())
+
+        # tag new wild card atom
+        template = Chem.Mol(unique.pop())
+        for atom in template.GetAtoms():
+            if atom.GetAtomMapNum() == 0 and atom.GetAtomicNum() == 0:
+                atom.SetAtomMapNum(config.TEMP_EAS_MAP_NUM)
+
+        self.reactants = [template]
+
+    def generate_product(self):
+
+        template = Chem.RWMol(self.reactants[0])
+
+        # remove oxygen atom map number on reactant
+        for atom in self.reactants[0].GetAtoms():
+            if atom.GetAtomMapNum() == self.ALDEHYDE_OXYGEN:
+                atom.SetAtomMapNum(0)
+                break
+
+        # remove aldehyde oxygen atom
+        for atom in list(template.GetAtoms()):
+            if atom.GetAtomMapNum() == self.ALDEHYDE_OXYGEN:
+                template.RemoveAtom(atom.GetIdx())
+                break
+
+        # create bond between template pictet_spangler carbon and aldehyde carbon
+        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.TEMP_EAS_MAP_NUM, self.NITROGEN_PS_MAP_NUM]
+        template = utils.Base.merge(template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+
+        # create bond between peptide nitrogen and unmasked aldehyde carbon
+        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.TEMP_EAS_MAP_NUM, self.CARBON_PS_MAP_NUM]
+        return utils.Base.merge(template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 NewReactions = namedtuple('NewReactions', 'reactions side_chain template')
 
 
@@ -468,6 +588,19 @@ class ReactionGenerator(utils.Base):
     def generate(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
 
         try:
+            for template in self.templates:
+                rxn = TemplateOnlyPictetSpangler(Chem.Mol(template['binary']))
+                if rxn:
+                    data = rxn.data
+                    reaction = {'_id': template['_id'] + '_reaction',
+                                'type': data.type,
+                                'binary': data.binary,
+                                'smarts': str(rxn),
+                                'rxn_atom_idx': data.rxn_atom_idx,
+                                'template': template['_id'],
+                                }
+                    self.result_data.append(reaction)
+
             dependent_rxns, independent_rxns = self.classify_reactions(reactions)
             dependent_args = product(self.side_chains, dependent_rxns, self.templates)
             independent_args = product(self.side_chains, independent_rxns)
