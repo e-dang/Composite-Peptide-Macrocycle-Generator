@@ -489,9 +489,9 @@ class Base():
 
         return self.mongo_db.insert(collection, self.result_data, ordered=ordered, create_id=create_id)
 
-    def to_json(self, filepath):
+    def to_json(self, filepath, mode='w'):
 
-        with open(filepath, 'w') as file:
+        with open(filepath, mode) as file:
             json.dump(json.loads(json_util.dumps(self.result_data)), file)
 
         return True
@@ -698,3 +698,28 @@ def window(iterable, window_size):
     for elem in it:
         result = result[1:] + (elem,)
         yield result
+
+
+def file_rotator(filepath):
+    idx = 0
+    while True:
+        new_fp = attach_file_num(filepath, idx)
+        idx += 1
+        if not (os.path.exists(new_fp) and os.path.isfile(new_fp)):
+            return new_fp
+
+
+def attach_file_num(filepath, file_num):
+    new_fp, ext = filepath.split('.')
+    new_fp += '_' + str(file_num) + '.' + ext
+    return new_fp
+
+
+def get_file_num_range(filepath):
+    low = 0
+    high = 0
+    while True:
+        new_fp = attach_file_num(filepath, high)
+        if not (os.path.exists(new_fp) and os.path.isfile(new_fp)):
+            return low, high
+        high += 1
