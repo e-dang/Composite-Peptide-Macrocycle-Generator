@@ -559,13 +559,17 @@ class ReactionGenerator(utils.Base):
         self.side_chains = []
         self.templates = []
 
-    def save_data(self):
+    def save_data(self, to_mongo=True, to_json=False):
 
         params = self._defaults['outputs']
 
-        return self.to_mongo(params['col_reactions'])
+        if to_mongo:
+            return self.to_mongo(params['col_reactions'])
 
-    def load_data(self):
+        if to_json:
+            self.to_json(params['json_macrocycles'])
+
+    def load_data(self, source='mongo'):
         """
         Overloaded method for loading input data.
 
@@ -575,9 +579,16 @@ class ReactionGenerator(utils.Base):
 
         try:
             params = self._defaults['inputs']
-            self.side_chains = list(self.from_mongo(params['col_side_chains'], {
-                'type': 'side_chain', 'connection': 'methyl'}))
-            self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
+
+            if source == 'mongo':
+                self.side_chains = list(self.from_mongo(params['col_side_chains'], {
+                    'type': 'side_chain', 'connection': 'methyl'}))
+                self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
+            elif source == 'json':
+                self.tp_hybrids = self.from_json(params['json_tp_hybrids'])
+                self.reactions = self.from_json(params['json_reactions'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
         except Exception:
             self.logger.exception('Unexpected exception occured.')
         else:
