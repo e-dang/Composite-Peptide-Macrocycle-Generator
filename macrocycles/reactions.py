@@ -567,7 +567,7 @@ class ReactionGenerator(utils.Base):
             return self.to_mongo(params['col_reactions'])
 
         if to_json:
-            self.to_json(params['json_macrocycles'])
+            self.to_json(params['json_reactions'])
 
     def load_data(self, source='mongo'):
         """
@@ -585,8 +585,8 @@ class ReactionGenerator(utils.Base):
                     'type': 'side_chain', 'connection': 'methyl'}))
                 self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
             elif source == 'json':
-                self.tp_hybrids = self.from_json(params['json_tp_hybrids'])
-                self.reactions = self.from_json(params['json_reactions'])
+                self.side_chains = self.from_json(params['json_side_chains'])
+                self.templates = self.from_json(params['json_templates'])
             else:
                 self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
         except Exception:
