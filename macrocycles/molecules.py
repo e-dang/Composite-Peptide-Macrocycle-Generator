@@ -511,6 +511,10 @@ class DataInitializer(Base):
             with open(params['fp_rtemplates'], 'r') as file:
                 self.result_data = json_util.loads(json_util.dumps(json.load(file)))
                 self.to_mongo(config.COL2)
+
+            with open(params['fp_regiosqm'], 'r') as file:
+                self.result_data = json_util.loads(json_util.dumps(json.load(file)))
+                self.to_mongo(config.COL3)
         except (OSError, json.JSONDecodeError):  # TODO: Catch errors properly
             self.logger.exception(f'Failed to load the json file(s)')
             return False
@@ -1484,7 +1488,7 @@ class MacrocycleGenerator(Base):
             params = self._defaults['inputs']
 
             if source == 'mongo':
-                self.tp_hybrids = self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid'})
+                self.tp_hybrids = list(self.from_mongo(params['col_tp_hyrbids'], {'type': 'tp_hybrid'}))
                 self.reactions = list(self.from_mongo(params['col_reactions'], {'type': {'$ne': 'template'}}))
             elif source == 'json':
                 self.tp_hybrids = self.from_json(params['json_tp_hybrids'])
@@ -1597,7 +1601,6 @@ class MacrocycleGenerator(Base):
         reactants = [Chem.Mol(tp_hybrid['binary'])]
         rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in reactions]
 
-        # gonna need to try and protect all sidechains substructs individually and run each of those as a reactant one at a time.
         for i, rxn in enumerate(rxns):
             results = {}
             for reactant in reactants:
@@ -1611,8 +1614,6 @@ class MacrocycleGenerator(Base):
                     for atom in chain.from_iterable(rxn.GetReactingAtoms()):
                         macrocycle.GetAtomWithIdx(atom).SetProp('_protected', '1')
                         results[macrocycle.ToBinary()] = macrocycle
-                        # print(Chem.MolToSmiles(reactant))
-                        # Draw.ReactionToImage(rxn, subImgSize=(500,500)).show()
             reactants = list(results.values())
 
         results = {}
@@ -1630,26 +1631,30 @@ class MacrocycleGenerator(Base):
         template_only_reactions = defaultdict(list)
         for reaction in self.reactions:
             try:
-                reactions[reaction['side_chain']['_id']].append(reaction)
+                reactions[reaction['side_chain']['parent_side_chain']].append(reaction)
             except KeyError: # template only reaction
                 template_only_reactions[reaction['template']].append(reaction)
 
         for tp_hybrid in self.tp_hybrids:
             args = []
-            side_chain_ids = set(monomer['side_chain']['_id'] for monomer in tp_hybrid['peptide']['monomers'] if isinstance(monomer['side_chain'], dict))
-            for side_chain_id in side_chain_ids:
-                args.extend(filter(lambda x: x['template'] in ('all', tp_hybrid['template']), reactions[side_chain_id]))
+            side_chain_data = set((monomer['side_chain']['parent_side_chain'], monomer['side_chain']['conn_atom_idx'])
+                                  for monomer in tp_hybrid['peptide']['monomers'] if
+                                  isinstance(monomer['side_chain'], dict))
+            for side_chain_id, conn_atom_idx in side_chain_data:
+                args.extend(filter(lambda x: x['template'] in ('all', tp_hybrid['template']) \
+                                             and x['side_chain']['conn_atom_idx'] == conn_atom_idx,
+                                             reactions[side_chain_id]))
 
             # can apply pictet_spangler reaction
             if tp_hybrid['template'] != 'temp1':
                 try:
-                    first_monomer = tp_hybrid['peptide']['monomers'][0]['side_chain']['_id']
+                    first_monomer_conn_idx = tp_hybrid['peptide']['monomers'][0]['side_chain']['conn_atom_idx']
                 except TypeError: # first monomer has side_chain without an _id (natural amino acid or modified proline)
-                    first_monomer = None
+                    first_monomer_conn_idx = None
 
                 # get pictet_spangler reactions involving only the first monomer or any other type of reaction
                 args = filter(lambda x: (x['type'] == 'pictet_spangler' \
-                              and x['side_chain']['_id'] == first_monomer) \
+                              and x['side_chain']['conn_atom_idx'] == first_monomer_conn_idx) \
                               or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene'), args)
 
                 # sort args based on if they are pictet_spangler or not
@@ -1657,15 +1662,20 @@ class MacrocycleGenerator(Base):
                 for rxn in args:
                     other.append(rxn) if rxn['type'] != 'pictet_spangler' else pictet.append(rxn)
 
-                if pictet and template_only_reactions[tp_hybrid['template']]:
-                    for arg in product(pictet, other, template_only_reactions[tp_hybrid['template']]):
+                first_set = list(product(pictet, other))
+                second_set = list(product(template_only_reactions[tp_hybrid['template']], other))
+                if first_set and second_set:
+                    for arg in first_set + second_set:
                         yield tp_hybrid, arg
-                elif template_only_reactions[tp_hybrid['template']]:
-                    for arg in product(other, template_only_reactions[tp_hybrid['template']]):
+                elif second_set:
+                    for arg in second_set:
+                        yield tp_hybrid, arg
+                elif first_set:
+                    for arg in first_set:
                         yield tp_hybrid, arg
                 else:
-                    for arg in product(pictet, other):
-                        yield tp_hybrid, arg
+                    for arg in other:
+                        yield tp_hybrid, [arg]
             else: # friedel_crafts, tsuji_trost, pyrrolo_indolene
                 for arg in args:
                     yield tp_hybrid, [arg]
