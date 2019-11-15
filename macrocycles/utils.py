@@ -557,9 +557,6 @@ class Base():
             atom1, atom2 = [Base.update_hydrogen_counts(atom, clear_map_nums)
                             for atom in combo.GetAtoms() if atom.GetAtomMapNum() and atom.GetAtomMapNum() not in ignored_map_nums]
         except ValueError:
-            for mol in mols:
-                print(Chem.MolToSmiles(mol))
-            print(Chem.MolToSmiles(copy_combo))
             raise MergeError('There must be exactly 2 map numbers across all molecules.')
 
         # create bond, remove hydrogens, and sanitize
