@@ -112,7 +112,7 @@ COL3_VALIDATOR = {
                 'description': 'The id of the molecule'
             },
             'type': {
-                'enum': ['regiosqm', 'indole', 'manual'],
+                'enum': ['regiosqm', 'pka'],
                 'description': 'The filter that has been applied to the molecule'
             }
         }
@@ -173,7 +173,8 @@ DI_DEFAULTS = {
         'col_templates': COL1,
         'fp_templates': os.path.join(DATA_DIR, 'starter', 'templates.json'),
         'col_rtemplates': COL2,
-        'fp_rtemplates': os.path.join(DATA_DIR, 'starter', 'rtemplates.json')
+        'fp_rtemplates': os.path.join(DATA_DIR, 'starter', 'rtemplates.json'),
+        'fp_regiosqm': os.path.join(DATA_DIR, 'starter', 'regiosqm.json')
     }
 }
 

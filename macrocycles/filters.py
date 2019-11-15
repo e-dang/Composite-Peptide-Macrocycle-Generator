@@ -3,6 +3,10 @@ from logging import INFO
 import macrocycles.config as config
 import multiprocessing
 from itertools import product
+import subprocess
+from rdkit import Chem
+from rdkit.Chem import AllChem
+import csv
 
 LOGGER = utils.create_logger(__name__, INFO)
 
@@ -17,6 +21,37 @@ class RegioSQMFilter(utils.Base):
 
         self.macrocycles = []
         self.regio_predictions = []
+
+    def import_predictions(self, smiles_filepath, csv_filepath, solvent, cut_off):
+        smiles_dict = {}
+        with open(smiles_filepath, 'r') as file:
+            for line in file.readlines():
+                line = line.split('\t')
+                smiles_dict[line[0]] = line[1].rstrip()  # line[0] = identifier, line[1] = SMILES string
+
+        collection = []
+        with open(csv_filepath, 'r') as file:
+            data = csv.reader(file, delimiter=',')
+            for i, row in enumerate(data):
+                doc = {}
+                if i % 3 == 0:
+                    mol = Chem.MolFromSmiles(smiles_dict[row[0]])
+                    Chem.Kekulize(mol)
+                    kekule = Chem.MolToSmiles(mol, kekuleSmiles=True)
+                elif i % 3 == 1:
+                    prediction = [int(row[j]) for j in range(0, len(row), 2)]
+                elif i % 3 == 2:
+                    if len(row) != 0:
+                        print('error')
+                    doc = {'_id': self.mongo_db['molecules'].find_one({'kekule': kekule}, projection={'_id': 1})['_id'],
+                           'type': 'regiosqm',
+                           'kekule': kekule,
+                           'prediction': prediction,
+                           'solvent': solvent,
+                           'cut_off': cut_off}
+                    collection.append(doc)
+
+        self.mongo_db['filters'].insert_many(collection)
 
     def save_data(self):
 
@@ -86,13 +121,49 @@ class RegioSQMFilter(utils.Base):
     def is_applicable(args):
 
         macrocycle, filter_doc = args
-        # print(macrocycle['reaction'])
-        # print(filter_doc)
         for reaction in macrocycle['reaction']:
             if reaction['side_chain'] == filter_doc['_id']:
                 return True
 
         return False
+
+
+class pKaFilter(utils.Base):
+
+    def __init__(self):
+
+        self.heterocycles = []
+
+    def import_predictions(self, filepath):
+        data = []
+        with open(filepath, 'r') as file:
+            solvent = file.readline().strip('\n')
+            for line in file.readlines():
+                line = line.strip('\n').replace(' ', '')
+                smiles, *vals = line.split(';')
+                mol = Chem.MolFromSmiles(smiles)
+                predictions = {}
+                for atom in mol.GetAtoms():
+                    atom_map_num = atom.GetAtomMapNum()
+                    if atom_map_num:
+                        avg, std = vals[atom_map_num].split(',')
+                        predictions[atom.GetIndex()] = {'avg': float(avg),
+                                                        'std': float(std)}
+                        atom.SetAtomMapNum(0)
+                Chem.Kekulize(mol)
+                data.append({'_id': None,
+                             'type': 'pka',
+                             'kekule': Chem.MolToSmiles(mol, kekuleSmiles=True),
+                             'prediction': predictions,
+                             'solvent': solvent})
+
+        self.mongo_db['filters'].insert_many(data)
+
+    def save_data(self):
+        pass
+
+    def load_data(self):
+        pass
 
 
 # def indole_hetero_atom_filter(collection):
