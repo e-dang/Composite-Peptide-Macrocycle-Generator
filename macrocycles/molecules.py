@@ -512,9 +512,9 @@ class DataInitializer(Base):
                 self.result_data = json_util.loads(json_util.dumps(json.load(file)))
                 self.to_mongo(config.COL2)
 
-            with open(params['fp_regiosqm'], 'r') as file:
-                self.result_data = json_util.loads(json_util.dumps(json.load(file)))
-                self.to_mongo(config.COL3)
+            # with open(params['fp_regiosqm'], 'r') as file:
+            #     self.result_data = json_util.loads(json_util.dumps(json.load(file)))
+            #     self.to_mongo(config.COL3)
         except (OSError, json.JSONDecodeError):  # TODO: Catch errors properly
             self.logger.exception(f'Failed to load the json file(s)')
             return False
@@ -1563,11 +1563,13 @@ class MacrocycleGenerator(Base):
 
             try:
                 rxns.append({'_id': reaction['_id'],
-                            'side_chain': reaction['side_chain']['_id'],
+                            'parent_side_chain': reaction['side_chain']['parent_side_chain'],
+                            'conn_atom_idx': reaction['side_chain']['conn_atom_idx'],
                             'rxn_atom_idx': reaction['rxn_atom_idx']})
             except KeyError:
                 rxns.append({'_id': reaction['_id'],
-                            'side_chain': None,
+                            'parent_side_chain': None,
+                            'conn_atom_idx': None,
                             'rxn_atom_idx': reaction['rxn_atom_idx']})
 
         for i, (binary, kekule) in enumerate(macrocycles.items()):
@@ -1577,7 +1579,7 @@ class MacrocycleGenerator(Base):
                 'binary': binary,
                 'kekule': kekule,
                 'tp_hybrid': tp_hybrid['_id'],
-                'reaction': rxns,
+                'reactions': rxns,
                 'modifications': [],
                 'has_confs': False
             }
