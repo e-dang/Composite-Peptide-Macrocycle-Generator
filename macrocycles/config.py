@@ -155,7 +155,8 @@ INDICES = [COL1_INDEX, COL2_INDEX, COL3_INDEX, COL4_INDEX]
 DI_DEFAULTS = {
     'inputs': {
         'fp_psc': [os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'side_chains_likely1.sdf'),
-                   os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'side_chains_data.sdf')],
+                   os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'side_chains_data.sdf'),
+                   os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'side_chains_tautomers.sdf')],
         'fp_connections': os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'connections.sdf'),
         'fp_backbones': os.path.join(DATA_DIR, 'chemdraw', 'pre_monomer', 'backbones.sdf'),
         'fp_monomers': os.path.join(DATA_DIR, 'chemdraw', 'monomers', 'modified_prolines.sdf'),
