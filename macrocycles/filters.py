@@ -7,6 +7,9 @@ import subprocess
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import csv
+from collections import defaultdict
+import json
+from bson import json_util
 
 LOGGER = utils.create_logger(__name__, INFO)
 
@@ -20,7 +23,14 @@ class RegioSQMFilter(utils.Base):
         super().__init__(logger, make_db_connection)
 
         self.macrocycles = []
-        self.regio_predictions = []
+        self.predictions = []
+
+    def create_smiles_file(self, filepath):
+
+        mols = self.mongo_db[config.COL1].find({'type': 'side_chain', 'connection': 'methyl'})
+        with open(filepath, 'w') as file:
+            for i, mol in enumerate(mols):
+                file.write('sc' + str(i) + '\t' + mol['kekule'] + '\n')
 
     def import_predictions(self, smiles_filepath, csv_filepath, solvent, cut_off):
         smiles_dict = {}
@@ -40,26 +50,34 @@ class RegioSQMFilter(utils.Base):
                     kekule = Chem.MolToSmiles(mol, kekuleSmiles=True)
                 elif i % 3 == 1:
                     prediction = [int(row[j]) for j in range(0, len(row), 2)]
-                elif i % 3 == 2:
-                    if len(row) != 0:
-                        print('error')
-                    doc = {'_id': self.mongo_db['molecules'].find_one({'kekule': kekule}, projection={'_id': 1})['_id'],
+                else:
+                    side_chain = self.mongo_db[config.COL1].find_one({'kekule': kekule})
+                    doc = {'_id': side_chain['_id'] + 'r',
                            'type': 'regiosqm',
                            'kekule': kekule,
-                           'prediction': prediction,
+                           'predictions': prediction,
                            'solvent': solvent,
-                           'cut_off': cut_off}
+                           'cut_off': cut_off,
+                           'parent_side_chain': side_chain['parent_side_chain']['_id'],
+                           'conn_atom_idx': side_chain['conn_atom_idx']}
                     collection.append(doc)
 
-        self.mongo_db['filters'].insert_many(collection)
+        self.mongo_db[config.COL3].insert_many(collection)
 
-    def save_data(self):
+    def save_data(self, to_mongo=True, to_json=False):
 
         try:
             params = self._defaults['outputs']
-            for macrocycle in self.result_data:
-                update = {'$set': {'regio_filter': macrocycle['regio_filter']}}
-                self.mongo_db[params['col_filtered']].find_one_and_update({'_id': macrocycle['_id']}, update)
+
+            if to_mongo:
+                for macrocycle in self.result_data:
+                    update = {'$set': {'tractable': macrocycle['tractable']}}
+                    self.mongo_db[params['col_filtered']].find_one_and_update({'_id': macrocycle['_id']}, update)
+
+            if to_json:
+                with open(params['json_filtered'], 'w') as file:
+                    json.dump(json.loads(json_util.dumps(self.macrocycles)), file)
+
         except Exception:
             raise
         else:
@@ -67,16 +85,19 @@ class RegioSQMFilter(utils.Base):
 
         return False
 
-        params = self._defaults['outputs']
-        return self.to_mongo(params['col_regiosqm'])
-
-    def load_data(self, solvent, cut_off):
+    def load_data(self, source='mongo', solvent='nitromethane', cut_off=3):
 
         try:
             params = self._defaults['inputs']
-            self.macrocycles = self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'})
-            self.regio_predictions = self.from_mongo(
-                params['col_filters'], {'type': 'regiosqm', 'solvent': solvent, 'cut_off': cut_off})
+            if source == 'mongo':
+                self.macrocycles = list(self.from_mongo(params['col_macrocycles'], {'type': 'macrocycle'}))
+                self.predictions = list(self.from_mongo(
+                    params['col_filters'], {'type': 'regiosqm', 'solvent': solvent, 'cut_off': cut_off}))
+            elif source == 'json':
+                self.macrocycles = self.from_json(params['json_macrocycles'])
+                self.predictions = self.from_json(params['json_predictions'])
+            else:
+                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
         except Exception:
             raise
         else:
@@ -87,12 +108,11 @@ class RegioSQMFilter(utils.Base):
     def filter_macrocycles(self):
 
         try:
-            args = filter(RegioSQMFilter.is_applicable, product(self.macrocycles, self.regio_predictions))
-
+            args = self.get_args()
             with multiprocessing.Pool() as pool:
-                results = pool.starmap_async(RegioSQMFilter.apply_filters, args)
+                results = pool.starmap_async(RegioSQMFilter.apply_filter, args)
 
-                for macrocycle, filter_doc in results.get():
+                for macrocycle in results.get():
                     self.result_data.append(macrocycle)
 
         except Exception:
@@ -103,29 +123,40 @@ class RegioSQMFilter(utils.Base):
         return False
 
     @staticmethod
-    def apply_filters(macrocycle, filter_doc):
+    def apply_filter(macrocycle, filter_docs):
 
-        try:
-            if not macrocycle['regio_filter']:
-                return macrocycle, filter_doc
-        except KeyError:
-            for reaction in macrocycle['reaction']:
-                if reaction['side_chain'] == filter_doc['_id']:
-                    macrocycle.update({'regio_filter': reaction['rxn_atom_idx'] in filter_doc['prediction']})
-                    if not macrocycle['regio_filter']:
-                        break
+        flag = False
+        for reaction in macrocycle['reactions']:
+            for filter_doc in filter_docs[reaction['parent_side_chain']]:
+                if reaction['conn_atom_idx'] == filter_doc['conn_atom_idx']:
+                    macrocycle.update({'tractable': reaction['rxn_atom_idx'] in filter_doc['predictions']})
+                    if not macrocycle['tractable']:
+                        flag = True
+                    break
 
-        return macrocycle, filter_doc
+            if flag:
+                break
 
-    @staticmethod
-    def is_applicable(args):
+        return macrocycle
 
-        macrocycle, filter_doc = args
-        for reaction in macrocycle['reaction']:
-            if reaction['side_chain'] == filter_doc['_id']:
-                return True
+    def get_args(self):
 
-        return False
+        # hash predictions based on parent side chain _id
+        predictions = defaultdict(list)
+        for prediction in self.predictions:
+            predictions[prediction['parent_side_chain']].append(prediction)
+
+        # find applicable prediction documents for each macrocycle
+        applicable_reactions = {'friedel_crafts', 'pictet_spangler', 'pyrrolo_indolene'}
+        for macrocycle in self.macrocycles:
+            reaction_types = set(reaction['type'] for reaction in macrocycle['reactions'])
+            if reaction_types.intersection(applicable_reactions):
+                applicable_predictions = {}
+                parent_side_chain_ids = [reaction['parent_side_chain'] for reaction in macrocycle['reactions']]
+                for parent_side_chain_id in parent_side_chain_ids:
+                    applicable_predictions[parent_side_chain_id] = predictions[parent_side_chain_id]
+
+                yield (macrocycle, applicable_predictions)
 
 
 class pKaFilter(utils.Base):
@@ -135,6 +166,7 @@ class pKaFilter(utils.Base):
         self.heterocycles = []
 
     def import_predictions(self, filepath):
+
         data = []
         with open(filepath, 'r') as file:
             solvent = file.readline().strip('\n')
@@ -146,7 +178,7 @@ class pKaFilter(utils.Base):
                 for atom in mol.GetAtoms():
                     atom_map_num = atom.GetAtomMapNum()
                     if atom_map_num:
-                        avg, std = vals[atom_map_num].split(',')
+                        avg, std = vals[atom_map_num - 1].split(',')
                         predictions[atom.GetIndex()] = {'avg': float(avg),
                                                         'std': float(std)}
                         atom.SetAtomMapNum(0)
