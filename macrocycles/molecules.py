@@ -1615,8 +1615,10 @@ class MacrocycleGenerator(Base):
                         # causes this exception to be raised. This is expect to occur quite often.
                         continue
                     for atom in chain.from_iterable(rxn.GetReactingAtoms()):
-                        macrocycle.GetAtomWithIdx(atom).SetProp('_protected', '1')
-                        results[macrocycle.ToBinary()] = macrocycle
+                        atom = macrocycle.GetAtomWithIdx(atom)
+                        if atom.GetIsAromatic():
+                            atom.SetProp('_protected', '1')
+                    results[macrocycle.ToBinary()] = macrocycle
             reactants = list(results.values())
 
         results = {}
