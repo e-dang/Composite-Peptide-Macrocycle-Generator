@@ -52,7 +52,7 @@ class SideChainGenerator(IMolTransformer):
         self.sidechains = {}
         self.heterocycle, self.connection = args
         heterocycle = Chem.Mol(self.heterocycle['binary'])
-        connection = Chem.Mol(self.connection['binary'])
+        connection = self.connection.mol
 
         # check if connecting atom is atom mapped
         self.is_valid_connection(connection)
@@ -135,7 +135,7 @@ class SideChainGenerator(IMolTransformer):
                          'kekule': kekule,
                          'conn_atom_idx': conn_atom_idx,
                          'heterocycle': self.heterocycle['_id'],
-                         'connection': self.connection['_id']})
+                         'connection': self.connection.name})
 
         return data
 

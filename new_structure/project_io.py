@@ -117,22 +117,6 @@ class JsonHeterocycleIO(AbstractJsonIO):
         super().to_json(self._FILEPATH, data)
 
 
-class JsonConnectionsIO(AbstractJsonIO):
-    """
-    Implmentation of the AbstractJsonIO class for handling connection data.
-    """
-
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'connections.json')
-
-    def load(self):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data):
-
-        super().to_json(self._FILEPATH, data)
-
-
 class JsonBackBoneIO(AbstractJsonIO):
     """
     Implmentation of the AbstractJsonIO class for handling backbone data.
@@ -326,23 +310,6 @@ class MongoHeterocycleIO(AbstractMongoIO):
 
     _COLLECTION = config.COL1
     _QUERY = {'type': 'heterocycle'}
-
-    def load(self):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data):
-
-        super().to_mongo(self._COLLECTION, data)
-
-
-class MongoConnectionsIO(AbstractMongoIO):
-    """
-    Implmentation of the AbstractMongoIO class for handling connection data.
-    """
-
-    _COLLECTION = config.COL1
-    _QUERY = {'type': 'connection'}
 
     def load(self):
 

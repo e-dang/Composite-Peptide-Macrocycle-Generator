@@ -142,6 +142,9 @@ class CinnamoylTemplate3(ITemplateMol):
         return f'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:{self._OLIGOMERIZATION_MAP_NUM}]=O'
 
 
+TEMPLATE_MOLS = [CinnamoylTemplate1(), CinnamoylTemplate2(), CinnamoylTemplate3()]
+
+
 class IConnectionMol(IMolecule):
     """
     Interface for molecules to be used as a connection between a heterocycle and a backbone in order to form a monomer.
@@ -179,6 +182,10 @@ class MethylConnection(IConnectionMol):
     def tagged_kekule(self):
         return f'[CH4:{self._OLIGOMERIZATION_MAP_NUM}]'
 
+    @property
+    def mol(self):
+        return Chem.MolFromSmiles(self.tagged_kekule)
+
 
 class EthylConnection(IConnectionMol):
     """
@@ -196,6 +203,13 @@ class EthylConnection(IConnectionMol):
     @property
     def tagged_kekule(self):
         return f'C[CH3:{self._OLIGOMERIZATION_MAP_NUM}]'
+
+    @property
+    def mol(self):
+        return Chem.MolFromSmiles(self.tagged_kekule)
+
+
+CONNECTION_MOLS = [MethylConnection(), EthylConnection()]
 
 
 class IBackBoneMol(IMolecule):
@@ -272,3 +286,6 @@ class Beta3BackBone(IBackBoneMol):
     @property
     def tagged_kekule(self):
         return f'NC[CH2:{self._OLIGOMERIZATION_MAP_NUM}]C(=O)O'
+
+
+BACKBONE_MOLS = [AlphaBackBone(), Beta2BackBone(), Beta3BackBone()]

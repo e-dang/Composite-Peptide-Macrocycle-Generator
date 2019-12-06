@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 
 import project_io
+import molecules
 
 
 class IDataHandler(ABC):
@@ -42,19 +43,18 @@ class SCGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
+        self._connections = molecules.CONNECTION_MOLS
         if data_format == 'json':
             self._heterocycle_loader = project_io.JsonHeterocycleIO()
-            self._connection_loader = project_io.JsonConnectionsIO()
             self._sidechain_saver = project_io.JsonSideChainIO()
         elif data_format == 'mongo':
             self._heterocycle_loader = project_io.MongoHeterocycleIO()
-            self._connection_loader = project_io.MongoConnectionsIO()
             self._sidechain_saver = project_io.MongoSideChainIO()
 
     def load(self):
 
         SideChainGeneratorData = namedtuple('SideChainGeneratorData', 'heterocycles connections')
-        return SideChainGeneratorData(self._heterocycle_loader.load(), self._connection_loader.load())
+        return SideChainGeneratorData(self._heterocycle_loader.load(), self._connections)
 
     def save(self, data):
 
@@ -69,19 +69,18 @@ class MGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
+        self._backbones = molecules.BACKBONE_MOLS
         if data_format == 'json':
             self._sidechain_loader = project_io.JsonSideChainIO()
-            self._backbone_loader = project_io.JsonBackBoneIO()
             self._monomer_saver = project_io.JsonMonomerIO()
-        # elif data_format == 'mongo':
-            # self._sidechain_loader = project_io.MongoSideChainIO()
-            # self._backbone_loader = project_io.MongoBackboneIO()
-            # self._monomer_saver = project_io.MongoMonomerIO()
+        elif data_format == 'mongo':
+            self._sidechain_loader = project_io.MongoSideChainIO()
+            self._monomer_saver = project_io.MongoMonomerIO()
 
     def load(self):
 
         MonomerGeneratorData = namedtuple('MonomerGeneratorData', 'sidechains backbones')
-        return MonomerGeneratorData(self._sidechain_loader.load(), self._backbone_loader.load())
+        return MonomerGeneratorData(self._sidechain_loader.load(), self._backbones)
 
     def save(self, data):
 
