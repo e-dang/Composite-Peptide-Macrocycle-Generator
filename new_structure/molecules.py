@@ -251,6 +251,10 @@ class AlphaBackBone(IBackBoneMol):
     def tagged_kekule(self):
         return f'N[CH2:{self._OLIGOMERIZATION_MAP_NUM}]C(=O)O'
 
+    @property
+    def mol(self):
+        return Chem.MolFromSmiles(self.tagged_kekule)
+
 
 class Beta2BackBone(IBackBoneMol):
     """
@@ -269,6 +273,10 @@ class Beta2BackBone(IBackBoneMol):
     def tagged_kekule(self):
         return f'N[CH2:{self._OLIGOMERIZATION_MAP_NUM}]CC(=O)O'
 
+    @property
+    def mol(self):
+        return Chem.MolFromSmiles(self.tagged_kekule)
+
 
 class Beta3BackBone(IBackBoneMol):
     """
@@ -286,6 +294,10 @@ class Beta3BackBone(IBackBoneMol):
     @property
     def tagged_kekule(self):
         return f'NC[CH2:{self._OLIGOMERIZATION_MAP_NUM}]C(=O)O'
+
+    @property
+    def mol(self):
+        return Chem.MolFromSmiles(self.tagged_kekule)
 
 
 BACKBONE_MOLS = [AlphaBackBone(), Beta2BackBone(), Beta3BackBone()]

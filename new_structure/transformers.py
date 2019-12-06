@@ -159,7 +159,7 @@ class MonomerGenerator(IMolTransformer):
         self.sidechain, self.backbone = args
 
         sidechain = Chem.Mol(self.sidechain['binary'])
-        backbone = Chem.Mol(self.backbone['binary'])
+        backbone = self.backbone.mol
 
         # find candidate attachment point(s) at terminal end of alkyl chains
         matches = sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
@@ -206,7 +206,7 @@ class MonomerGenerator(IMolTransformer):
                          'binary': binary,
                          'kekule': kekule,
                          'required': required,
-                         'backbone': self.backbone['_id'],
+                         'backbone': self.backbone.name,
                          'sidechain': {'_id': self.sidechain['_id'],
                                        'heterocycle': self.sidechain['heterocycle'],
                                        'conn_atom_idx': self.sidechain['conn_atom_idx']}})

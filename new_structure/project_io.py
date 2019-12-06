@@ -117,22 +117,6 @@ class JsonHeterocycleIO(AbstractJsonIO):
         super().to_json(self._FILEPATH, data)
 
 
-class JsonBackBoneIO(AbstractJsonIO):
-    """
-    Implmentation of the AbstractJsonIO class for handling backbone data.
-    """
-
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'backbones.json')
-
-    def load(self):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data):
-
-        super().to_json(self._FILEPATH, data)
-
-
 class JsonSideChainIO(AbstractJsonIO):
     """
     Implmentation of the AbstractJsonIO class for handling sidechain data.
