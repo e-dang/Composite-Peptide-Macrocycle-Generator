@@ -116,10 +116,22 @@ class IFactoryArgument(ABC):
 class SideChainGenerationArgs(IFactoryArgument):
     """
     An implementation of a FactoryArgument containing the classes required to combine heterocycles and connection
-    molecules into side_chain molecules.
+    molecules into sidechain molecules.
     """
 
     def __init__(self, data_format):
 
         self.transformer = transformers.SideChainGenerator()
         self.handler = data_handlers.SCGDataHandler(data_format)
+
+
+class MonomerGenerationArgs(IFactoryArgument):
+    """
+    An implementation of a FactoryArgument containing the classes required to combine sidechains and backbone
+    molecules into monomers.
+    """
+
+    def __init__(self, data_format):
+
+        self.transformer = transformers.MonomerGenerator()
+        self.handler = data_handlers.MGDataHandler(data_format)

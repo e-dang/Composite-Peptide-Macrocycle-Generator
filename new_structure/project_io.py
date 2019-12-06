@@ -133,12 +133,28 @@ class JsonConnectionsIO(AbstractJsonIO):
         super().to_json(self._FILEPATH, data)
 
 
-class JsonSideChainIO(AbstractJsonIO):
+class JsonBackBoneIO(AbstractJsonIO):
     """
-    Implmentation of the AbstractJsonIO class for handling side_chain data.
+    Implmentation of the AbstractJsonIO class for handling backbone data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'side_chains.json')
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'backbones.json')
+
+    def load(self):
+
+        return super().from_json(self._FILEPATH)
+
+    def save(self, data):
+
+        super().to_json(self._FILEPATH, data)
+
+
+class JsonSideChainIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling sidechain data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'sidechains.json')
 
     def load(self):
 
@@ -150,21 +166,35 @@ class JsonSideChainIO(AbstractJsonIO):
 
 
 class JsonMonomerIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling monomer data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'monomers.json')
 
     def load(self):
-        pass
+
+        return super().from_json(self._FILEPATH)
 
     def save(self, data):
-        pass
+
+        super().to_json(self._FILEPATH, data)
 
 
 class JsonPeptideIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling peptide data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'peptides.json')
 
     def load(self):
-        pass
+
+        return super().from_json(self._FILEPATH)
 
     def save(self, data):
-        pass
+
+        super().to_json(self._FILEPATH, data)
 
 
 class JsonTemplatePeptideIO(AbstractJsonIO):
@@ -246,7 +276,7 @@ class MongoDataBase():
                     self[collection].create_index(ind, unique=True)
 
         # intialize records
-        self[config.COL4].insert_one({'type': 'parent_side_chain', 'count': 0, 'prefix': ''})
+        self[config.COL4].insert_one({'type': 'parent_sidechain', 'count': 0, 'prefix': ''})
         self[config.COL4].insert_one({'type': 'last_inserted', 'collection': '', 'ids': []})
 
     def clear(self):
@@ -290,6 +320,9 @@ class AbstractMongoIO(IOInterface, MongoDataBase):
 
 
 class MongoHeterocycleIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling heterocycle data.
+    """
 
     _COLLECTION = config.COL1
     _QUERY = {'type': 'heterocycle'}
@@ -304,6 +337,9 @@ class MongoHeterocycleIO(AbstractMongoIO):
 
 
 class MongoConnectionsIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling connection data.
+    """
 
     _COLLECTION = config.COL1
     _QUERY = {'type': 'connection'}
@@ -318,9 +354,46 @@ class MongoConnectionsIO(AbstractMongoIO):
 
 
 class MongoSideChainIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling sidechain data.
+    """
 
     _COLLECTION = config.COL1
-    _QUERY = {'type': 'side_chain'}
+    _QUERY = {'type': 'sidechain'}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)
+
+    def save(self, data):
+
+        super().to_mongo(self._COLLECTION, data)
+
+
+class MongoMonomerIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling monomer data.
+    """
+
+    _COLLECTION = config.COL1
+    _QUERY = {'type': 'monomer'}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)
+
+    def save(self, data):
+
+        super().to_mongo(self._COLLECTION, data)
+
+
+class MongoPeptideIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling peptide data.
+    """
+
+    _COLLECTION = config.COL1
+    _QUERY = {'type': 'peptide'}
 
     def load(self):
 
