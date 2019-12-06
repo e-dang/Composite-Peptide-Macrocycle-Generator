@@ -36,11 +36,11 @@ CAPACITY = 500000000
 # SC_EAS_MAP_NUM = 4
 
 ################################################ MongoDB Schema ################################################
-MONGO_HOST = 'localhost'
-MONGO_PORT = 27017
-MONGO_DATABASE = 'tests'
-MongoSettings = namedtuple('MongoSettings', ['host', 'port', 'database'])
-MONGO_SETTINGS = MongoSettings(MONGO_HOST, MONGO_PORT, MONGO_DATABASE)
+HOST = 'localhost'
+PORT = 27017
+DATABASE = 'tests'
+# MongoSettings = namedtuple('MongoSettings', ['host', 'port', 'database'])
+# MONGO_SETTINGS = MongoSettings(MONGO_HOST, MONGO_PORT, MONGO_DATABASE)
 
 COL1 = 'molecules'
 COL2 = 'reactions'
