@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
 
-import mol_io
+import project_io
 
 
 class IDataHandler(ABC):
@@ -40,9 +40,9 @@ class SCGDataHandler(IDataHandler):
         """
 
         if source == 'json':
-            self._heterocycle_loader = mol_io.JsonHeterocycleIO()
-            self._connection_loader = mol_io.JsonConnectionsIO()
-            self._side_chain_saver = mol_io.JsonSideChainIO()
+            self._heterocycle_loader = project_io.JsonHeterocycleIO()
+            self._connection_loader = project_io.JsonConnectionsIO()
+            self._side_chain_saver = project_io.JsonSideChainIO()
         elif source == 'mongo':
             pass
 

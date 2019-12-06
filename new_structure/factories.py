@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 import multiprocessing
 import transformers
-import mol_io
-import loaders
+import data_handlers
 
 
 class IFactory(ABC):
@@ -123,4 +122,4 @@ class SideChainGenerationArgs(IFactoryArgument):
     def __init__(self, data_format):
 
         self.transformer = transformers.SideChainGenerator()
-        self.handler = loaders.SCGDataHandler(data_format)
+        self.handler = data_handlers.SCGDataHandler(data_format)
