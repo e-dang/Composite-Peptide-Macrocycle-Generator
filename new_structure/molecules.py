@@ -257,7 +257,7 @@ class Beta2BackBone(IBackBoneMol):
 
     @property
     def name(self):
-        return 'alpha'
+        return 'beta2'
 
     @property
     def kekule(self):
@@ -279,7 +279,7 @@ class Beta3BackBone(IBackBoneMol):
 
     @property
     def name(self):
-        return 'alpha'
+        return 'beta3'
 
     @property
     def kekule(self):
@@ -304,3 +304,11 @@ def get_connections():
 
 def get_backbones():
     return [AlphaBackBone(), Beta2BackBone(), Beta3BackBone()]
+
+
+def get_hashed_backbones():
+    hashed_backbones = {}
+    for backbone in get_backbones():
+        hashed_backbones[backbone.name] = backbone.mol
+
+    return hashed_backbones
