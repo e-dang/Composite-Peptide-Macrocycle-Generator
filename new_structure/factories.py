@@ -143,3 +143,11 @@ class PeptideGenerationArgs(IFactoryArgument):
 
         self.transformer = transformers.PeptideGenerator()
         self.handler = data_handlers.PGDataHandler(data_format)
+
+
+class TemplatePeptideGenerationArgs(IFactoryArgument):
+
+    def __init__(self, data_format):
+
+        self.transformer = transformers.TemplatePeptideGenerator()
+        self.handler = data_handlers.TPGDataHandler(data_format)

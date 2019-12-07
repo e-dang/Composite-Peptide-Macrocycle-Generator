@@ -317,11 +317,50 @@ class PeptideGenerator(IMolTransformer):
 
 
 class TemplatePeptideGenerator(IMolTransformer):
+
+    # any primary amine or proline n-terminus
+    _ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*)]')
+    _PEPTIDE_NITROGEN_MAP_NUM = 2
+
     def get_args(self, data):
-        pass
+        return product(data.peptides, data.templates)
 
     def transform(self, args):
-        pass
+
+        self.template_peptides = {}
+        self.peptide, self.template = args
+        peptide = Chem.Mol(self.peptide['binary'])
+        template = self.template.oligomerization_mol
+
+        # for each eligible nitrogen form a connection
+        for atom_idx in chain.from_iterable(peptide.GetSubstructMatches(self._ELIGIBLE_NITROGENS)):
+            atom = peptide.GetAtomWithIdx(atom_idx)
+            if atom.GetSymbol() == 'N':  # primary amines only
+                atom.SetAtomMapNum(self._PEPTIDE_NITROGEN_MAP_NUM)
+                break
+
+        # combine and record results
+        template_peptide = utils.connect_mols(template, peptide)
+        atom.SetAtomMapNum(0)
+        binary = template_peptide.ToBinary()
+        Chem.Kekulize(template_peptide)
+        self.template_peptides[binary] = Chem.MolToSmiles(template_peptide, kekuleSmiles=True)
+
+        return self.format_data()
+
+    def format_data(self):
+        # chunk = len(tp_hybrid) * self.templates.index(template)
+        chunk = 3
+        data = []
+        for i, (binary, kekule) in enumerate(self.template_peptides.items()):
+            data.append({'_id': self.peptide['_id'] + str(chunk + i),
+                         'type': 'template_peptide',
+                         'binary': binary,
+                         'kekule': kekule,
+                         'peptide': {'_id': self.peptide['_id'],
+                                     'monomers': self.peptide['monomers']},
+                         'template': self.template.name})
+        return data
 
 
 class MacrocycleGenerator(IMolTransformer):

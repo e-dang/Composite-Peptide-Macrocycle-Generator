@@ -166,12 +166,19 @@ class JsonPeptideIO(AbstractJsonIO):
 
 
 class JsonTemplatePeptideIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling template_peptide data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'template_peptides.json')
 
     def load(self):
-        pass
+
+        return super().from_json(self._FILEPATH)
 
     def save(self, data):
-        pass
+
+        super().to_json(self._FILEPATH, data)
 
 
 class JsonMacrocycleIO(AbstractJsonIO):
@@ -345,6 +352,23 @@ class MongoPeptideIO(AbstractMongoIO):
 
     _COLLECTION = config.COL1
     _QUERY = {'type': 'peptide'}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)
+
+    def save(self, data):
+
+        super().to_mongo(self._COLLECTION, data)
+
+
+class MongoTemplatePeptideIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling template_peptide data.
+    """
+
+    _COLLECTION = config.COL1
+    _QUERY = {'type': 'template_peptide'}
 
     def load(self):
 

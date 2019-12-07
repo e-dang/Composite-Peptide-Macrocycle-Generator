@@ -109,3 +109,25 @@ class PGDataHandler(IDataHandler):
     def save(self, data):
 
         self._peptide_saver.save(data)
+
+
+class TPGDataHandler(IDataHandler):
+
+    def __init__(self, data_format):
+
+        self._templates = molecules.get_templates()
+        if data_format == 'json':
+            self._peptide_loader = project_io.JsonPeptideIO()
+            self._template_peptide_saver = project_io.JsonTemplatePeptideIO()
+        elif data_format == 'mongo':
+            self._peptide_loader = project_io.MongoPeptideIO()
+            self._template_peptide_saver = project_io.MongoTemplatePeptideIO()
+
+    def load(self):
+
+        TemplatePeptideGeneratorData = namedtuple('TemplatePeptideGeneratorData', 'peptides templates')
+        return TemplatePeptideGeneratorData(self._peptide_loader.load(), self._templates)
+
+    def save(self, data):
+
+        self._template_peptide_saver.save(data)

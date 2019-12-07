@@ -63,6 +63,10 @@ class ITemplateMol(IMolecule):
         original template kekule SMILES string may have been made for convenience as well.
         """
 
+    @property
+    def oligomerization_mol(self):
+        return Chem.MolFromSmiles(self.oligomerization_kekule)
+
 
 class CinnamoylTemplate1(ITemplateMol):
     """
