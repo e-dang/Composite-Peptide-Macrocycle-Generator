@@ -53,7 +53,7 @@ class SideChainGenerator(IMolTransformer):
         self.sidechains = {}
         self.heterocycle, self.connection = args
         heterocycle = Chem.Mol(self.heterocycle['binary'])
-        connection = self.connection.mol
+        connection = self.connection.tagged_mol
 
         # check if connecting atom is atom mapped
         self.is_valid_connection(connection)
@@ -158,7 +158,7 @@ class MonomerGenerator(IMolTransformer):
 
         self.sidechain, self.backbone = args
         sidechain = Chem.Mol(self.sidechain['binary'])
-        backbone = self.backbone.mol
+        backbone = self.backbone.tagged_mol
 
         # find candidate attachment point(s) at terminal end of alkyl chains
         matches = sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))

@@ -65,6 +65,12 @@ class ITemplateMol(IMolecule):
 
     @property
     def oligomerization_mol(self):
+        """
+        Generates an RDKit Mol from the oligomerization_kekule SMILES string.
+
+        Returns:
+            RDKit Mol: The RDKit Mol object.
+        """
         return Chem.MolFromSmiles(self.oligomerization_kekule)
 
 
@@ -165,6 +171,16 @@ class IConnectionMol(IMolecule):
         sidechain generation.
         """
 
+    @property
+    def tagged_mol(self):
+        """
+        Generates an RDKit Mol from the tagged_kekule SMILES string.
+
+        Returns:
+            RDKit Mol: The RDKit Mol object.
+        """
+        return Chem.MolFromSmiles(self.tagged_kekule)
+
 
 class MethylConnection(IConnectionMol):
     """
@@ -183,10 +199,6 @@ class MethylConnection(IConnectionMol):
     def tagged_kekule(self):
         return f'[CH4:{self.OLIGOMERIZATION_MAP_NUM}]'
 
-    @property
-    def mol(self):
-        return Chem.MolFromSmiles(self.tagged_kekule)
-
 
 class EthylConnection(IConnectionMol):
     """
@@ -204,10 +216,6 @@ class EthylConnection(IConnectionMol):
     @property
     def tagged_kekule(self):
         return f'C[CH3:{self.OLIGOMERIZATION_MAP_NUM}]'
-
-    @property
-    def mol(self):
-        return Chem.MolFromSmiles(self.tagged_kekule)
 
 
 class IBackBoneMol(IMolecule):
@@ -231,6 +239,16 @@ class IBackBoneMol(IMolecule):
         monomer generation.
         """
 
+    @property
+    def tagged_mol(self):
+        """
+        Generates an RDKit Mol from the tagged_kekule SMILES string.
+
+        Returns:
+            RDKit Mol: The RDKit Mol object.
+        """
+        return Chem.MolFromSmiles(self.tagged_kekule)
+
 
 class AlphaBackBone(IBackBoneMol):
     """
@@ -248,10 +266,6 @@ class AlphaBackBone(IBackBoneMol):
     @property
     def tagged_kekule(self):
         return f'N[CH2:{self.OLIGOMERIZATION_MAP_NUM}]C(=O)O'
-
-    @property
-    def mol(self):
-        return Chem.MolFromSmiles(self.tagged_kekule)
 
 
 class Beta2BackBone(IBackBoneMol):
@@ -271,10 +285,6 @@ class Beta2BackBone(IBackBoneMol):
     def tagged_kekule(self):
         return f'N[CH2:{self.OLIGOMERIZATION_MAP_NUM}]CC(=O)O'
 
-    @property
-    def mol(self):
-        return Chem.MolFromSmiles(self.tagged_kekule)
-
 
 class Beta3BackBone(IBackBoneMol):
     """
@@ -292,10 +302,6 @@ class Beta3BackBone(IBackBoneMol):
     @property
     def tagged_kekule(self):
         return f'NC[CH2:{self.OLIGOMERIZATION_MAP_NUM}]C(=O)O'
-
-    @property
-    def mol(self):
-        return Chem.MolFromSmiles(self.tagged_kekule)
 
 
 def get_templates():
