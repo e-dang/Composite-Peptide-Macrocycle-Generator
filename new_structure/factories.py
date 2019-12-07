@@ -135,3 +135,11 @@ class MonomerGenerationArgs(IFactoryArgument):
 
         self.transformer = transformers.MonomerGenerator()
         self.handler = data_handlers.MGDataHandler(data_format)
+
+
+class PeptideGenerationArgs(IFactoryArgument):
+
+    def __init__(self, data_format):
+
+        self.transformer = transformers.PeptideGenerator()
+        self.handler = data_handlers.PGDataHandler(data_format)

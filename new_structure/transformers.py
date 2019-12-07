@@ -5,6 +5,7 @@ from itertools import chain, product
 from rdkit import Chem
 
 import utils
+import molecules
 
 
 class IMolTransformer(ABC):
@@ -215,11 +216,115 @@ class MonomerGenerator(IMolTransformer):
 
 
 class PeptideGenerator(IMolTransformer):
+
+    _BACKBONES = molecules.get_hashed_backbones()
+    _MONOMER_NITROGEN_MAP_NUM = 1
+    _PEPTIDE_CARBON_MAP_NUM = 2
+
     def get_args(self, data):
-        pass
+        # temporary for testing
+        for i, arg in enumerate(filter(self.is_valid_monomers, product(data.monomers, repeat=data.peptide_length))):
+            if i == 100:
+                break
+            else:
+                yield arg
 
     def transform(self, args):
-        pass
+
+        self.monomers = args
+
+        # begin conneting each monomer in monomers
+        for i, monomer_doc in enumerate(self.monomers):
+
+            self.monomer = Chem.Mol(monomer_doc['binary'])
+            self.backbone = self._BACKBONES[monomer_doc['backbone']]
+
+            # start peptide with first monomer
+            if i == 0:
+                self.pep_size = 1
+                self.peptide = self.monomer
+                self.backbone_prev = self.backbone
+                continue
+
+            # assign atom map numbers
+            monomer_old_attach = self.tag_monomer_n_term()
+            carboxyl_atom, pep_old_attach = self.tag_peptide_c_term()
+
+            # remove oxygen atom from carboxyl
+            self.peptide = Chem.RWMol(self.peptide)
+            self.peptide.RemoveAtom(carboxyl_atom)
+
+            # connect peptide and monomer
+            self.peptide = utils.connect_mols(self.peptide, self.monomer)
+            self.pep_size += 1
+            pep_old_attach.SetAtomMapNum(0)
+            monomer_old_attach.SetAtomMapNum(0)
+            self.backbone_prev = self.backbone
+
+        return self.format_data()
+
+    def is_valid_monomers(self, monomers):
+        """
+        Determines the validity of the peptide.
+
+        Args:
+            monomers (list): Contains the monomer documents.
+
+        Returns:
+            bool: True if at least one monomer is required.
+        """
+
+        for monomer in monomers:
+            if monomer['required']:
+                return True
+
+        return False
+
+    def tag_monomer_n_term(self):
+
+        for atom_idx in self.monomer.GetSubstructMatch(self.backbone):
+            atom = self.monomer.GetAtomWithIdx(atom_idx)
+            if atom.GetSymbol() == 'N' and atom.GetTotalNumHs() != 0:
+                atom.SetAtomMapNum(self._MONOMER_NITROGEN_MAP_NUM)
+                return atom
+
+    def tag_peptide_c_term(self):
+
+        flag = False
+        for pair in self.peptide.GetSubstructMatches(self.backbone_prev):
+            for atom_idx in pair:
+                atom = self.peptide.GetAtomWithIdx(atom_idx)
+                if atom.GetSymbol() == 'O' and atom.GetTotalNumHs() == 1:  # finds protonated oxygen on carboxyl group
+                    carboxyl_atom = atom_idx
+                elif atom.GetSymbol() == 'C' and atom.GetTotalNumHs() == 0 and \
+                        atom.GetHybridization() == Chem.HybridizationType.SP2:  # finds carboxyl carbon
+                    attachment_atom = atom
+
+                # this conditional statements determines if the carboxyl oxygen and carbon found above are valid
+                # since the nitrogen on a peptide chain should only have 0 or 1 hydrogens (0 if monomer is a proline)
+                # or have 2 hydrogens if it is the first monomer in the peptide
+                elif (self.pep_size > 1 and atom.GetSymbol() == 'N' and atom.GetTotalNumHs() <= 1) \
+                        or self.pep_size == 1:
+                    flag = True
+
+            if flag:
+                attachment_atom.SetAtomMapNum(self._PEPTIDE_CARBON_MAP_NUM)
+                break
+
+        return carboxyl_atom, attachment_atom
+
+    def format_data(self):
+        monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'side_chain')}
+                        for monomer in self.monomers]
+        pep_id = ''.join([monomer['_id'] for monomer in monomer_data])
+
+        binary = self.peptide.ToBinary()
+        Chem.Kekulize(self.peptide)
+        return [{'_id': pep_id,
+                 'type': 'peptide',
+                 'binary': binary,
+                 'kekule': Chem.MolToSmiles(self.peptide, kekuleSmiles=True),
+                 'monomers': monomer_data}]
 
 
 class TemplatePeptideGenerator(IMolTransformer):
