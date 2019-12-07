@@ -156,9 +156,7 @@ class MonomerGenerator(IMolTransformer):
 
     def transform(self, args):
 
-        self.monomers = {}
         self.sidechain, self.backbone = args
-
         sidechain = Chem.Mol(self.sidechain['binary'])
         backbone = self.backbone.mol
 
@@ -177,14 +175,8 @@ class MonomerGenerator(IMolTransformer):
                 atom.SetAtomMapNum(self._SC_MAP_NUM)
 
         # connect monomer and backbone
-        monomer = utils.connect_mols(sidechain, backbone)
+        self.monomer = utils.connect_mols(sidechain, backbone)
         atom.SetAtomMapNum(0)
-
-        # record data
-        binary = monomer.ToBinary()
-        Chem.Kekulize(monomer)
-        self.monomers[binary] = (Chem.MolToSmiles(monomer, kekuleSmiles=True),
-                                 bool(list(monomer.GetAromaticAtoms())))
 
         return self.format_data()
 
@@ -199,20 +191,17 @@ class MonomerGenerator(IMolTransformer):
 
         # bb_ind = self.backbones.index(backbone)
         bb_ind = str(3)
-
-        data = []
-        for binary, (kekule, required) in self.monomers.items():
-            data.append({'_id': bb_ind + self.sidechain['_id'].upper(),
-                         'type': 'monomer',
-                         'binary': binary,
-                         'kekule': kekule,
-                         'required': required,
-                         'backbone': self.backbone.name,
-                         'sidechain': {'_id': self.sidechain['_id'],
-                                       'heterocycle': self.sidechain['heterocycle'],
-                                       'conn_atom_idx': self.sidechain['conn_atom_idx']}})
-
-        return data
+        binary = self.monomer.ToBinary()
+        Chem.Kekulize(self.monomer)
+        return [{'_id': bb_ind + self.sidechain['_id'].upper(),
+                 'type': 'monomer',
+                 'binary': binary,
+                 'kekule': Chem.MolToSmiles(self.monomer, kekuleSmiles=True),
+                 'required': bool(list(self.monomer.GetAromaticAtoms())),
+                 'backbone': self.backbone.name,
+                 'sidechain': {'_id': self.sidechain['_id'],
+                               'heterocycle': self.sidechain['heterocycle'],
+                               'conn_atom_idx': self.sidechain['conn_atom_idx']}}]
 
 
 class PeptideGenerator(IMolTransformer):
