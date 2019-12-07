@@ -41,7 +41,7 @@ class SideChainGenerator(IMolTransformer):
     """
 
     # atom map numbers
-    _CONNECTION_MAP_NUM = 1
+    _CONNECTION_MAP_NUM = molecules.IConnectionMol.OLIGOMERIZATION_MAP_NUM
     _HETEROCYCLE_MAP_NUM = 2
 
     def get_args(self, data):
@@ -147,7 +147,7 @@ class MonomerGenerator(IMolTransformer):
     by attaching the alkyl portion of the sidechain to the designated position on the backbone molecule.
     """
 
-    _BB_MAP_NUM = 1
+    _BB_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM
     _SC_MAP_NUM = 2
 
     def get_args(self, data):

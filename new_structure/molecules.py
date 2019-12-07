@@ -43,7 +43,7 @@ class ITemplateMol(IMolecule):
     Interface for template molecules.
     """
 
-    _OLIGOMERIZATION_MAP_NUM = 1
+    OLIGOMERIZATION_MAP_NUM = 1
 
     # @property
     # @abstractmethod
@@ -58,7 +58,7 @@ class ITemplateMol(IMolecule):
     def oligomerization_kekule(self):
         """
         Abstract property that returns the atom mapped kekulized SMILES string of the template molecule that has been
-        edited to contain an atom map number equal to _OLIGOMERIZATION_MAP_NUM at the aldehyde carbon that is to be
+        edited to contain an atom map number equal to OLIGOMERIZATION_MAP_NUM at the aldehyde carbon that is to be
         connected to the N-terminus nitrogen of a peptide to form a template-peptide oligomer. Other changes to the
         original template kekule SMILES string may have been made for convenience as well.
         """
@@ -87,7 +87,7 @@ class CinnamoylTemplate1(ITemplateMol):
 
     @property
     def oligomerization_kekule(self):
-        return f'C/C=C/C1=CC(CC[CH:{self._OLIGOMERIZATION_MAP_NUM}]=O)=CC=C1'
+        return f'C/C=C/C1=CC(CC[CH:{self.OLIGOMERIZATION_MAP_NUM}]=O)=CC=C1'
 
 
 class CinnamoylTemplate2(ITemplateMol):
@@ -113,7 +113,7 @@ class CinnamoylTemplate2(ITemplateMol):
 
     @property
     def oligomerization_kekule(self):
-        return f'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:{self._OLIGOMERIZATION_MAP_NUM}]=O)=C1'
+        return f'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:{self.OLIGOMERIZATION_MAP_NUM}]=O)=C1'
 
 
 class CinnamoylTemplate3(ITemplateMol):
@@ -139,7 +139,7 @@ class CinnamoylTemplate3(ITemplateMol):
 
     @property
     def oligomerization_kekule(self):
-        return f'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:{self._OLIGOMERIZATION_MAP_NUM}]=O'
+        return f'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:{self.OLIGOMERIZATION_MAP_NUM}]=O'
 
 
 class IConnectionMol(IMolecule):
@@ -147,7 +147,7 @@ class IConnectionMol(IMolecule):
     Interface for molecules to be used as a connection between a heterocycle and a backbone in order to form a monomer.
     """
 
-    _OLIGOMERIZATION_MAP_NUM = 1
+    OLIGOMERIZATION_MAP_NUM = 1
 
     @property
     def type(self):
@@ -177,7 +177,7 @@ class MethylConnection(IConnectionMol):
 
     @property
     def tagged_kekule(self):
-        return f'[CH4:{self._OLIGOMERIZATION_MAP_NUM}]'
+        return f'[CH4:{self.OLIGOMERIZATION_MAP_NUM}]'
 
     @property
     def mol(self):
@@ -199,7 +199,7 @@ class EthylConnection(IConnectionMol):
 
     @property
     def tagged_kekule(self):
-        return f'C[CH3:{self._OLIGOMERIZATION_MAP_NUM}]'
+        return f'C[CH3:{self.OLIGOMERIZATION_MAP_NUM}]'
 
     @property
     def mol(self):
@@ -210,10 +210,10 @@ class IBackBoneMol(IMolecule):
     """
     Interface for molecules that are used as backbone structures for forming monomers. These molecules should have the
     position on their backbone to which a sidechain will be attached marked with the atom map number
-    _OLIGOMERIZATION_MAP_NUM.
+    OLIGOMERIZATION_MAP_NUM.
     """
 
-    _OLIGOMERIZATION_MAP_NUM = 1
+    OLIGOMERIZATION_MAP_NUM = 1
 
     @property
     def type(self):
@@ -243,7 +243,7 @@ class AlphaBackBone(IBackBoneMol):
 
     @property
     def tagged_kekule(self):
-        return f'N[CH2:{self._OLIGOMERIZATION_MAP_NUM}]C(=O)O'
+        return f'N[CH2:{self.OLIGOMERIZATION_MAP_NUM}]C(=O)O'
 
     @property
     def mol(self):
@@ -265,7 +265,7 @@ class Beta2BackBone(IBackBoneMol):
 
     @property
     def tagged_kekule(self):
-        return f'N[CH2:{self._OLIGOMERIZATION_MAP_NUM}]CC(=O)O'
+        return f'N[CH2:{self.OLIGOMERIZATION_MAP_NUM}]CC(=O)O'
 
     @property
     def mol(self):
@@ -287,7 +287,7 @@ class Beta3BackBone(IBackBoneMol):
 
     @property
     def tagged_kekule(self):
-        return f'NC[CH2:{self._OLIGOMERIZATION_MAP_NUM}]C(=O)O'
+        return f'NC[CH2:{self.OLIGOMERIZATION_MAP_NUM}]C(=O)O'
 
     @property
     def mol(self):
