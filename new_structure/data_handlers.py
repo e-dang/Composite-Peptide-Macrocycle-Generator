@@ -43,7 +43,7 @@ class SCGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
-        self._connections = molecules.CONNECTION_MOLS
+        self._connections = molecules.get_connections()
         if data_format == 'json':
             self._heterocycle_loader = project_io.JsonHeterocycleIO()
             self._sidechain_saver = project_io.JsonSideChainIO()
@@ -69,7 +69,7 @@ class MGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
-        self._backbones = molecules.BACKBONE_MOLS
+        self._backbones = molecules.get_backbones()
         if data_format == 'json':
             self._sidechain_loader = project_io.JsonSideChainIO()
             self._monomer_saver = project_io.JsonMonomerIO()
