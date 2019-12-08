@@ -1,20 +1,20 @@
 from abc import ABC, abstractmethod
 import multiprocessing
-import transformers
+import generators
 import data_handlers
 
 
 class IFactory(ABC):
     """
-    Interface for classes that wrap the functionality of Transformer and DataHandler classes together such that it
-    passes the data loaded by the DataHandler class to the Transformer class, and passes those results back to the
+    Interface for classes that wrap the functionality of Generator and DataHandler classes together such that it
+    passes the data loaded by the DataHandler class to the Generator class, and passes those results back to the
     DataHandler so it can be saved.
     """
 
     @abstractmethod
     def run(self, factory_arg):
         """
-        Abstract method for wrapping the functionality of the Transformer and DataHandler classes present in
+        Abstract method for wrapping the functionality of the Generator and DataHandler classes present in
         factory_arg such that it is executed in a parallel fashion using the multiprossesing module.
 
         Args:
@@ -24,7 +24,7 @@ class IFactory(ABC):
     @abstractmethod
     def run_serial(self, factory_arg):
         """
-        Abstract method for wrapping the functionality of the Transformer and DataHandler classes present in the
+        Abstract method for wrapping the functionality of the Generator and DataHandler classes present in the
         factory_arg such that it is performed in a serial fashion.
 
         Args:
@@ -34,16 +34,16 @@ class IFactory(ABC):
 
 class MolFactory(IFactory):
     """
-    An implementation of IFactory that takes FactoryArguments that contains a MolTransformer.
+    An implementation of IFactory that takes FactoryArguments that contains a Generator.
     """
 
     def run(self, factory_arg):
 
-        mol_transformer, handler = self.split_args(factory_arg)
+        generator, handler = self.split_args(factory_arg)
 
         result_data = []
         with multiprocessing.Pool() as pool:
-            for result_mols in pool.imap_unordered(mol_transformer.transform, mol_transformer.get_args(handler.load())):
+            for result_mols in pool.imap_unordered(generator.generate, generator.get_args(handler.load())):
                 for result_mol in result_mols:
                     result_data.append(result_mol)
 
@@ -51,43 +51,35 @@ class MolFactory(IFactory):
 
     def run_serial(self, factory_arg):
 
-        mol_transformer, handler = self.split_args(factory_arg)
+        generator, handler = self.split_args(factory_arg)
 
         result_data = []
-        for arg in mol_transformer.get_args(handler.load()):
-            for result_mol in mol_transformer.transform(arg):
+        for arg in generator.get_args(handler.load()):
+            for result_mol in generator.generate(arg):
                 result_data.append(result_mol)
 
         handler.save(result_data)
 
     def split_args(self, factory_arg):
         """
-        Helper method that extracts the MolTransformer and DataHandler classes from the FactoryArgument class.
+        Helper method that extracts the Generator and DataHandler classes from the FactoryArgument class.
 
         Args:
             factory_arg (FactoryArgument): A subclass of the FactoryArgument interface.
 
         Raises:
-            AttributeError: Raised when the provided argument doesn't contain an attribute of 'transformer' and/or
+            AttributeError: Raised when the provided argument doesn't contain an attribute of 'generator' and/or
                 'handler'.
 
         Returns:
-            tuple: The MolTransformer and DataHandler
+            tuple: The Generator and DataHandler
         """
 
         try:
-            return factory_arg.transformer, factory_arg.handler
+            return factory_arg.generator, factory_arg.handler
         except AttributeError:
             raise AttributeError(
-                'The supplied factory_arg must have instance members \'transformer\', \'loader\', and \'saver\'')
-
-
-class ReactionFactory(IFactory):
-    def run(self):
-        pass
-
-    def run_serial(self):
-        pass
+                'The supplied factory_arg must have instance members \'generator\', \'loader\', and \'saver\'')
 
 
 class FilterFactory(IFactory):
@@ -100,13 +92,13 @@ class FilterFactory(IFactory):
 
 class IFactoryArgument(ABC):
     """
-    An interface for classes that wrap Transformer and DataHandler classes together to be used by a Factory.
+    An interface for classes that wrap Generator and DataHandler classes together to be used by a Factory.
     """
 
     @abstractmethod
     def __init__(self, data_format):
         """
-        An intializer method for creating the Transformer and DataHandler classes.
+        An intializer method for creating the Generator and DataHandler classes.
 
         Args:
             data_format (str): The format of the data to load from and save to.
@@ -121,7 +113,7 @@ class SideChainGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.transformer = transformers.SideChainGenerator()
+        self.generator = generators.SideChainGenerator()
         self.handler = data_handlers.SCGDataHandler(data_format)
 
 
@@ -133,7 +125,7 @@ class MonomerGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.transformer = transformers.MonomerGenerator()
+        self.generator = generators.MonomerGenerator()
         self.handler = data_handlers.MGDataHandler(data_format)
 
 
@@ -141,7 +133,7 @@ class PeptideGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.transformer = transformers.PeptideGenerator()
+        self.generator = generators.PeptideGenerator()
         self.handler = data_handlers.PGDataHandler(data_format)
 
 
@@ -149,7 +141,7 @@ class TemplatePeptideGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.transformer = transformers.TemplatePeptideGenerator()
+        self.generator = generators.TemplatePeptideGenerator()
         self.handler = data_handlers.TPGDataHandler(data_format)
 
 
@@ -157,5 +149,5 @@ class ReactionGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.transformer = transformers.JointReactionGenerator()
+        self.generator = generators.JointReactionGenerator()
         self.handler = data_handlers.JRGDataHandler(data_format)

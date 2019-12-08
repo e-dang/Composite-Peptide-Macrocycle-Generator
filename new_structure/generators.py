@@ -9,22 +9,22 @@ import utils
 import molecules
 
 
-class IMolTransformer(ABC):
+class IGenerator(ABC):
     """
-    Interface for classes that transform molecular structure.
+    Interface for classes that operate on molecular structure(s) in order to generate new structures.
     """
 
     @abstractmethod
     def get_args(self, data):
         """
-        Abstract method for formatting the arguments that will be passed to the method transform().
+        Abstract method for formatting the arguments that will be passed to the method generate().
 
         Args:
             data (iterable): An iterable, possibly containing other iterables, that contain the molecule data as dicts.
         """
 
     @abstractmethod
-    def transform(self, args):
+    def generate(self, args):
         """
         Abstract method for applying the specific molecular transformation handled by the derived class on the molecules
         passed in as arguments.
@@ -34,9 +34,9 @@ class IMolTransformer(ABC):
         """
 
 
-class SideChainGenerator(IMolTransformer):
+class SideChainGenerator(IGenerator):
     """
-    Implementation of an IMolTransformer that takes a connection molecule and heterocycle and creates a set of
+    Implementation of an IGenerator that takes a connection molecule and heterocycle and creates a set of
     sidechains by attaching the connection molecule to all valid positions on the heterocycle. Valid positions are
     determined in instace method is_valid_atom().
     """
@@ -50,7 +50,7 @@ class SideChainGenerator(IMolTransformer):
 
         return product(data.heterocycles, data.connections)
 
-    def transform(self, args):
+    def generate(self, args):
 
         self.sidechains = {}
         self.heterocycle, self.connection = args
@@ -141,9 +141,9 @@ class SideChainGenerator(IMolTransformer):
         return data
 
 
-class MonomerGenerator(IMolTransformer):
+class MonomerGenerator(IGenerator):
     """
-    Implementation of an IMolTransformer that takes a sidechain and backbone molecule and creates a monomer
+    Implementation of an IGenerator that takes a sidechain and backbone molecule and creates a monomer
     by attaching the alkyl portion of the sidechain to the designated position on the backbone molecule.
     """
 
@@ -155,7 +155,7 @@ class MonomerGenerator(IMolTransformer):
 
         return product(data.sidechains, data.backbones)
 
-    def transform(self, args):
+    def generate(self, args):
 
         self.sidechain, self.backbone = args
         sidechain = Chem.Mol(self.sidechain['binary'])
@@ -205,7 +205,7 @@ class MonomerGenerator(IMolTransformer):
                                'conn_atom_idx': self.sidechain['conn_atom_idx']}}]
 
 
-class PeptideGenerator(IMolTransformer):
+class PeptideGenerator(IGenerator):
 
     _BACKBONES = utils.get_hashed_backbones()
     _MONOMER_NITROGEN_MAP_NUM = 1
@@ -220,7 +220,7 @@ class PeptideGenerator(IMolTransformer):
             else:
                 yield arg
 
-    def transform(self, args):
+    def generate(self, args):
 
         self.monomers = args
 
@@ -318,7 +318,7 @@ class PeptideGenerator(IMolTransformer):
                  'monomers': monomer_data}]
 
 
-class TemplatePeptideGenerator(IMolTransformer):
+class TemplatePeptideGenerator(IGenerator):
 
     # any primary amine or proline n-terminus
     _ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*)]')
@@ -329,7 +329,7 @@ class TemplatePeptideGenerator(IMolTransformer):
     def get_args(self, data):
         return product(data.peptides, data.templates)
 
-    def transform(self, args):
+    def generate(self, args):
 
         self.template_peptides = {}
         self.peptide, self.template = args
@@ -367,39 +367,39 @@ class TemplatePeptideGenerator(IMolTransformer):
         return data
 
 
-class MacrocycleGenerator(IMolTransformer):
+class MacrocycleGenerator(IGenerator):
     def get_args(self, data):
         pass
 
-    def transform(self, args):
+    def generate(self, args):
         pass
 
 
-class Methylateor(IMolTransformer):
+class Methylateor(IGenerator):
     def get_args(self, data):
         pass
 
-    def transform(self, args):
+    def generate(self, args):
         pass
 
 
-class StereoChemPermutor(IMolTransformer):
+class StereoChemPermutor(IGenerator):
     def get_args(self, data):
         pass
 
-    def transform(self, args):
+    def generate(self, args):
         pass
 
 
-class MacrocycleConformerGenerator(IMolTransformer):
+class MacrocycleConformerGenerator(IGenerator):
     def get_args(self, data):
         pass
 
-    def transform(self, args):
+    def generate(self, args):
         pass
 
 
-class JointReactionGenerator(IMolTransformer):
+class JointReactionGenerator(IGenerator):
 
     SIDECHAIN_OLIGOMERIZATION_MAP_NUM = 3
     SIDECHAIN_EAS_MAP_NUM = 4
@@ -407,7 +407,7 @@ class JointReactionGenerator(IMolTransformer):
     def get_args(self, data):
         return product(data.sidechains, data.templates, data.reactions)
 
-    def transform(self, args):
+    def generate(self, args):
 
         self.reactions = {}
         self.sidechain, self.template, self.reaction = args

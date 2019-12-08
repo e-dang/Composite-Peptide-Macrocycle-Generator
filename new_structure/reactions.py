@@ -4,7 +4,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from itertools import chain
 import utils
-import transformers
+import generators
 
 
 class IReaction(ABC):
@@ -44,8 +44,8 @@ class IReaction(ABC):
 class IJointReaction(IReaction):
 
     _TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
-    _SIDECHAIN_OLIGOMERIZATION_NUM = transformers.JointReactionGenerator.SIDECHAIN_OLIGOMERIZATION_MAP_NUM
-    _SIDECHAIN_EAS_MAP_NUM = transformers.JointReactionGenerator.SIDECHAIN_EAS_MAP_NUM
+    _SIDECHAIN_OLIGOMERIZATION_NUM = generators.JointReactionGenerator.SIDECHAIN_OLIGOMERIZATION_MAP_NUM
+    _SIDECHAIN_EAS_MAP_NUM = generators.JointReactionGenerator.SIDECHAIN_EAS_MAP_NUM
     _BACKBONE_OLIGOMERIZATION_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM
     _BACKBONE_CARBOXYL_MAP_NUM = 5
     _BACKBONE_NITROGEN_MAP_NUM = 6
