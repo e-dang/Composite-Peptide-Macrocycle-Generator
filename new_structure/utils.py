@@ -4,7 +4,7 @@ import os
 from rdkit import Chem
 
 
-def connect_mols(*mols, ignored_map_nums=[], stereo=None, clear_map_nums=True):
+def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
     """
     Function for combining either one or two molecules at the positions marked by atom map numbers. If more than two
     atom map numbers are supplied across the molecule(s), then those extra map numbers must be specified in the argument
@@ -54,7 +54,7 @@ def connect_mols(*mols, ignored_map_nums=[], stereo=None, clear_map_nums=True):
     Chem.SanitizeMol(combo)
     try:
         atom1, atom2 = [update_hydrogen_counts(atom, clear_map_nums)
-                        for atom in combo.GetAtoms() if atom.GetAtomMapNum() and atom.GetAtomMapNum() not in ignored_map_nums]
+                        for atom in combo.GetAtoms() if atom.GetAtomMapNum() in map_nums]
     except ValueError:
         raise exceptions.MergeError('There must be exactly 2 map numbers across all molecules.')
 
