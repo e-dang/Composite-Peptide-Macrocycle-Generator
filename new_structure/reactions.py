@@ -109,6 +109,46 @@ class FriedelCrafts(IDisJointReaction):
         self.product = utils.connect_mols(self.sidechain, self.template, map_nums=map_nums)
 
 
+class TsujiTrost(IDisJointReaction):
+
+    def __call__(self, sidechain, template, reacting_atom):
+        self.reset()
+        super().initialize(sidechain, template, reacting_atom)
+        self.validate()
+
+    def __bool__(self):
+        return self.valid
+
+    @property
+    def name(self):
+        return 'tsuji_trost'
+
+    def validate(self):
+
+        # check if sidechain reacting atom is valid
+        if self.reacting_atom.GetSymbol() not in ['N', 'O', 'S'] \
+                or self.reacting_atom.GetTotalNumHs() == 0:
+            self.valid = False
+            return
+
+        # check template reaction kekule is valid
+        if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
+            self.valid = False
+            return
+
+        self.valid = True
+
+    def create_reaction(self):
+
+        self.create_product()
+        self.create_reaction_smarts([self.sidechain, self.template], self.product)
+
+    def create_product(self):
+
+        map_nums = [self._SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM]
+        self.product = utils.connect_mols(self.sidechain, self.template, map_nums=map_nums)
+
+
 class IJointReaction(IReaction):
 
     _TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
