@@ -145,9 +145,9 @@ class TemplatePeptideGenerationArgs(IFactoryArgument):
         self.handler = data_handlers.TPGDataHandler(data_format)
 
 
-class ReactionGenerationArgs(IFactoryArgument):
+class BiMolecularReactionGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.generator = generators.JointReactionGenerator()
-        self.handler = data_handlers.JRGDataHandler(data_format)
+        self.generator = generators.BiMolecularReactionGenerator()
+        self.handler = data_handlers.BMRGDataHandler(data_format)

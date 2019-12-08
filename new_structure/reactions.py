@@ -2,14 +2,12 @@ from abc import ABC, abstractmethod
 import molecules
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import Draw
 from itertools import chain
 import utils
-import generators
 
 
 class IReaction(ABC):
-
-    _SIDECHAIN_EAS_MAP_NUM = generators.JointReactionGenerator.SIDECHAIN_EAS_MAP_NUM
 
     @abstractmethod
     def __call__(self):
@@ -22,6 +20,11 @@ class IReaction(ABC):
     @property
     @abstractmethod
     def name(self):
+        pass
+
+    @property
+    @abstractmethod
+    def type(self):
         pass
 
     @abstractmethod
@@ -56,7 +59,28 @@ class IReaction(ABC):
         self.valid = None
 
 
-class IDisJointReaction(IReaction):
+class IUniMolecularReaction(IReaction):
+
+    @property
+    def type(self):
+        return 'unimolecular'
+
+
+class IBiMolecularReaction(IReaction):
+
+    SIDECHAIN_OLIGOMERIZATION_MAP_NUM = 3
+    SIDECHAIN_EAS_MAP_NUM = 4
+
+    @property
+    def type(self):
+        return 'bimolecular'
+
+    @abstractmethod
+    def tag_connection_atom(self):
+        pass
+
+
+class IDisJointReaction(IBiMolecularReaction):
 
     _TEMPLATE_EAS_MAP_NUM = molecules.ITemplateMol.EAS_CARBON_MAP_NUM
 
@@ -68,6 +92,17 @@ class IDisJointReaction(IReaction):
     @property
     def is_joint_reaction(self):
         return False
+
+    def tag_connection_atom(self):
+
+        matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+        for atom_idx in chain.from_iterable(matches):
+            atom = self.sidechain.GetAtomWithIdx(atom_idx)
+            if atom.GetAtomMapNum() != 0:
+                atom.SetAtomMapNum(0)
+            else:
+                atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+                utils.atom_to_wildcard(atom)
 
 
 class FriedelCrafts(IDisJointReaction):
@@ -88,8 +123,8 @@ class FriedelCrafts(IDisJointReaction):
 
         # check if sidechain reacting atom is valid
         if self.reacting_atom.GetSymbol() != 'C' \
-                or self.reacting_atom.GetTotalNumHs() != 0 \
-                or self.reacting_atom.GetIsAromatic():
+                or self.reacting_atom.GetTotalNumHs() == 0 \
+                or not self.reacting_atom.GetIsAromatic():
             self.valid = False
             return
 
@@ -101,11 +136,12 @@ class FriedelCrafts(IDisJointReaction):
         self.valid = True
 
     def create_reaction(self):
+        self.tag_connection_atom()
         self.create_product()
         self.create_reaction_smarts([self.sidechain, self.template], self.product)
 
     def create_product(self):
-        map_nums = (self._SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM)
+        map_nums = (self.SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM)
         self.product = utils.connect_mols(self.sidechain, self.template, map_nums=map_nums)
 
 
@@ -140,20 +176,20 @@ class TsujiTrost(IDisJointReaction):
 
     def create_reaction(self):
 
+        self.tag_connection_atom()
         self.create_product()
         self.create_reaction_smarts([self.sidechain, self.template], self.product)
 
     def create_product(self):
 
-        map_nums = [self._SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM]
+        map_nums = [self.SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM]
         self.product = utils.connect_mols(self.sidechain, self.template, map_nums=map_nums)
 
 
-class IJointReaction(IReaction):
+class IJointReaction(IBiMolecularReaction):
 
     _TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
-    _SIDECHAIN_OLIGOMERIZATION_NUM = generators.JointReactionGenerator.SIDECHAIN_OLIGOMERIZATION_MAP_NUM
-    _BACKBONE_OLIGOMERIZATION_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM
+    _BACKBONE_OLIGOMERIZATION_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM
     _BACKBONE_CARBOXYL_MAP_NUM = 5
     _BACKBONE_NITROGEN_MAP_NUM = 6
 
@@ -169,6 +205,16 @@ class IJointReaction(IReaction):
     @property
     def is_joint_reaction(self):
         return True
+
+    def tag_connection_atom(self):
+
+        matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+        for atom_idx in chain.from_iterable(matches):
+            atom = self.sidechain.GetAtomWithIdx(atom_idx)
+            if atom.GetAtomMapNum() != 0:
+                atom.SetAtomMapNum(0)
+            else:
+                atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
 
     def create_monomer(self):
 
@@ -186,7 +232,7 @@ class IJointReaction(IReaction):
                 break
 
         # create monomer
-        map_nums = (self._BACKBONE_OLIGOMERIZATION_NUM, self._SIDECHAIN_OLIGOMERIZATION_NUM)
+        map_nums = (self._BACKBONE_OLIGOMERIZATION_MAP_NUM, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
         return utils.connect_mols(self.sidechain, backbone, map_nums=map_nums)
 
 
@@ -198,6 +244,7 @@ class PictetSpangler(IJointReaction):
     def __call__(self, sidechain, template, reacting_atom):
         self.reset()
         super().initialize(sidechain, template, reacting_atom)
+        self.tag_connection_atom()
         self.validate()
 
     def __bool__(self):
@@ -209,7 +256,7 @@ class PictetSpangler(IJointReaction):
 
     def validate(self):
 
-        # check reacting atom is aromatic carbon
+        # check reacting atom is aromatic carbon with at least one hydrogen
         if not self.reacting_atom.GetIsAromatic() \
                 or self.reacting_atom.GetSymbol() != 'C' \
                 or self.reacting_atom.GetTotalNumHs() == 0:
@@ -218,7 +265,7 @@ class PictetSpangler(IJointReaction):
 
         # check that attachment point of sidechain is two atoms away from reacting atom
         for atom in self.sidechain.GetAtoms():
-            if atom.GetAtomMapNum() == self._SIDECHAIN_OLIGOMERIZATION_NUM:
+            if atom.GetAtomMapNum() == self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM:
                 connection_atom = atom
                 break
         paths = Chem.FindAllPathsOfLengthN(self.sidechain, 3, useBonds=False, rootedAtAtom=self.reacting_atom.GetIdx())
@@ -261,7 +308,7 @@ class PictetSpangler(IJointReaction):
                 break
 
         # create bond between sidechain EAS carbon and unmasked aldehyde carbon
-        map_nums = (self._SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
+        map_nums = (self.SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
         reactant = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
 
         # create bond between peptide nitrogen and unmasked aldehyde carbon

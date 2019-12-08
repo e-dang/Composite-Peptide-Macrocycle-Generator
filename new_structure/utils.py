@@ -134,6 +134,21 @@ def get_file_num_range(filepath):
         high += 1
 
 
+def atom_to_wildcard(atom):
+    """
+    Changes the atom to a wildcard atom.
+
+    Args:
+        atom (RDKit Atom): The atom to change to a wildcard.
+    """
+
+    atom.SetAtomicNum(0)
+    atom.SetIsotope(0)
+    atom.SetFormalCharge(0)
+    atom.SetIsAromatic(False)
+    atom.SetNumExplicitHs(0)
+
+
 def get_templates():
     """
     Creates and returns a list of all template molecules.
@@ -194,4 +209,16 @@ get_hashed_backbones = get_hashed_molecules(get_backbones)
 
 
 def get_reactions():
-    return [reactions.FriedelCrafts(), reactions.PictetSpangler()]
+    return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler()]
+
+
+def get_reactions_of_type(rxn_type):
+
+    def reaction_getter():
+        return filter(lambda x: x.type == rxn_type, get_reactions())
+
+    return reaction_getter
+
+
+get_bimolecular_reactions = get_reactions_of_type('bimolecular')
+get_unimolecular_reactions = get_reactions_of_type('unimolecular')

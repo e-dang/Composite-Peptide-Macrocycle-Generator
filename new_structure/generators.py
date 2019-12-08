@@ -7,6 +7,7 @@ from rdkit import Chem
 
 import utils
 import molecules
+import reactions
 
 
 class IGenerator(ABC):
@@ -399,10 +400,9 @@ class MacrocycleConformerGenerator(IGenerator):
         pass
 
 
-class JointReactionGenerator(IGenerator):
+class BiMolecularReactionGenerator(IGenerator):
 
-    SIDECHAIN_OLIGOMERIZATION_MAP_NUM = 3
-    SIDECHAIN_EAS_MAP_NUM = 4
+    _SIDECHAIN_EAS_MAP_NUM = reactions.IBiMolecularReaction.SIDECHAIN_EAS_MAP_NUM
 
     def get_args(self, data):
         return product(data.sidechains, data.templates, data.reactions)
@@ -414,12 +414,9 @@ class JointReactionGenerator(IGenerator):
         sidechain = Chem.Mol(self.sidechain['binary'])
         template = self.template.reaction_mol
 
-        self.tag_connection_atom(sidechain)
         for atom in sidechain.GetAtoms():
-            if atom.GetAtomMapNum() == self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM:
-                continue
 
-            atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
+            atom.SetAtomMapNum(self._SIDECHAIN_EAS_MAP_NUM)
             self.reaction(deepcopy(sidechain), deepcopy(template), atom)
             if self.reaction:
                 self.reaction.create_reaction()
@@ -428,15 +425,6 @@ class JointReactionGenerator(IGenerator):
             atom.SetAtomMapNum(0)
 
         return self.format_data()
-
-    def tag_connection_atom(self, sidechain):
-        matches = sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
-        for atom_idx in chain.from_iterable(matches):
-            atom = sidechain.GetAtomWithIdx(atom_idx)
-            if atom.GetAtomMapNum() != 0:
-                atom.SetAtomMapNum(0)
-            else:
-                atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
 
     def format_data(self):
 

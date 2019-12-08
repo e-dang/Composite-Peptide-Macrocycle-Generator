@@ -134,12 +134,12 @@ class TPGDataHandler(IDataHandler):
         self._template_peptide_saver.save(data)
 
 
-class JRGDataHandler(IDataHandler):
+class BMRGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
         self._templates = utils.get_templates()
-        self._reactions = utils.get_reactions()
+        self._reactions = utils.get_bimolecular_reactions()
         if data_format == 'json':
             self._sidechain_loader = project_io.JsonSideChainIO()
             self._reaction_saver = project_io.JsonReactionIO()
@@ -149,8 +149,9 @@ class JRGDataHandler(IDataHandler):
 
     def load(self):
 
-        JointReactionGeneratorData = namedtuple('JointReactionGeneratorData', 'sidechains templates reactions')
-        return JointReactionGeneratorData(self._sidechain_loader.load(), self._templates, self._reactions)
+        BiMolecularReactionGeneratorData = namedtuple(
+            'BiMolecularReactionGeneratorData', 'sidechains templates reactions')
+        return BiMolecularReactionGeneratorData(self._sidechain_loader.load(), self._templates, self._reactions)
 
     def save(self, data):
 
