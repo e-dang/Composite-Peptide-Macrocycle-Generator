@@ -2,25 +2,25 @@ import exceptions
 import os
 
 from rdkit import Chem
+from rdkit.Chem import Draw
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
     """
-    Function for combining either one or two molecules at the positions marked by atom map numbers. If more than two
-    atom map numbers are supplied across the molecule(s), then those extra map numbers must be specified in the argument
-    ignored_map_nums. This function also applies the specified stereochemistry at the connected position if applicable,
-    and can clear the map numbers from the molecule after making the connection if desired.
+    Function for combining either one or two molecules at the positions marked by atom map numbers. This function also
+    applies the specified stereochemistry at the connected position if applicable, and can clear the map numbers from
+    the molecule after making the connection if desired.
 
     Args:
-        ignored_map_nums (list, optional): The list of atom map numbers to ignore. Defaults to [].
+        map_nums (iterable): An iterable containing two integer elements that specify the map numbers on the atoms
+            to connect.
         stereo (str, optional): The stereochemistry to place on the new connection. Can either be 'CW' or 'CCW'.
             Defaults to None.
         clear_map_nums (bool, optional): Whether to clear atom numbers after making the connection or not.
             Defaults to True.
 
     Raises:
-        exceptions.MergeError: Raised if either no molecules or more than two are provided or there are more than two
-            atom map numbers present and not in the ignored_map_nums argument.
+        exceptions.MergeError: Raised if either no molecules or more than two are provided.
 
     Returns:
         RDKit Mol: The result of connecting the molecule(s) at the specified positions.

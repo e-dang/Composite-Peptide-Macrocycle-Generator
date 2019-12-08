@@ -43,15 +43,23 @@ class ITemplateMol(IMolecule):
     Interface for template molecules.
     """
 
-    OLIGOMERIZATION_MAP_NUM = 1
+    OLIGOMERIZATION_MAP_NUM = 1  # for tagging the carbon on the aldehyde where the peptide will oligomerize to template
+    PS_CARBON_ALDEHYDE_MAP_NUM = 2  # for tagging the carbon on the aldehye required for pictet spangler reaction
+    PS_OXYGEN_ALDEHYDE_MAP_NUM = 3  # for tagging the oxygen on the aldehyde requried for pictet spangler reaction
+    REACTION_WILDCARD1_MAP_NUM = 10  # for a wildcard atom in the reaction kekule
+    REACTION_WILDCARD2_MAP_NUM = 11
 
-    # @property
-    # @abstractmethod
-    # def reaction_kekule(self):
-    #     """
-    #     Abstract property that returns an edited atom mapped version of the kekulized SMILES string of the template
-    #     molecule. The required edits made to the kekule SMILES string are that
-    #     """
+    @property
+    def type(self):
+        return 'template'
+
+    @property
+    @abstractmethod
+    def reaction_kekule(self):
+        """
+        Abstract property that returns an edited atom mapped version of the kekulized SMILES string of the template
+        molecule. The required edits made to the kekule SMILES string are that
+        """
 
     @property
     @abstractmethod
@@ -62,6 +70,10 @@ class ITemplateMol(IMolecule):
         connected to the N-terminus nitrogen of a peptide to form a template-peptide oligomer. Other changes to the
         original template kekule SMILES string may have been made for convenience as well.
         """
+
+    @property
+    def reaction_mol(self):
+        return Chem.MolFromSmiles(self.reaction_kekule)
 
     @property
     def oligomerization_mol(self):
@@ -84,16 +96,12 @@ class CinnamoylTemplate1(ITemplateMol):
         return 'temp1'
 
     @property
-    def type(self):
-        return 'template'
-
-    @property
     def kekule(self):
         return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
 
-    # @property
-    # def reaction_kekule(self):
-    #     return 'C(=C/[CH3:2])\C1=CC=CC(CC[*:1])=C1'
+    @property
+    def reaction_kekule(self):
+        return 'C=C'  # f'[*:{self.TEMP_WILDCARD_MAP_NUM}]/C=C/[CH3:{self.TEMP_EAS_MAP_NUM}]'
 
     @property
     def oligomerization_kekule(self):
@@ -110,16 +118,12 @@ class CinnamoylTemplate2(ITemplateMol):
         return 'temp2'
 
     @property
-    def type(self):
-        return 'template'
-
-    @property
     def kekule(self):
         return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
 
-    # @property
-    # def reaction_kekule(self):
-    #     return 'O=CC[C@H](CC1=CC(/C=C/[CH3:2])=CC=C1F)[*:1]'
+    @property
+    def reaction_kekule(self):
+        return f'[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]=[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]CC(C[*:{self.REACTION_WILDCARD1_MAP_NUM}])[C:{self.OLIGOMERIZATION_MAP_NUM}]=O'
 
     @property
     def oligomerization_kekule(self):
@@ -136,16 +140,12 @@ class CinnamoylTemplate3(ITemplateMol):
         return 'temp3'
 
     @property
-    def type(self):
-        return 'template'
-
-    @property
     def kekule(self):
         return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
 
-    # @property
-    # def reaction_kekule(self):
-    #     return 'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/[CH3:2])=C1)C[*:1]'
+    @property
+    def reaction_kekule(self):
+        return f'[*:{self.REACTION_WILDCARD1_MAP_NUM}]CCC(C[*:{self.REACTION_WILDCARD2_MAP_NUM}])(C[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O)[C:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]'
 
     @property
     def oligomerization_kekule(self):

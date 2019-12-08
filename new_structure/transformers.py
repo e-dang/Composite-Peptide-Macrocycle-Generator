@@ -1,6 +1,7 @@
 import exceptions
 from abc import ABC, abstractmethod
 from itertools import chain, product
+from copy import deepcopy
 
 from rdkit import Chem
 
@@ -396,3 +397,60 @@ class MacrocycleConformerGenerator(IMolTransformer):
 
     def transform(self, args):
         pass
+
+
+class JointReactionGenerator(IMolTransformer):
+
+    SIDECHAIN_OLIGOMERIZATION_MAP_NUM = 3
+    SIDECHAIN_EAS_MAP_NUM = 4
+
+    def get_args(self, data):
+        return product(data.sidechains, data.templates, data.reactions)
+
+    def transform(self, args):
+
+        self.reactions = {}
+        self.sidechain, self.template, self.reaction = args
+        sidechain = Chem.Mol(self.sidechain['binary'])
+        template = self.template.reaction_mol
+
+        self.tag_connection_atom(sidechain)
+        for atom in sidechain.GetAtoms():
+            if atom.GetAtomMapNum() == self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM:
+                continue
+
+            atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
+            rxn = self.reaction(deepcopy(sidechain), deepcopy(template), atom)
+            if rxn:
+                rxn.create_reaction()
+                self.reactions[rxn.smarts] = (rxn.binary, atom.GetIdx(), rxn.name)
+
+            atom.SetAtomMapNum(0)
+
+        return self.format_data()
+
+    def tag_connection_atom(self, sidechain):
+        matches = sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+        for atom_idx in chain.from_iterable(matches):
+            atom = sidechain.GetAtomWithIdx(atom_idx)
+            if atom.GetAtomMapNum() != 0:
+                atom.SetAtomMapNum(0)
+            else:
+                atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+
+    def format_data(self):
+
+        data = []
+        chunk = len(self.reactions) * 3
+        for i, (smarts, (binary, rxn_atom_idx, rxn_type)) in enumerate(self.reactions.items()):
+            data.append({'_id': self.sidechain['_id'] + str(chunk + i) + rxn_type[:2],
+                         'type': rxn_type,
+                         'binary': binary,
+                         'smarts': smarts,
+                         'rxn_atom_idx': rxn_atom_idx,
+                         'template': self.template.name,
+                         'sidechain': {'_id': self.sidechain['_id'],
+                                       'heterocycle': self.sidechain['heterocycle'],
+                                       'conn_atom_idx': self.sidechain['conn_atom_idx']}})
+
+        return data

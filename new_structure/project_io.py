@@ -190,6 +190,22 @@ class JsonMacrocycleIO(AbstractJsonIO):
         pass
 
 
+class JsonReactionIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling reaction data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'reactions.json')
+
+    def load(self):
+
+        return super().from_json(self._FILEPATH)
+
+    def save(self, data):
+
+        super().to_json(self._FILEPATH, data)
+
+
 class MongoDataBase():
     """
     Class for setting up connection and accessing the MongoDataBase as well as intializing it.
@@ -369,6 +385,23 @@ class MongoTemplatePeptideIO(AbstractMongoIO):
 
     _COLLECTION = config.COL1
     _QUERY = {'type': 'template_peptide'}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)
+
+    def save(self, data):
+
+        super().to_mongo(self._COLLECTION, data)
+
+
+class MongoReactionIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling reaction data.
+    """
+
+    _COLLECTION = config.COL2
+    _QUERY = {}
 
     def load(self):
 

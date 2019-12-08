@@ -3,6 +3,7 @@ from collections import namedtuple
 
 import project_io
 import molecules
+import reactions
 
 
 class IDataHandler(ABC):
@@ -131,3 +132,26 @@ class TPGDataHandler(IDataHandler):
     def save(self, data):
 
         self._template_peptide_saver.save(data)
+
+
+class JRGDataHandler(IDataHandler):
+
+    def __init__(self, data_format):
+
+        self._templates = molecules.get_templates()
+        self._reactions = reactions.get_reactions()
+        if data_format == 'json':
+            self._sidechain_loader = project_io.JsonSideChainIO()
+            self._reaction_saver = project_io.JsonReactionIO()
+        elif data_format == 'mongo':
+            self._sidechain_loader = project_io.MongoSideChainIO()
+            self._reaction_saver = project_io.MongoReactionIO()
+
+    def load(self):
+
+        JointReactionGeneratorData = namedtuple('JointReactionGeneratorData', 'sidechains templates reactions')
+        return JointReactionGeneratorData(self._sidechain_loader.load(), self._templates, self._reactions)
+
+    def save(self, data):
+
+        self._reaction_saver.save(data)
