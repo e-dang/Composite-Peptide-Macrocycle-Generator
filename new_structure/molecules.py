@@ -302,23 +302,3 @@ class Beta3BackBone(IBackBoneMol):
     @property
     def tagged_kekule(self):
         return f'NC[CH2:{self.OLIGOMERIZATION_MAP_NUM}]C(=O)O'
-
-
-def get_templates():
-    return [CinnamoylTemplate1(), CinnamoylTemplate2(), CinnamoylTemplate3()]
-
-
-def get_connections():
-    return [MethylConnection(), EthylConnection()]
-
-
-def get_backbones():
-    return [AlphaBackBone(), Beta2BackBone(), Beta3BackBone()]
-
-
-def get_hashed_backbones():
-    hashed_backbones = {}
-    for backbone in get_backbones():
-        hashed_backbones[backbone.name] = backbone.mol
-
-    return hashed_backbones

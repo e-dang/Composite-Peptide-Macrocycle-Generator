@@ -3,6 +3,7 @@ import os
 
 from rdkit import Chem
 from rdkit.Chem import Draw
+import molecules
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -130,3 +131,62 @@ def get_file_num_range(filepath):
         if not (os.path.exists(new_fp) and os.path.isfile(new_fp)):
             return low, high
         high += 1
+
+
+def get_templates():
+    """
+    Creates and returns a list of all template molecules.
+
+    Returns:
+        list: The template molecules
+    """
+
+    return [molecules.CinnamoylTemplate1(), molecules.CinnamoylTemplate2(), molecules.CinnamoylTemplate3()]
+
+
+def get_connections():
+    """
+    Creates and returns a list of all connection molecules.
+
+    Returns:
+        list: The connection molecules.
+    """
+
+    return [molecules.MethylConnection(), molecules.EthylConnection()]
+
+
+def get_backbones():
+    """
+    Creates and returns a list of all backbone moleucles.
+
+    Returns:
+        list: The backbone molecules.
+    """
+
+    return [molecules.AlphaBackBone(), molecules.Beta2BackBone(), molecules.Beta3BackBone()]
+
+
+def get_hashed_molecules(func):
+    """
+    Closuer that returns a function that when called returns a dict of the molecules returned by func, where the keys
+    are the names of the molecules and the values are the RDKit representation of the molecule.
+
+    Args:
+        func (function): A getter function that returns a list of Molecule objects such as get_templates().
+
+    Returns:
+        function: The function that will return the hashed molecules when called.
+    """
+
+    def hasher():
+        hashed_molecules = {}
+        for molecule in func():
+            hashed_molecules[molecule.name] = molecule.mol
+        return hashed_molecules
+
+    return hasher
+
+
+get_hashed_templates = get_hashed_molecules(get_templates)
+get_hashed_connections = get_hashed_molecules(get_connections)
+get_hashed_backbones = get_hashed_molecules(get_backbones)

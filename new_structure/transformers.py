@@ -207,7 +207,7 @@ class MonomerGenerator(IMolTransformer):
 
 class PeptideGenerator(IMolTransformer):
 
-    _BACKBONES = molecules.get_hashed_backbones()
+    _BACKBONES = utils.get_hashed_backbones()
     _MONOMER_NITROGEN_MAP_NUM = 1
     _PEPTIDE_CARBON_MAP_NUM = 2
     _MAP_NUMS = (_MONOMER_NITROGEN_MAP_NUM, _PEPTIDE_CARBON_MAP_NUM)
