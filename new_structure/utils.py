@@ -4,6 +4,7 @@ import os
 from rdkit import Chem
 from rdkit.Chem import Draw
 import molecules
+import reactions
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -190,3 +191,7 @@ def get_hashed_molecules(func):
 get_hashed_templates = get_hashed_molecules(get_templates)
 get_hashed_connections = get_hashed_molecules(get_connections)
 get_hashed_backbones = get_hashed_molecules(get_backbones)
+
+
+def get_reactions():
+    return [reactions.FriedelCrafts(), reactions.PictetSpangler()]

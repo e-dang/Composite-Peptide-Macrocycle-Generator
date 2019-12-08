@@ -420,10 +420,10 @@ class JointReactionGenerator(IGenerator):
                 continue
 
             atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
-            rxn = self.reaction(deepcopy(sidechain), deepcopy(template), atom)
-            if rxn:
-                rxn.create_reaction()
-                self.reactions[rxn.smarts] = (rxn.binary, atom.GetIdx(), rxn.name)
+            self.reaction(deepcopy(sidechain), deepcopy(template), atom)
+            if self.reaction:
+                self.reaction.create_reaction()
+                self.reactions[self.reaction.smarts] = (self.reaction.binary, atom.GetIdx(), self.reaction.name)
 
             atom.SetAtomMapNum(0)
 

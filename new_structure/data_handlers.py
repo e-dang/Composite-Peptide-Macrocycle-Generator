@@ -139,7 +139,7 @@ class JRGDataHandler(IDataHandler):
     def __init__(self, data_format):
 
         self._templates = utils.get_templates()
-        self._reactions = reactions.get_reactions()
+        self._reactions = utils.get_reactions()
         if data_format == 'json':
             self._sidechain_loader = project_io.JsonSideChainIO()
             self._reaction_saver = project_io.JsonReactionIO()

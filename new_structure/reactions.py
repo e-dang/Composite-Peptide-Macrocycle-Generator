@@ -9,6 +9,12 @@ import generators
 
 class IReaction(ABC):
 
+    _SIDECHAIN_EAS_MAP_NUM = generators.JointReactionGenerator.SIDECHAIN_EAS_MAP_NUM
+
+    @abstractmethod
+    def __call__(self):
+        pass
+
     @abstractmethod
     def __bool__(self):
         pass
@@ -40,17 +46,82 @@ class IReaction(ABC):
         self.smarts = '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product)
         self.reaction = AllChem.ReactionFromSmarts(self.smarts)
 
+    def reset(self):
+        self.reacting_atom = None
+        self.sidechain = None
+        self.template = None
+        self.product = None
+        self.reaction = None
+        self.smarts = None
+        self.valid = None
+
+
+class IDisJointReaction(IReaction):
+
+    _TEMPLATE_EAS_MAP_NUM = molecules.ITemplateMol.EAS_CARBON_MAP_NUM
+
+    def initialize(self, sidechain, template, reacting_atom):
+        self.template = template
+        self.sidechain = sidechain
+        self.reacting_atom = reacting_atom
+
+    @property
+    def is_joint_reaction(self):
+        return False
+
+
+class FriedelCrafts(IDisJointReaction):
+
+    def __call__(self, sidechain, template, reacting_atom):
+        self.reset()
+        super().initialize(sidechain, template, reacting_atom)
+        self.validate()
+
+    def __bool__(self):
+        return self.valid
+
+    @property
+    def name(self):
+        return 'friedel_crafts'
+
+    def validate(self):
+
+        # check if sidechain reacting atom is valid
+        if self.reacting_atom.GetSymbol() != 'C' \
+                or self.reacting_atom.GetTotalNumHs() != 0 \
+                or self.reacting_atom.GetIsAromatic():
+            self.valid = False
+            return
+
+        # check template reaction kekule is valid
+        if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
+            self.valid = False
+            return
+
+        self.valid = True
+
+    def create_reaction(self):
+        self.create_product()
+        self.create_reaction_smarts([self.sidechain, self.template], self.product)
+
+    def create_product(self):
+        map_nums = (self._SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM)
+        self.product = utils.connect_mols(self.sidechain, self.template, map_nums=map_nums)
+
 
 class IJointReaction(IReaction):
 
     _TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
     _SIDECHAIN_OLIGOMERIZATION_NUM = generators.JointReactionGenerator.SIDECHAIN_OLIGOMERIZATION_MAP_NUM
-    _SIDECHAIN_EAS_MAP_NUM = generators.JointReactionGenerator.SIDECHAIN_EAS_MAP_NUM
     _BACKBONE_OLIGOMERIZATION_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM
     _BACKBONE_CARBOXYL_MAP_NUM = 5
     _BACKBONE_NITROGEN_MAP_NUM = 6
 
-    def __init__(self, sidechain, template, reacting_atom):
+    @abstractmethod
+    def create_reactant(self):
+        pass
+
+    def initialize(self, sidechain, template, reacting_atom):
         self.template = template
         self.sidechain = sidechain
         self.reacting_atom = reacting_atom
@@ -84,8 +155,9 @@ class PictetSpangler(IJointReaction):
     _TEMPLATE_CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM
     _TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM
 
-    def __init__(self, sidechain, template, reacting_atom):
-        super().__init__(sidechain, template, reacting_atom)
+    def __call__(self, sidechain, template, reacting_atom):
+        self.reset()
+        super().initialize(sidechain, template, reacting_atom)
         self.validate()
 
     def __bool__(self):
@@ -102,7 +174,7 @@ class PictetSpangler(IJointReaction):
                 or self.reacting_atom.GetSymbol() != 'C' \
                 or self.reacting_atom.GetTotalNumHs() == 0:
             self.valid = False
-            return False
+            return
 
         # check that attachment point of sidechain is two atoms away from reacting atom
         for atom in self.sidechain.GetAtoms():
@@ -113,16 +185,14 @@ class PictetSpangler(IJointReaction):
         atoms = set().union([atom for path in paths for atom in path])
         if connection_atom.GetIdx() not in atoms - set(atom.GetIdx() for atom in connection_atom.GetNeighbors()):
             self.valid = False
-            return False
+            return
 
         # check that template has unmasked aldehyde (this aldehyde will participate in pictet spangler)
-        match = self.template.GetSubstructMatch(Chem.MolFromSmarts('C(=O)'))
-        if not match:
+        if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C(=O)')):
             self.valid = False
-            return False
+            return
 
         self.valid = True
-        return True
 
     def create_reaction(self):
         self.create_reactant()
@@ -157,14 +227,3 @@ class PictetSpangler(IJointReaction):
         # create bond between peptide nitrogen and unmasked aldehyde carbon
         map_nums = (self._BACKBONE_NITROGEN_MAP_NUM, self._TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
         self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
-
-
-class IDisJointReaction(IReaction):
-
-    @property
-    def is_joint_reaction(self):
-        return False
-
-
-def get_reactions():
-    return [PictetSpangler]
