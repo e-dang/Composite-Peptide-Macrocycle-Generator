@@ -43,9 +43,9 @@ class SideChainGenerator(IGenerator):
     """
 
     # atom map numbers
-    _CONNECTION_MAP_NUM = molecules.IConnectionMol.OLIGOMERIZATION_MAP_NUM
-    _HETEROCYCLE_MAP_NUM = 2
-    _MAP_NUMS = (_CONNECTION_MAP_NUM, _HETEROCYCLE_MAP_NUM)
+    CONNECTION_MAP_NUM = molecules.IConnectionMol.OLIGOMERIZATION_MAP_NUM
+    HETEROCYCLE_MAP_NUM = 2
+    MAP_NUMS = (CONNECTION_MAP_NUM, HETEROCYCLE_MAP_NUM)
 
     def get_args(self, data):
 
@@ -75,8 +75,8 @@ class SideChainGenerator(IGenerator):
                 continue
 
             # merge parent side chain with conenction
-            atom.SetAtomMapNum(self._HETEROCYCLE_MAP_NUM)
-            sidechain = utils.connect_mols(heterocycle, connection, map_nums=self._MAP_NUMS)
+            atom.SetAtomMapNum(self.HETEROCYCLE_MAP_NUM)
+            sidechain = utils.connect_mols(heterocycle, connection, map_nums=self.MAP_NUMS)
             atom.SetAtomMapNum(0)
 
             # check for uniqueness and record results
@@ -115,7 +115,7 @@ class SideChainGenerator(IGenerator):
             exceptions.MissingMapNumber: Raised when there is no atom map number on the connection molecule.
         """
 
-        if self._CONNECTION_MAP_NUM not in [atom.GetAtomMapNum() for atom in connection.GetAtoms()]:
+        if self.CONNECTION_MAP_NUM not in [atom.GetAtomMapNum() for atom in connection.GetAtoms()]:
             raise exceptions.MissingMapNumber('Connection molecule missing atom map number')
 
     def format_data(self):
@@ -148,9 +148,9 @@ class MonomerGenerator(IGenerator):
     by attaching the alkyl portion of the sidechain to the designated position on the backbone molecule.
     """
 
-    _BB_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM
-    _SC_MAP_NUM = 2
-    _MAP_NUMS = (_BB_MAP_NUM, _SC_MAP_NUM)
+    BB_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM
+    SC_MAP_NUM = 2
+    MAP_NUMS = (BB_MAP_NUM, SC_MAP_NUM)
 
     def get_args(self, data):
 
@@ -174,10 +174,10 @@ class MonomerGenerator(IGenerator):
             if atom.GetAtomMapNum() >= 3:  # map nums assigned to methyl carbons that are not attachment points
                 atom.SetAtomMapNum(0)
             else:
-                atom.SetAtomMapNum(self._SC_MAP_NUM)
+                atom.SetAtomMapNum(self.SC_MAP_NUM)
 
         # connect monomer and backbone
-        self.monomer = utils.connect_mols(sidechain, backbone, map_nums=self._MAP_NUMS)
+        self.monomer = utils.connect_mols(sidechain, backbone, map_nums=self.MAP_NUMS)
         atom.SetAtomMapNum(0)
 
         return self.format_data()
@@ -208,10 +208,10 @@ class MonomerGenerator(IGenerator):
 
 class PeptideGenerator(IGenerator):
 
-    _BACKBONES = utils.get_hashed_backbones()
-    _MONOMER_NITROGEN_MAP_NUM = 1
-    _PEPTIDE_CARBON_MAP_NUM = 2
-    _MAP_NUMS = (_MONOMER_NITROGEN_MAP_NUM, _PEPTIDE_CARBON_MAP_NUM)
+    BACKBONES = utils.get_hashed_backbones()
+    MONOMER_NITROGEN_MAP_NUM = 1
+    PEPTIDE_CARBON_MAP_NUM = 2
+    MAP_NUMS = (MONOMER_NITROGEN_MAP_NUM, PEPTIDE_CARBON_MAP_NUM)
 
     def get_args(self, data):
         # temporary for testing
@@ -229,7 +229,7 @@ class PeptideGenerator(IGenerator):
         for i, monomer_doc in enumerate(self.monomers):
 
             self.monomer = Chem.Mol(monomer_doc['binary'])
-            self.backbone = self._BACKBONES[monomer_doc['backbone']]
+            self.backbone = self.BACKBONES[monomer_doc['backbone']]
 
             # start peptide with first monomer
             if i == 0:
@@ -247,7 +247,7 @@ class PeptideGenerator(IGenerator):
             self.peptide.RemoveAtom(carboxyl_atom)
 
             # connect peptide and monomer
-            self.peptide = utils.connect_mols(self.peptide, self.monomer, map_nums=self._MAP_NUMS)
+            self.peptide = utils.connect_mols(self.peptide, self.monomer, map_nums=self.MAP_NUMS)
             self.pep_size += 1
             pep_old_attach.SetAtomMapNum(0)
             monomer_old_attach.SetAtomMapNum(0)
@@ -277,7 +277,7 @@ class PeptideGenerator(IGenerator):
         for atom_idx in self.monomer.GetSubstructMatch(self.backbone):
             atom = self.monomer.GetAtomWithIdx(atom_idx)
             if atom.GetSymbol() == 'N' and atom.GetTotalNumHs() != 0:
-                atom.SetAtomMapNum(self._MONOMER_NITROGEN_MAP_NUM)
+                atom.SetAtomMapNum(self.MONOMER_NITROGEN_MAP_NUM)
                 return atom
 
     def tag_peptide_c_term(self):
@@ -300,7 +300,7 @@ class PeptideGenerator(IGenerator):
                     flag = True
 
             if flag:
-                attachment_atom.SetAtomMapNum(self._PEPTIDE_CARBON_MAP_NUM)
+                attachment_atom.SetAtomMapNum(self.PEPTIDE_CARBON_MAP_NUM)
                 break
 
         return carboxyl_atom, attachment_atom
@@ -322,10 +322,10 @@ class PeptideGenerator(IGenerator):
 class TemplatePeptideGenerator(IGenerator):
 
     # any primary amine or proline n-terminus
-    _ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*)]')
-    _TEMPLATE_CARBON_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
-    _PEPTIDE_NITROGEN_MAP_NUM = 2
-    _MAP_NUMS = (_TEMPLATE_CARBON_MAP_NUM, _PEPTIDE_NITROGEN_MAP_NUM)
+    ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*)]')
+    TEMPLATE_CARBON_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
+    PEPTIDE_NITROGEN_MAP_NUM = 2
+    MAP_NUMS = (TEMPLATE_CARBON_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
 
     def get_args(self, data):
         return product(data.peptides, data.templates)
@@ -338,14 +338,14 @@ class TemplatePeptideGenerator(IGenerator):
         template = self.template.oligomerization_mol
 
         # for each eligible nitrogen form a connection
-        for atom_idx in chain.from_iterable(peptide.GetSubstructMatches(self._ELIGIBLE_NITROGENS)):
+        for atom_idx in chain.from_iterable(peptide.GetSubstructMatches(self.ELIGIBLE_NITROGENS)):
             atom = peptide.GetAtomWithIdx(atom_idx)
             if atom.GetSymbol() == 'N':  # primary amines only
-                atom.SetAtomMapNum(self._PEPTIDE_NITROGEN_MAP_NUM)
+                atom.SetAtomMapNum(self.PEPTIDE_NITROGEN_MAP_NUM)
                 break
 
         # combine and record results
-        template_peptide = utils.connect_mols(template, peptide, map_nums=self._MAP_NUMS)
+        template_peptide = utils.connect_mols(template, peptide, map_nums=self.MAP_NUMS)
         atom.SetAtomMapNum(0)
         binary = template_peptide.ToBinary()
         Chem.Kekulize(template_peptide)
@@ -402,7 +402,7 @@ class MacrocycleConformerGenerator(IGenerator):
 
 class BiMolecularReactionGenerator(IGenerator):
 
-    _SIDECHAIN_EAS_MAP_NUM = reactions.IReaction.SIDECHAIN_EAS_MAP_NUM
+    SIDECHAIN_EAS_MAP_NUM = reactions.IReaction.SIDECHAIN_EAS_MAP_NUM
 
     def get_args(self, data):
         return product(data.sidechains, data.templates, data.reactions)
@@ -416,7 +416,7 @@ class BiMolecularReactionGenerator(IGenerator):
 
         for atom in sidechain.GetAtoms():
 
-            atom.SetAtomMapNum(self._SIDECHAIN_EAS_MAP_NUM)
+            atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
             self.reaction(deepcopy(sidechain), deepcopy(template), atom)
             if self.reaction:
                 self.reaction.create_reaction()

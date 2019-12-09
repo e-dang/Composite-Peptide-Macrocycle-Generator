@@ -10,8 +10,8 @@ from copy import deepcopy
 
 class IReaction(ABC):
 
-    _TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM  # 1
-    _TEMPLATE_EAS_MAP_NUM = molecules.ITemplateMol.EAS_CARBON_MAP_NUM  # 2
+    TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM  # 1
+    TEMPLATE_EAS_MAP_NUM = molecules.ITemplateMol.EAS_CARBON_MAP_NUM  # 2
     SIDECHAIN_OLIGOMERIZATION_MAP_NUM = 3
     SIDECHAIN_EAS_MAP_NUM = 4
 
@@ -104,9 +104,9 @@ class AbstractBMSideChainReaction(AbstractBiMolecularReaction):
 
 class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
 
-    _BACKBONE_OLIGOMERIZATION_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM  # 1
-    _BACKBONE_CARBOXYL_MAP_NUM = 5
-    _BACKBONE_NITROGEN_MAP_NUM = 6
+    BACKBONE_OLIGOMERIZATION_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM  # 1
+    BACKBONE_CARBOXYL_MAP_NUM = 5
+    BACKBONE_NITROGEN_MAP_NUM = 6
 
     @abstractmethod
     def create_reactant(self):
@@ -136,18 +136,18 @@ class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
         # get and modify backbone
         backbone = molecules.AlphaBackBone().tagged_mol
         carboxyl = Chem.MolFromSmarts('C(=O)O')
-        replacement = Chem.MolFromSmarts(f'[*:{self._BACKBONE_CARBOXYL_MAP_NUM}]')
+        replacement = Chem.MolFromSmarts(f'[*:{self.BACKBONE_CARBOXYL_MAP_NUM}]')
         backbone = AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
 
         # tag n-terminus nitrogen for oligomerization
         for atom in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
             atom = backbone.GetAtomWithIdx(atom)
             if atom.GetSymbol() == 'N':
-                atom.SetAtomMapNum(self._BACKBONE_NITROGEN_MAP_NUM)
+                atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
                 break
 
         # create monomer
-        map_nums = (self._BACKBONE_OLIGOMERIZATION_MAP_NUM, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+        map_nums = (self.BACKBONE_OLIGOMERIZATION_MAP_NUM, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
         return utils.connect_mols(self.sidechain, backbone, map_nums=map_nums)
 
 
@@ -187,7 +187,7 @@ class FriedelCrafts(AbstractBMSideChainReaction):
         self.create_reaction_smarts([self.sidechain, self.template], self.product)
 
     def create_product(self):
-        map_nums = (self.SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM)
+        map_nums = (self.SIDECHAIN_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM)
         self.product = utils.connect_mols(self.sidechain, self.template, map_nums=map_nums, clear_map_nums=False)
 
 
@@ -228,14 +228,14 @@ class TsujiTrost(AbstractBMSideChainReaction):
 
     def create_product(self):
 
-        map_nums = [self.SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_EAS_MAP_NUM]
+        map_nums = [self.SIDECHAIN_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM]
         self.product = utils.connect_mols(self.sidechain, self.template, map_nums=map_nums, clear_map_nums=False)
 
 
 class PictetSpangler(AbstractBMMonomerReaction):
 
-    _TEMPLATE_CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
-    _TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
+    TEMPLATE_CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
+    TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
 
     def __call__(self, sidechain, template, reacting_atom):
         self.reset()
@@ -284,7 +284,7 @@ class PictetSpangler(AbstractBMMonomerReaction):
 
     def create_reactant(self):
         monomer = super().create_monomer()
-        map_nums = (self._TEMPLATE_OLIGOMERIZATION_MAP_NUM, self._BACKBONE_NITROGEN_MAP_NUM)
+        map_nums = (self.TEMPLATE_OLIGOMERIZATION_MAP_NUM, self.BACKBONE_NITROGEN_MAP_NUM)
         self.reactant = utils.connect_mols(monomer, self.template, map_nums=map_nums, clear_map_nums=False)
 
     def create_product(self):
@@ -293,22 +293,22 @@ class PictetSpangler(AbstractBMMonomerReaction):
 
         # reset atom map number on the INSTANCE VARIABLE reactant
         for atom in self.reactant.GetAtoms():
-            if atom.GetAtomMapNum() == self._TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM:
+            if atom.GetAtomMapNum() == self.TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM:
                 atom.SetAtomMapNum(0)
                 break
 
         # remove oxygen from unmasked aldehyde on LOCAL VARIABLE reactant
         for atom in list(reactant.GetAtoms()):
-            if atom.GetAtomMapNum() == self._TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM:
+            if atom.GetAtomMapNum() == self.TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM:
                 reactant.RemoveAtom(atom.GetIdx())
                 break
 
         # create bond between sidechain EAS carbon and unmasked aldehyde carbon
-        map_nums = (self.SIDECHAIN_EAS_MAP_NUM, self._TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
+        map_nums = (self.SIDECHAIN_EAS_MAP_NUM, self.TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
         reactant = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
 
         # create bond between peptide nitrogen and unmasked aldehyde carbon
-        map_nums = (self._BACKBONE_NITROGEN_MAP_NUM, self._TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
         self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
 
 
@@ -375,7 +375,7 @@ class PyrroloIndolene(AbstractBMMonomerReaction):
 
         # attach an wildcard atom to n-terminus so reaction matches indole at any position in peptide chain
         extra_atom = Chem.MolFromSmarts(f'[CH4:{self.N_TERM_WILDCARD_MAP_NUM}]')  # will be changed to wildcard
-        map_nums = (self._BACKBONE_NITROGEN_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM)
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM)
         self.monomer = utils.connect_mols(self.monomer, extra_atom, map_nums=map_nums, clear_map_nums=False)
 
         for atom in self.monomer.GetAtoms():
@@ -404,9 +404,9 @@ class PyrroloIndolene(AbstractBMMonomerReaction):
         adj_atom.SetNumExplicitHs(adj_atom.GetTotalNumHs() + 1)
 
         # merge backbone nitrogen to adjacent carbon
-        map_nums = (self._BACKBONE_NITROGEN_MAP_NUM, self.ADJ_CARBON_MAP_NUM)
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.ADJ_CARBON_MAP_NUM)
         reactant = utils.connect_mols(monomer, map_nums=map_nums, clear_map_nums=False)
 
         # merge template with monomer
-        map_nums = (self._TEMPLATE_EAS_MAP_NUM, self.SIDECHAIN_EAS_MAP_NUM)
+        map_nums = (self.TEMPLATE_EAS_MAP_NUM, self.SIDECHAIN_EAS_MAP_NUM)
         self.product = utils.connect_mols(reactant, self.template, map_nums=map_nums, clear_map_nums=False)
