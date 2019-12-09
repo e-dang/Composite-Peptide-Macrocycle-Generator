@@ -6,6 +6,7 @@ from rdkit.Chem import Draw
 from itertools import chain
 import utils
 from copy import deepcopy
+import exceptions
 
 
 class IReaction(ABC):
@@ -17,10 +18,6 @@ class IReaction(ABC):
 
     @abstractmethod
     def __call__(self):
-        pass
-
-    @abstractmethod
-    def __bool__(self):
         pass
 
     @property
@@ -44,6 +41,9 @@ class IReaction(ABC):
     @abstractmethod
     def create_product(self):
         pass
+
+    def __bool__(self):
+        return self.valid
 
     @property
     def binary(self):
@@ -156,9 +156,6 @@ class FriedelCrafts(AbstractBMSideChainReaction):
         except AttributeError:  # template doesn't have a friedel_crafts_kekule
             self.valid = False
 
-    def __bool__(self):
-        return self.valid
-
     @property
     def name(self):
         return 'friedel_crafts'
@@ -174,8 +171,8 @@ class FriedelCrafts(AbstractBMSideChainReaction):
 
         # check template reaction kekule has propylene substructure
         if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
-            self.valid = False
-            return
+            raise exceptions.InvalidMolecule(
+                'The provided template must have a propylene substructure to participate in a friedel crafts reaction')
 
         self.valid = True
 
@@ -199,9 +196,6 @@ class TsujiTrost(AbstractBMSideChainReaction):
         except AttributeError:  # doesn't have tsuji_trost_kekule attribute
             self.valid = False
 
-    def __bool__(self):
-        return self.valid
-
     @property
     def name(self):
         return 'tsuji_trost'
@@ -216,8 +210,8 @@ class TsujiTrost(AbstractBMSideChainReaction):
 
         # check template reaction kekule has propylene substructure
         if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
-            self.valid = False
-            return
+            raise exceptions.InvalidMolecule(
+                'The provided template must have a propylene substructure to participate in a tsuji trost reaction')
 
         self.valid = True
 
@@ -247,9 +241,6 @@ class PictetSpangler(AbstractBMMonomerReaction):
         except AttributeError:  # doesn't have pictet_spangler_kekule attribute
             self.valid = False
 
-    def __bool__(self):
-        return self.valid
-
     @property
     def name(self):
         return 'pictet_spangler'
@@ -276,8 +267,8 @@ class PictetSpangler(AbstractBMMonomerReaction):
 
         # check that template has unmasked aldehyde (this aldehyde will participate in pictet spangler)
         if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C(=O)')):
-            self.valid = False
-            return
+            raise exceptions.InvalidMolecule(
+                'The provided template must have an aldehyde to participate in a pictet spangler reaction')
 
         self.valid = True
 
@@ -316,6 +307,86 @@ class PictetSpangler(AbstractBMMonomerReaction):
         self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
 
 
+class TemplatePictetSpangler(AbstractUniMolecularReaction):
+
+    CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
+    OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
+    REACTING_ATOM_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_REACTING_ATOM_MAP_NUM  # 9
+    NITROGEN_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_NITROGEN_MAP_NUM  # 10
+
+    def __call__(self, template):
+        try:
+            self.reset()
+            self.template = Chem.MolFromSmiles(template.template_pictet_spangler_kekule)
+            self.validate()
+        except AttributeError:  # doesn't have template_pictet_spangler_kekule attribute
+            self.valid = False
+
+    @property
+    def name(self):
+        return 'template_pictet_spangler'
+
+    def validate(self):
+
+        # check that template mol has all atom map numbers required to make reaction
+        c_aldehyde, o_aldehyde, reacting, nitrogen = False, False, False, False
+        for atom in self.template.GetAtoms():
+            if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                c_aldehyde = True
+            elif atom.GetSymbol() == 'O' and atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                o_aldehyde = True
+            elif atom.GetAtomMapNum() == self.REACTING_ATOM_MAP_NUM:
+                reacting = True
+            elif atom.GetSymbol() == 'N' and atom.GetAtomMapNum() == self.NITROGEN_MAP_NUM:
+                nitrogen = True
+
+        # if error raised, it means the hard coded template_pictet_spangler_kekule is invalid and should be looked at
+        if not c_aldehyde:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde carbon')
+        if not o_aldehyde:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde oxygen')
+        if not reacting:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped reacting atom')
+        if not nitrogen:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped peptide nitrogen atom')
+
+        self.valid = True
+
+    def create_reaction(self):
+        self.create_product()
+        self.create_reaction_smarts([self.template], self.product)
+
+    def create_product(self):
+
+        # copy of template that turns into product
+        template = Chem.RWMol(self.template)
+
+        # reset atom map number on the INSTANCE VARIABLE template
+        for atom in self.template.GetAtoms():
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                atom.SetAtomMapNum(0)
+                break
+
+        # remove oxygen from unmasked aldehyde on LOCAL VARIABLE template
+        for atom in list(template.GetAtoms()):
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                template.RemoveAtom(atom.GetIdx())
+            elif atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                atom.SetNumExplicitHs(atom.GetTotalNumHs() + 2)
+
+        # create bond between reacting atom and the aldehyde carbon
+        map_nums = (self.CARBON_ALDEHYDE_MAP_NUM, self.REACTING_ATOM_MAP_NUM)
+        template = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
+
+        # create bond between the peptide nitrogen atom and the aldehyde carbon
+        map_nums = (self.NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
+        self.product = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
+
+
 class PyrroloIndolene(AbstractBMMonomerReaction):
 
     ADJ_CARBON_MAP_NUM = 7
@@ -330,9 +401,6 @@ class PyrroloIndolene(AbstractBMMonomerReaction):
         except AttributeError:  # doesn't have pyrrolo_indolene_kekule attribute
             self.valid = False
 
-    def __bool__(self):
-        return self.valid
-
     @property
     def name(self):
         return 'pyrrolo_indolene'
@@ -341,8 +409,8 @@ class PyrroloIndolene(AbstractBMMonomerReaction):
 
         # check template reaction kekule has propylene substructure
         if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
-            self.valid = False
-            return
+            raise exceptions.InvalidMolecule(
+                'The provided template must have a propylene substructure to participate in a pyrrolo-indolene reaction')
 
         # side_chain must be an indole
         if not self.sidechain.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12')):

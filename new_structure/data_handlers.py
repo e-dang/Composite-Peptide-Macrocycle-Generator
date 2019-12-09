@@ -134,6 +134,27 @@ class TPGDataHandler(IDataHandler):
         self._template_peptide_saver.save(data)
 
 
+class UMRGDataHandler(IDataHandler):
+
+    def __init__(self, data_format):
+
+        self._templates = utils.get_templates()
+        self._reactions = utils.get_unimolecular_reactions()
+        if data_format == 'json':
+            self._reaction_saver = project_io.JsonReactionIO()
+        elif data_format == 'mongo':
+            self._reaction_saver = project_io.MongoReactionIO()
+
+    def load(self):
+
+        UniMolecularReactionGenerationData = namedtuple('UniMolecularReactionGenerationData', 'mols reactions')
+        return UniMolecularReactionGenerationData(self._templates, self._reactions)
+
+    def save(self, data):
+
+        self._reaction_saver.save(data)
+
+
 class BMRGDataHandler(IDataHandler):
 
     def __init__(self, data_format):

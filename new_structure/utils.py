@@ -209,7 +209,8 @@ get_hashed_backbones = get_hashed_molecules(get_backbones)
 
 
 def get_reactions():
-    return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler(), reactions.PyrroloIndolene()]
+    return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler(),
+            reactions.TemplatePictetSpangler(), reactions.PyrroloIndolene()]
 
 
 def get_reactions_of_type(rxn_type):

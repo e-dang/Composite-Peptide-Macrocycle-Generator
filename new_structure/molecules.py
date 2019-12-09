@@ -47,8 +47,10 @@ class ITemplateMol(IMolecule):
     EAS_CARBON_MAP_NUM = 2  # for tagging the carbon atom that will close the macrocycle ring in EAS reaction
     PS_CARBON_ALDEHYDE_MAP_NUM = 7  # for tagging the carbon on the aldehye required for pictet spangler reaction
     PS_OXYGEN_ALDEHYDE_MAP_NUM = 8  # for tagging the oxygen on the aldehyde requried for pictet spangler reaction
-    REACTION_WILDCARD1_MAP_NUM = 10  # for a wildcard atom
-    REACTION_WILDCARD2_MAP_NUM = 11  # for a wildcard atom
+    TEMPLATE_PS_REACTING_ATOM_MAP_NUM = 9  # for tagging the reacting atom in template pictet spangler reaction
+    TEMPLATE_PS_NITROGEN_MAP_NUM = 10  # for tagging the peptide nitrogen in template pictet spangler reaction
+    REACTION_WILDCARD1_MAP_NUM = 50  # for a wildcard atom
+    REACTION_WILDCARD2_MAP_NUM = 51  # for a wildcard atom
 
     @property
     def type(self):
@@ -143,6 +145,10 @@ class CinnamoylTemplate3(ITemplateMol):
     @property
     def pictet_spangler_kekule(self):
         return f'[*:{self.REACTION_WILDCARD1_MAP_NUM}]CCC(C[*:{self.REACTION_WILDCARD2_MAP_NUM}])(C[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O)[C:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]'
+
+    @property
+    def template_pictet_spangler_kekule(self):
+        return f'C#CCCCC([CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}])(CC(=O)[NH1:{self.TEMPLATE_PS_NITROGEN_MAP_NUM}][*:{self.REACTION_WILDCARD1_MAP_NUM}])CC1=[CH1:{self.TEMPLATE_PS_REACTING_ATOM_MAP_NUM}]C=CC([*:{self.REACTION_WILDCARD2_MAP_NUM}])=C1'
 
     @property
     def oligomerization_kekule(self):

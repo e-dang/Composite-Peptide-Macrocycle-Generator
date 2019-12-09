@@ -145,6 +145,14 @@ class TemplatePeptideGenerationArgs(IFactoryArgument):
         self.handler = data_handlers.TPGDataHandler(data_format)
 
 
+class UniMolecularReactionGenerationArgs(IFactoryArgument):
+
+    def __init__(self, data_format):
+
+        self.generator = generators.UniMolecularReactionGenerator()
+        self.handler = data_handlers.UMRGDataHandler(data_format)
+
+
 class BiMolecularReactionGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):

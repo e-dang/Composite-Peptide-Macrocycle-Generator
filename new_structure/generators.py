@@ -400,6 +400,34 @@ class MacrocycleConformerGenerator(IGenerator):
         pass
 
 
+class UniMolecularReactionGenerator(IGenerator):
+
+    def get_args(self, data):
+        return product(data.mols, data.reactions)
+
+    def generate(self, args):
+
+        self.mol, self.reaction = args
+        self.reaction(self.mol)
+        if self.reaction:
+            self.reaction.create_reaction()
+            return self.format_data()
+
+        return []
+
+    def format_data(self):
+
+        data = [{'_id': self.mol.name + self.reaction.name[:2],
+                 'type': self.reaction.name,
+                 'binary': self.reaction.binary,
+                 'smarts': self.reaction.smarts,
+                 'rxn_atom_idx': None,
+                 'template': self.mol.name,
+                 'sidechain': None}]
+
+        return data
+
+
 class BiMolecularReactionGenerator(IGenerator):
 
     SIDECHAIN_EAS_MAP_NUM = reactions.IReaction.SIDECHAIN_EAS_MAP_NUM
