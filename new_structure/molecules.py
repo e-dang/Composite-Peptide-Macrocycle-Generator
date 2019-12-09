@@ -44,11 +44,11 @@ class ITemplateMol(IMolecule):
     """
 
     OLIGOMERIZATION_MAP_NUM = 1  # for tagging the carbon on the aldehyde where the peptide will oligomerize to template
-    PS_CARBON_ALDEHYDE_MAP_NUM = 2  # for tagging the carbon on the aldehye required for pictet spangler reaction
-    PS_OXYGEN_ALDEHYDE_MAP_NUM = 3  # for tagging the oxygen on the aldehyde requried for pictet spangler reaction
-    EAS_CARBON_MAP_NUM = 4  # for tagging the carbon atom that will close the macrocycle ring in EAS reaction
-    REACTION_WILDCARD1_MAP_NUM = 10  # for a wildcard atom in the reaction kekule
-    REACTION_WILDCARD2_MAP_NUM = 11
+    EAS_CARBON_MAP_NUM = 2  # for tagging the carbon atom that will close the macrocycle ring in EAS reaction
+    PS_CARBON_ALDEHYDE_MAP_NUM = 7  # for tagging the carbon on the aldehye required for pictet spangler reaction
+    PS_OXYGEN_ALDEHYDE_MAP_NUM = 8  # for tagging the oxygen on the aldehyde requried for pictet spangler reaction
+    REACTION_WILDCARD1_MAP_NUM = 10  # for a wildcard atom
+    REACTION_WILDCARD2_MAP_NUM = 11  # for a wildcard atom
 
     @property
     def type(self):

@@ -402,7 +402,7 @@ class MacrocycleConformerGenerator(IGenerator):
 
 class BiMolecularReactionGenerator(IGenerator):
 
-    _SIDECHAIN_EAS_MAP_NUM = reactions.IBiMolecularReaction.SIDECHAIN_EAS_MAP_NUM
+    _SIDECHAIN_EAS_MAP_NUM = reactions.IReaction.SIDECHAIN_EAS_MAP_NUM
 
     def get_args(self, data):
         return product(data.sidechains, data.templates, data.reactions)
