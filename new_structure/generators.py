@@ -412,12 +412,11 @@ class BiMolecularReactionGenerator(IGenerator):
         self.reactions = {}
         self.sidechain, self.template, self.reaction = args
         sidechain = Chem.Mol(self.sidechain['binary'])
-        template = self.template.reaction_mol
 
         for atom in sidechain.GetAtoms():
 
             atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
-            self.reaction(deepcopy(sidechain), deepcopy(template), atom)
+            self.reaction(deepcopy(sidechain), self.template, atom)
             if self.reaction:
                 self.reaction.create_reaction()
                 self.reactions[self.reaction.smarts] = (self.reaction.binary, atom.GetIdx(), self.reaction.name)

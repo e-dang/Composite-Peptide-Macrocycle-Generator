@@ -56,14 +56,6 @@ class ITemplateMol(IMolecule):
 
     @property
     @abstractmethod
-    def reaction_kekule(self):
-        """
-        Abstract property that returns an edited atom mapped version of the kekulized SMILES string of the template
-        molecule. The required edits made to the kekule SMILES string are that
-        """
-
-    @property
-    @abstractmethod
     def oligomerization_kekule(self):
         """
         Abstract property that returns the atom mapped kekulized SMILES string of the template molecule that has been
@@ -71,10 +63,6 @@ class ITemplateMol(IMolecule):
         connected to the N-terminus nitrogen of a peptide to form a template-peptide oligomer. Other changes to the
         original template kekule SMILES string may have been made for convenience as well.
         """
-
-    @property
-    def reaction_mol(self):
-        return Chem.MolFromSmiles(self.reaction_kekule)
 
     @property
     def oligomerization_mol(self):
@@ -101,8 +89,16 @@ class CinnamoylTemplate1(ITemplateMol):
         return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
 
     @property
-    def reaction_kekule(self):
+    def friedel_crafts_kekule(self):
         return f'[*:{self.REACTION_WILDCARD1_MAP_NUM}]/C=C/[CH3:{self.EAS_CARBON_MAP_NUM}]'
+
+    @property
+    def tsuji_trost_kekule(self):
+        return self.friedel_crafts_kekule
+
+    @property
+    def pyrrolo_indolene_kekule(self):
+        return self.friedel_crafts_kekule
 
     @property
     def oligomerization_kekule(self):
@@ -123,7 +119,7 @@ class CinnamoylTemplate2(ITemplateMol):
         return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
 
     @property
-    def reaction_kekule(self):
+    def pictet_spangler_kekule(self):
         return f'[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]=[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]CC(C[*:{self.REACTION_WILDCARD1_MAP_NUM}])[C:{self.OLIGOMERIZATION_MAP_NUM}]=O'
 
     @property
@@ -145,7 +141,7 @@ class CinnamoylTemplate3(ITemplateMol):
         return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
 
     @property
-    def reaction_kekule(self):
+    def pictet_spangler_kekule(self):
         return f'[*:{self.REACTION_WILDCARD1_MAP_NUM}]CCC(C[*:{self.REACTION_WILDCARD2_MAP_NUM}])(C[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O)[C:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]'
 
     @property

@@ -74,6 +74,11 @@ class AbstractUniMolecularReaction(IReaction):
 
 class AbstractBiMolecularReaction(IReaction):
 
+    def initialize(self, sidechain, template, reacting_atom):
+        self.sidechain = sidechain
+        self.template = Chem.MolFromSmiles(template)
+        self.reacting_atom = reacting_atom
+
     @property
     def type(self):
         return 'bimolecular'
@@ -84,11 +89,6 @@ class AbstractBMSideChainReaction(AbstractBiMolecularReaction):
     @property
     def type(self):
         return super().type + '_sidechain_reaction'
-
-    def initialize(self, sidechain, template, reacting_atom):
-        self.template = template
-        self.sidechain = sidechain
-        self.reacting_atom = reacting_atom
 
     def tag_connection_atom(self):
 
@@ -115,11 +115,6 @@ class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
     @property
     def type(self):
         return super().type + '_monomer_reaction'
-
-    def initialize(self, sidechain, template, reacting_atom):
-        self.template = template
-        self.sidechain = sidechain
-        self.reacting_atom = reacting_atom
 
     def tag_connection_atom(self):
 
@@ -154,9 +149,12 @@ class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
 class FriedelCrafts(AbstractBMSideChainReaction):
 
     def __call__(self, sidechain, template, reacting_atom):
-        self.reset()
-        super().initialize(sidechain, template, reacting_atom)
-        self.validate()
+        try:
+            self.reset()
+            super().initialize(sidechain, template.friedel_crafts_kekule, reacting_atom)
+            self.validate()
+        except AttributeError:  # template doesn't have a friedel_crafts_kekule
+            self.valid = False
 
     def __bool__(self):
         return self.valid
@@ -194,9 +192,12 @@ class FriedelCrafts(AbstractBMSideChainReaction):
 class TsujiTrost(AbstractBMSideChainReaction):
 
     def __call__(self, sidechain, template, reacting_atom):
-        self.reset()
-        super().initialize(sidechain, template, reacting_atom)
-        self.validate()
+        try:
+            self.reset()
+            super().initialize(sidechain, template.tsuji_trost_kekule, reacting_atom)
+            self.validate()
+        except AttributeError:  # doesn't have tsuji_trost_kekule attribute
+            self.valid = False
 
     def __bool__(self):
         return self.valid
@@ -238,10 +239,13 @@ class PictetSpangler(AbstractBMMonomerReaction):
     TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
 
     def __call__(self, sidechain, template, reacting_atom):
-        self.reset()
-        super().initialize(sidechain, template, reacting_atom)
-        self.tag_connection_atom()
-        self.validate()
+        try:
+            self.reset()
+            super().initialize(sidechain, template.pictet_spangler_kekule, reacting_atom)
+            self.tag_connection_atom()
+            self.validate()
+        except AttributeError:  # doesn't have pictet_spangler_kekule attribute
+            self.valid = False
 
     def __bool__(self):
         return self.valid
@@ -318,10 +322,13 @@ class PyrroloIndolene(AbstractBMMonomerReaction):
     N_TERM_WILDCARD_MAP_NUM = 8
 
     def __call__(self, sidechain, template, reacting_atom):
-        self.reset()
-        super().initialize(sidechain, template, reacting_atom)
-        self.tag_connection_atom()
-        self.validate()
+        try:
+            self.reset()
+            super().initialize(sidechain, template.pyrrolo_indolene_kekule, reacting_atom)
+            self.tag_connection_atom()
+            self.validate()
+        except AttributeError:  # doesn't have pyrrolo_indolene_kekule attribute
+            self.valid = False
 
     def __bool__(self):
         return self.valid
