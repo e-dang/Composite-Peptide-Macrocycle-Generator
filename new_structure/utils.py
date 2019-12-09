@@ -209,13 +209,13 @@ get_hashed_backbones = get_hashed_molecules(get_backbones)
 
 
 def get_reactions():
-    return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler()]
+    return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler(), reactions.PyrroloIndolene()]
 
 
 def get_reactions_of_type(rxn_type):
 
     def reaction_getter():
-        return filter(lambda x: x.type == rxn_type, get_reactions())
+        return filter(lambda x: rxn_type in x.type, get_reactions())
 
     return reaction_getter
 
