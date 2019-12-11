@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 from bson import json_util
 from pymongo import MongoClient
+from rdkit import Chem
 
 import config
 import utils
@@ -28,6 +29,39 @@ class IOInterface(ABC):
         Args:
             data (iterable[dict]): The data to be saved.
         """
+
+
+class ChemDrawIO(IOInterface):
+
+    def __init__(self, filepath):
+
+        self.filepath = filepath
+
+    def load(self):
+
+        return Chem.SDMolSupplier(self.filepath)
+
+    def save(self, data):
+
+        writer = Chem.SDWriter(self.filepath)
+        writer.write(data)
+        writer.close()
+
+
+class ChemDrawSideChainIO(ChemDrawIO):
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'chemdraw', 'sidechains.sdf')
+
+    def __init__(self):
+        super().__init__(self._FILEPATH)
+
+
+class ChemDrawMonomerIO(ChemDrawIO):
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'chemdraw', 'monomers.sdf')
+
+    def __init__(self):
+        super().__init__(self._FILEPATH)
 
 
 class AbstractJsonIO(IOInterface):
@@ -99,6 +133,30 @@ class AbstractJsonIO(IOInterface):
 
         with open(utils.file_rotator(filepath), 'w') as file:
             json.dump(json.loads(json_util.dumps(data)), file)
+
+
+class JsonIDIO(AbstractJsonIO):
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'ids.json')
+
+    def load(self):
+        with open(self._FILEPATH, 'r') as file:
+            return json.load(file)
+
+    def save(self, data):
+        with open(self._FILEPATH, 'w', encoding='utf-8') as file:
+            json.dump(data, file)
+
+
+class JsonIndexIO(AbstractJsonIO):
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'index.json')
+
+    def load(self):
+        with open(self._FILEPATH, 'r') as file:
+            return json.load(file)
+
+    def save(self, data):
+        with open(self._FILEPATH, 'w', encoding='utf-8') as file:
+            json.dump(data, file)
 
 
 class JsonHeterocycleIO(AbstractJsonIO):
