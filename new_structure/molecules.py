@@ -118,7 +118,7 @@ class CinnamoylTemplate2(ITemplateMol):
 
     @property
     def kekule(self):
-        return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
+        return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1'
 
     @property
     def pictet_spangler_kekule(self):
@@ -140,7 +140,7 @@ class CinnamoylTemplate3(ITemplateMol):
 
     @property
     def kekule(self):
-        return 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
+        return 'C#CCCC[C@@](Cc1cc(/C=C/COC(OC(C)(C)C)=O)ccc1)(C=O)CC(ON2C(CCC2=O)=O)=O'
 
     @property
     def pictet_spangler_kekule(self):
