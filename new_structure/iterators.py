@@ -26,7 +26,7 @@ class IDIterator:
     def __init__(self):
 
         self.io = project_io.JsonIDIO()
-        self.record = list(self.io.load())[0]
+        self.record = self.io.load()
         self.count = self.record['count']
         self.prefix = self.record['prefix']
 
@@ -88,7 +88,7 @@ class IndexIterator:
 
     def __init__(self):
         self.io = project_io.JsonIndexIO()
-        self.record = list(self.io.load())[0]
+        self.record = self.io.load()
         self.index = self.record['index']
 
     def __del__(self):

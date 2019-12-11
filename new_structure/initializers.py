@@ -27,7 +27,10 @@ class DataInitializer(IDataInitializer):
 
     def phase_2(self):
 
-        self.mol_initializers = [SideChainInitializer(), MonomerInitializer()]
+        self.id_iterator = iterators.IDIterator()
+        self.index_iterator = iterators.IndexIterator()
+        self.mol_initializers = [SideChainInitializer(self.id_iterator),
+                                 MonomerInitializer(self.id_iterator, self.index_iterator)]
         self.select_initialization(self.mol_initializers)
 
     def select_initialization(self, initializers):
@@ -38,10 +41,10 @@ class DataInitializer(IDataInitializer):
 
 class SideChainInitializer(IDataInitializer):
 
-    def __init__(self):
+    def __init__(self, id_iterator):
         self.loader = project_io.ChemDrawSideChainIO()
         self.saver = project_io.JsonSideChainIO()
-        self.id_generator = iterators.IDIterator()
+        self.id_generator = id_iterator
 
     def initialize(self):
 
@@ -62,12 +65,12 @@ class SideChainInitializer(IDataInitializer):
 
 class MonomerInitializer(IDataInitializer):
 
-    def __init__(self):
+    def __init__(self, id_iterator, index_iterator):
 
         self.loader = project_io.ChemDrawMonomerIO()
         self.saver = project_io.JsonMonomerIO()
-        self.id_generator = iterators.IDIterator()
-        self.index_generator = iterators.IndexIterator()
+        self.id_generator = id_iterator
+        self.index_generator = index_iterator
 
     def initialize(self):
 
@@ -95,9 +98,9 @@ class IDInitializer(IDataInitializer):
 
     def initialize(self):
 
-        self.saver.save([{'_id': 'id',
-                          'count': 0,
-                          'prefix': ''}])
+        self.saver.save({'_id': 'id',
+                         'count': 0,
+                         'prefix': ''})
 
 
 class IndexInitializer(IDataInitializer):
@@ -107,5 +110,5 @@ class IndexInitializer(IDataInitializer):
         self.saver = project_io.JsonIndexIO()
 
     def initialize(self):
-        self.saver.save([{'_id': 'index',
-                          'index': 1}])
+        self.saver.save({'_id': 'index',
+                         'index': 1})
