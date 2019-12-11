@@ -8,6 +8,7 @@ from rdkit import Chem
 import utils
 import molecules
 import reactions
+import iterators
 
 
 class IGenerator(ABC):
@@ -35,88 +36,38 @@ class IGenerator(ABC):
         """
 
 
-class SideChainGenerator(IGenerator):
+class SideChainConnectionModifier(IGenerator):
     """
     Implementation of an IGenerator that takes a connection molecule and heterocycle and creates a set of
     sidechains by attaching the connection molecule to all valid positions on the heterocycle. Valid positions are
     determined in instace method is_valid_atom().
     """
 
-    # atom map numbers
-    CONNECTION_MAP_NUM = molecules.IConnectionMol.OLIGOMERIZATION_MAP_NUM
-    HETEROCYCLE_MAP_NUM = 2
-    MAP_NUMS = (CONNECTION_MAP_NUM, HETEROCYCLE_MAP_NUM)
+    def __init__(self, id_iterator):
+        self.id_iterator = id_iterator
 
     def get_args(self, data):
 
-        return product(data.heterocycles, data.connections)
+        return data.sidechains
 
     def generate(self, args):
 
-        self.sidechains = {}
-        self.heterocycle, self.connection = args
-        heterocycle = Chem.Mol(self.heterocycle['binary'])
-        connection = self.connection.tagged_mol
+        self.new_sidechains = {}
+        self.parent_sidechain = args
+        parent_sidechain = Chem.Mol(self.parent_sidechain['binary'])
 
-        # check if connecting atom is atom mapped
-        self.is_valid_connection(connection)
+        # methyls with carbon 13 are marked as pure methyl groups not sites of attachment
+        patt = Chem.MolFromSmarts('[CH3;!13CH3]')
 
-        # tag any methyl groups on heterocycle so they are not confused with methyl connection atoms in the monomer
-        # generation step
-        patt = Chem.MolFromSmarts('[CH3]')
-        for i, atom in enumerate(chain.from_iterable(heterocycle.GetSubstructMatches(patt)), start=3):
-            heterocycle.GetAtomWithIdx(atom).SetAtomMapNum(i)
-
-        # make attachment at each atom
-        for atom in heterocycle.GetAtoms():
-
-            # detetmine atom eligibility
-            if not self.is_valid_atom(atom):
-                continue
-
-            # merge parent side chain with conenction
-            atom.SetAtomMapNum(self.HETEROCYCLE_MAP_NUM)
-            sidechain = utils.connect_mols(heterocycle, connection, map_nums=self.MAP_NUMS)
-            atom.SetAtomMapNum(0)
-
-            # check for uniqueness and record results
-            binary = sidechain.ToBinary()
-            Chem.Kekulize(sidechain)
-            self.sidechains[binary] = (Chem.MolToSmiles(sidechain, kekuleSmiles=True), atom.GetIdx())
+        # replace the designated attachment position with each type of connection
+        for connection in utils.get_connections():
+            for sidechain in Chem.ReplaceSubstructs(parent_sidechain, patt, connection.mol):
+                Chem.SanitizeMol(sidechain)
+                binary = sidechain.ToBinary()
+                Chem.Kekulize(sidechain)
+                self.new_sidechains[Chem.MolToSmiles(sidechain, kekuleSmiles=True)] = (binary, connection.name)
 
         return self.format_data()
-
-    def is_valid_atom(self, atom):
-        """
-        Helper method used to determine if a specific position on the heterocycle in valid.
-
-        Args:
-            atom (RDKit Atom): The candidate atom on the heterocycle that might have the connection molecule attached
-                to it.
-
-        Returns:
-            bool: True if valid.
-        """
-
-        valid_carbon = atom.GetSymbol() == 'C' and 0 < atom.GetTotalNumHs() < 3
-        valid_hetero = atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() != 0
-
-        return valid_carbon or valid_hetero
-
-    def is_valid_connection(self, connection):
-        """
-        Helper method that determines whether the connection molecule has an atom map number specifying the point of
-        attachment or not.
-
-        Args:
-            connection (RDKit Mol): The connection molecule.
-
-        Raises:
-            exceptions.MissingMapNumber: Raised when there is no atom map number on the connection molecule.
-        """
-
-        if self.CONNECTION_MAP_NUM not in [atom.GetAtomMapNum() for atom in connection.GetAtoms()]:
-            raise exceptions.MissingMapNumber('Connection molecule missing atom map number')
 
     def format_data(self):
         """
@@ -128,16 +79,13 @@ class SideChainGenerator(IGenerator):
         """
 
         data = []
-        # chunk = len(sidechains) * self.connections.index(connection)
-        chunk = len(self.sidechains) * 3
-        for i, (binary, (kekule, conn_atom_idx)) in enumerate(self.sidechains.items()):
-            data.append({'_id': self.heterocycle['_id'] + str(chunk + i),
+        for kekule, (binary, connection) in self.new_sidechains.items():
+            data.append({'_id': self.id_iterator.get_next(),
                          'type': 'sidechain',
                          'binary': binary,
                          'kekule': kekule,
-                         'conn_atom_idx': conn_atom_idx,
-                         'heterocycle': self.heterocycle['_id'],
-                         'connection': self.connection.name})
+                         'connection': connection,
+                         'shared_id': self.parent_sidechain['_id']})
 
         return data
 
@@ -152,33 +100,40 @@ class MonomerGenerator(IGenerator):
     SC_MAP_NUM = 2
     MAP_NUMS = (BB_MAP_NUM, SC_MAP_NUM)
 
+    def __init__(self, index_iterator):
+        self.index_iterator = index_iterator
+
     def get_args(self, data):
 
-        return product(data.sidechains, data.backbones)
+        return data.sidechains
 
     def generate(self, args):
 
-        self.sidechain, self.backbone = args
+        self.monomers = {}
+        self.sidechain = args
         sidechain = Chem.Mol(self.sidechain['binary'])
-        backbone = self.backbone.tagged_mol
+        required = bool(list(sidechain.GetAromaticAtoms()))
 
-        # find candidate attachment point(s) at terminal end of alkyl chains
-        matches = sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
-        if not len(matches):
+        # find candidate attachment point at terminal end of alkyl chains
+        matches = sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3;!13CH3]'))
+        if len(matches) != 1:
             raise exceptions.InvalidMolecule(
                 f'Sidechain {Chem.MolToSmiles(sidechain)} is missing an attachment point')
 
-        # set atom map number for attachment point of side chain
+        # set atom map number for attachment point of sidechain
         for atom_idx in chain.from_iterable(matches):
-            atom = sidechain.GetAtomWithIdx(atom_idx)
-            if atom.GetAtomMapNum() >= 3:  # map nums assigned to methyl carbons that are not attachment points
-                atom.SetAtomMapNum(0)
-            else:
-                atom.SetAtomMapNum(self.SC_MAP_NUM)
+            sidechain.GetAtomWithIdx(atom_idx).SetAtomMapNum(self.SC_MAP_NUM)
+
+        # change isotopes of non-candidate attachment points back to normal isotope
+        for atom_idx in chain.from_iterable(sidechain.GetSubstructMatches(Chem.MolFromSmarts('[13CH3]'))):
+            sidechain.GetAtomWithIdx(atom_idx).SetIsotope(12)
 
         # connect monomer and backbone
-        self.monomer = utils.connect_mols(sidechain, backbone, map_nums=self.MAP_NUMS)
-        atom.SetAtomMapNum(0)
+        for backbone in utils.get_backbones():
+            monomer = utils.connect_mols(deepcopy(sidechain), backbone.tagged_mol, map_nums=self.MAP_NUMS)
+            binary = monomer.ToBinary()
+            Chem.Kekulize(monomer)
+            self.monomers[Chem.MolToSmiles(monomer, kekuleSmiles=True)] = (binary, required, backbone.name)
 
         return self.format_data()
 
@@ -191,19 +146,18 @@ class MonomerGenerator(IGenerator):
             list: A list containing the newly created monomer dicts.
         """
 
-        # bb_ind = self.backbones.index(backbone)
-        bb_ind = str(3)
-        binary = self.monomer.ToBinary()
-        Chem.Kekulize(self.monomer)
-        return [{'_id': bb_ind + self.sidechain['_id'].upper(),
-                 'type': 'monomer',
-                 'binary': binary,
-                 'kekule': Chem.MolToSmiles(self.monomer, kekuleSmiles=True),
-                 'required': bool(list(self.monomer.GetAromaticAtoms())),
-                 'backbone': self.backbone.name,
-                 'sidechain': {'_id': self.sidechain['_id'],
-                               'heterocycle': self.sidechain['heterocycle'],
-                               'conn_atom_idx': self.sidechain['conn_atom_idx']}}]
+        data = []
+        for i, (kekule, (binary, required, backbone)) in enumerate(self.monomers.items()):
+            data.append({'_id': self.sidechain['_id'].upper() + str(i),
+                         'type': 'monomer',
+                         'binary': binary,
+                         'kekule': kekule,
+                         'index': self.index_iterator.get_next(),
+                         'required': required,
+                         'backbone': backbone,
+                         'sidechain': self.sidechain['shared_id']})
+
+        return data
 
 
 class PeptideGenerator(IGenerator):
@@ -306,7 +260,7 @@ class PeptideGenerator(IGenerator):
         return carboxyl_atom, attachment_atom
 
     def format_data(self):
-        monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'side_chain')}
+        monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'sidechain')}
                         for monomer in self.monomers]
         pep_id = ''.join([monomer['_id'] for monomer in monomer_data])
 
@@ -328,52 +282,113 @@ class TemplatePeptideGenerator(IGenerator):
     MAP_NUMS = (TEMPLATE_CARBON_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
 
     def get_args(self, data):
-        return product(data.peptides, data.templates)
+        return data.peptides
 
     def generate(self, args):
 
         self.template_peptides = {}
-        self.peptide, self.template = args
-        peptide = Chem.Mol(self.peptide['binary'])
-        template = self.template.oligomerization_mol
+        self.peptide = args
 
-        # for each eligible nitrogen form a connection
-        for atom_idx in chain.from_iterable(peptide.GetSubstructMatches(self.ELIGIBLE_NITROGENS)):
-            atom = peptide.GetAtomWithIdx(atom_idx)
-            if atom.GetSymbol() == 'N':  # primary amines only
+        # for each template and eligible nitrogen in peptide form a connection
+        for template in utils.get_templates():
+            peptide = Chem.Mol(self.peptide['binary'])
+            for atom_idx in chain.from_iterable(peptide.GetSubstructMatches(self.ELIGIBLE_NITROGENS)):
+                atom = peptide.GetAtomWithIdx(atom_idx)
                 atom.SetAtomMapNum(self.PEPTIDE_NITROGEN_MAP_NUM)
-                break
+                template_peptide = utils.connect_mols(template.oligomerization_mol, peptide, map_nums=self.MAP_NUMS)
+                atom.SetAtomMapNum(0)
 
-        # combine and record results
-        template_peptide = utils.connect_mols(template, peptide, map_nums=self.MAP_NUMS)
-        atom.SetAtomMapNum(0)
-        binary = template_peptide.ToBinary()
-        Chem.Kekulize(template_peptide)
-        self.template_peptides[binary] = Chem.MolToSmiles(template_peptide, kekuleSmiles=True)
-
+                binary = template_peptide.ToBinary()
+                Chem.Kekulize(template_peptide)
+                self.template_peptides[Chem.MolToSmiles(template_peptide, kekuleSmiles=True)] = (binary,
+                                                                                                 template.name)
         return self.format_data()
 
     def format_data(self):
-        # chunk = len(tp_hybrid) * self.templates.index(template)
-        chunk = 3
+
         data = []
-        for i, (binary, kekule) in enumerate(self.template_peptides.items()):
-            data.append({'_id': self.peptide['_id'] + str(chunk + i),
+        for i, (kekule, (binary, template)) in enumerate(self.template_peptides.items()):
+            data.append({'_id': self.peptide['_id'] + str(i),
                          'type': 'template_peptide',
                          'binary': binary,
                          'kekule': kekule,
+                         'template': template,
                          'peptide': {'_id': self.peptide['_id'],
-                                     'monomers': self.peptide['monomers']},
-                         'template': self.template.name})
+                                     'monomers': self.peptide['monomers']}})
+
         return data
 
 
-class MacrocycleGenerator(IGenerator):
-    def get_args(self, data):
-        pass
+# class MacrocycleGenerator(IGenerator):
+#     def get_args(self, data):
+#         pass
 
-    def generate(self, args):
-        pass
+#     def generate(self, args):
+
+#         self.reactant, self.reactions = args
+#         reactants = [Chem.Mol(self.reactant['binary'])]
+#         rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in self.reactions]
+
+#         for i, rxn in enumerate(rxns):
+#             self.results = {}
+#             for reactant in reactants:
+#                 for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
+#                     try:
+#                         Chem.SanitizeMol(macrocycle)
+#                     except ValueError:
+#                         # most likely there are 2 sidechains where one contains the other as a substructure which
+#                         # causes this exception to be raised. This is expect to occur quite often.
+#                         continue
+#                     for atom in chain.from_iterable(rxn.GetReactingAtoms()):
+#                         atom = macrocycle.GetAtomWithIdx(atom)
+#                         if atom.GetIsAromatic():
+#                             atom.SetProp('_protected', '1')
+#                     self.results[macrocycle.ToBinary()] = macrocycle
+#             reactants = list(results.values())
+
+#         self.results = {}  # final results at this point are stored in reactants variable
+#         for macrocycle in reactants:
+#             binary = macrocycle.ToBinary()
+#             Chem.Kekulize(macrocycle)
+#             self.results[binary] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
+
+#         return self.fomat_data()
+
+#     def format_data(self):
+#         rxns = []
+#         sc_id, rxn_idx = '', ''
+#         for reaction in reactions:
+#             rxn_idx += str(reaction['rxn_atom_idx'])
+
+#             try:
+#                 sc_id += reaction['side_chain']['_id']
+#             except KeyError:
+#                 sc_id += 'to'
+
+#             try:
+#                 rxns.append({'_id': reaction['_id'],
+#                              'type': reaction['type'],
+#                              'parent_side_chain': reaction['side_chain']['parent_side_chain'],
+#                              'conn_atom_idx': reaction['side_chain']['conn_atom_idx'],
+#                              'rxn_atom_idx': reaction['rxn_atom_idx']})
+#             except KeyError:
+#                 rxns.append({'_id': reaction['_id'],
+#                              'type': reaction['type'],
+#                              'parent_side_chain': None,
+#                              'conn_atom_idx': None,
+#                              'rxn_atom_idx': reaction['rxn_atom_idx']})
+
+#         for i, (binary, kekule) in enumerate(macrocycles.items()):
+#             doc = {
+#                 '_id': tp_hybrid['_id'] + sc_id + rxn_idx + str(i),
+#                 'type': 'macrocycle',
+#                 'binary': binary,
+#                 'kekule': kekule,
+#                 'tp_hybrid': tp_hybrid['_id'],
+#                 'reactions': rxns,
+#                 'has_confs': False
+#             }
+#             self.result_data.append(doc)
 
 
 class Methylateor(IGenerator):
@@ -456,16 +471,13 @@ class BiMolecularReactionGenerator(IGenerator):
     def format_data(self):
 
         data = []
-        chunk = len(self.reactions) * 3
         for i, (smarts, (binary, rxn_atom_idx, rxn_type)) in enumerate(self.reactions.items()):
-            data.append({'_id': self.sidechain['_id'] + str(chunk + i) + rxn_type[:2],
+            data.append({'_id': self.sidechain['_id'] + str(i) + rxn_type[:2],
                          'type': rxn_type,
                          'binary': binary,
                          'smarts': smarts,
                          'rxn_atom_idx': rxn_atom_idx,
                          'template': self.template.name,
-                         'sidechain': {'_id': self.sidechain['_id'],
-                                       'heterocycle': self.sidechain['heterocycle'],
-                                       'conn_atom_idx': self.sidechain['conn_atom_idx']}})
+                         'sidechain': self.sidechain['shared_id']})
 
         return data

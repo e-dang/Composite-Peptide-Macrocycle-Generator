@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import multiprocessing
 import generators
 import data_handlers
+import iterators
 
 
 class IFactory(ABC):
@@ -105,7 +106,7 @@ class IFactoryArgument(ABC):
         """
 
 
-class SideChainGenerationArgs(IFactoryArgument):
+class SCConnectionModificationArgs(IFactoryArgument):
     """
     An implementation of a FactoryArgument containing the classes required to combine heterocycles and connection
     molecules into sidechain molecules.
@@ -113,8 +114,8 @@ class SideChainGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.generator = generators.SideChainGenerator()
-        self.handler = data_handlers.SCGDataHandler(data_format)
+        self.generator = generators.SideChainConnectionModifier(iterators.IDIterator())
+        self.handler = data_handlers.SCCMDataHandler(data_format)
 
 
 class MonomerGenerationArgs(IFactoryArgument):
@@ -125,7 +126,7 @@ class MonomerGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.generator = generators.MonomerGenerator()
+        self.generator = generators.MonomerGenerator(iterators.IndexIterator())
         self.handler = data_handlers.MGDataHandler(data_format)
 
 

@@ -95,11 +95,10 @@ class AbstractBMSideChainReaction(AbstractBiMolecularReaction):
         matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
         for atom_idx in chain.from_iterable(matches):
             atom = self.sidechain.GetAtomWithIdx(atom_idx)
-            if atom.GetAtomMapNum() != 0:
-                atom.SetAtomMapNum(0)
+            if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
+                atom.SetIsotope(0)
             else:
                 atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
-                utils.atom_to_wildcard(atom)
 
 
 class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
@@ -121,8 +120,8 @@ class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
         matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
         for atom_idx in chain.from_iterable(matches):
             atom = self.sidechain.GetAtomWithIdx(atom_idx)
-            if atom.GetAtomMapNum() != 0:
-                atom.SetAtomMapNum(0)
+            if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
+                atom.SetIsotope(0)
             else:
                 atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
 
