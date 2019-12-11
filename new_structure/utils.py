@@ -168,7 +168,7 @@ def get_connections():
         list: The connection molecules.
     """
 
-    return [molecules.MethylConnection(), molecules.EthylConnection()]
+    return [molecules.EthylConnection()]
 
 
 def get_backbones():

@@ -160,47 +160,9 @@ class IConnectionMol(IMolecule):
     Interface for molecules to be used as a connection between a heterocycle and a backbone in order to form a monomer.
     """
 
-    OLIGOMERIZATION_MAP_NUM = 1
-
     @property
     def type(self):
         return 'connection'
-
-    @property
-    @abstractmethod
-    def tagged_kekule(self):
-        """
-        Abstract property that returns the atom mapped kekulized SMILES string of the connection molecule needed for
-        sidechain generation.
-        """
-
-    @property
-    def tagged_mol(self):
-        """
-        Generates an RDKit Mol from the tagged_kekule SMILES string.
-
-        Returns:
-            RDKit Mol: The RDKit Mol object.
-        """
-        return Chem.MolFromSmiles(self.tagged_kekule)
-
-
-class MethylConnection(IConnectionMol):
-    """
-    A connection molecule that is a single carbon atom long.
-    """
-
-    @property
-    def name(self):
-        return 'methyl'
-
-    @property
-    def kekule(self):
-        return 'C'
-
-    @property
-    def tagged_kekule(self):
-        return f'[CH4:{self.OLIGOMERIZATION_MAP_NUM}]'
 
 
 class EthylConnection(IConnectionMol):
@@ -210,15 +172,11 @@ class EthylConnection(IConnectionMol):
 
     @property
     def name(self):
-        return 'methyl'
+        return 'ethyl'
 
     @property
     def kekule(self):
         return 'CC'
-
-    @property
-    def tagged_kekule(self):
-        return f'C[CH3:{self.OLIGOMERIZATION_MAP_NUM}]'
 
 
 class IBackBoneMol(IMolecule):
