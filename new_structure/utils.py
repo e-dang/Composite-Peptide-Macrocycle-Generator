@@ -10,6 +10,8 @@ from rdkit.Chem import Draw
 import molecules
 import reactions
 import project_io
+import initializers
+import importers
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -115,6 +117,16 @@ def apply_stereochemistry(original_func):
 def create_regiosqm_smiles_file(sidechain_io):
 
     project_io.RawRegioSQMIO().save(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
+
+
+def reset(data_format):
+
+    if data_format == 'mongo':
+        database = project_io.MongoDataBase()
+        database.setup()
+
+    initializers.RecordInitializer(data_format).initialize()
+    importers.DataImporter(data_format).import_data()
 
 
 def file_rotator(filepath):
