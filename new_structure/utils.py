@@ -114,10 +114,7 @@ def apply_stereochemistry(original_func):
 
 def create_regiosqm_smiles_file(sidechain_io):
 
-    data = []
-    for sidechain in filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()):
-        data.append((sidechain['_id'], Chem.MolToSmiles(Chem.Mol(sidechain['binary']))))
-    project_io.RawRegioSQMIO().save(data)
+    project_io.RawRegioSQMIO().save(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
 
 
 def file_rotator(filepath):

@@ -45,8 +45,8 @@ class RawRegioSQMIO(IOInterface):
     def save(self, data):
 
         with open(self._SMILES_FILEPATH, 'w') as file:
-            for _id, smiles in data:
-                file.write(_id + '\t' + smiles + '\n')
+            for sidechain in data:
+                file.write(sidechain['_id'] + ' ' + sidechain['kekule'] + '\n')
 
 
 class ChemDrawIO(IOInterface):
