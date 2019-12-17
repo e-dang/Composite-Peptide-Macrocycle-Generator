@@ -1,8 +1,12 @@
 import exceptions
 import os
+from copy import deepcopy
+from itertools import product
+from functools import wraps
 
 from rdkit import Chem
 from rdkit.Chem import Draw
+
 import molecules
 import reactions
 
@@ -73,6 +77,38 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
         stereo_center.SetChiralTag(Chem.ChiralType.CHI_TETRAHEDRAL_CW)
 
     return Chem.MolFromSmiles(Chem.MolToSmiles(combo))
+
+
+def apply_stereochemistry(original_func):
+
+    stereo_types = [Chem.ChiralType.CHI_TETRAHEDRAL_CCW, Chem.ChiralType.CHI_TETRAHEDRAL_CW]
+
+    @wraps(original_func)
+    def stereochemistry_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            parent_mol = Chem.Mol(original_result['binary'])
+
+            filter_func = lambda x: x[1] == '?'
+            stereocenters = list(filter(filter_func, Chem.FindMolChiralCenters(parent_mol, includeUnassigned=True)))
+            atom_idx_stereo_pairs = [product([atom_idx], stereo_types) for atom_idx, _ in stereocenters]
+
+            for i, stereo_assignments in enumerate(product(*atom_idx_stereo_pairs)):
+                new_mol = Chem.Mol(original_result['binary'])
+                for atom_idx, stereo in stereo_assignments:
+                    new_mol.GetAtomWithIdx(atom_idx).SetChiralTag(stereo)
+
+                doc = deepcopy(original_result)
+                doc['_id'] = doc['_id'] + str(i)
+                doc['binary'] = new_mol.ToBinary()
+                Chem.Kekulize(new_mol)
+                doc['kekule'] = Chem.MolToSmiles(new_mol, kekuleSmiles=True)
+                data.append(doc)
+
+        return data
+
+    return stereochemistry_wrapper
 
 
 def file_rotator(filepath):

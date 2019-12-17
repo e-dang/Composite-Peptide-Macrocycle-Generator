@@ -40,9 +40,9 @@ class IGenerator(ABC):
 
 class SideChainConnectionModifier(IGenerator):
     """
-    Implementation of an IGenerator that takes a connection molecule and heterocycle and creates a set of
-    sidechains by attaching the connection molecule to all valid positions on the heterocycle. Valid positions are
-    determined in instace method is_valid_atom().
+    Implementation of an IGenerator that takes a sidechain with a methyl connection and creates a set of sidechains by
+    replacing the methyl connection with all other connection types defined in molecules.py. The new sidechains are
+    assigned a new id by the id_iterator used to initialize this generator.
     """
 
     def __init__(self, id_iterator):
@@ -334,7 +334,6 @@ class MacrocycleGenerator(IGenerator):
             except KeyError:  # template only reaction
                 template_only_reactions[reaction['template']].append(reaction)
 
-        print(template_only_reactions)
         for template_peptide in data.template_peptides:
             args = []
             sidechain_data = set(monomer['sidechain'] for monomer in template_peptide['peptide']['monomers'] if
@@ -378,6 +377,7 @@ class MacrocycleGenerator(IGenerator):
                 for arg in args:
                     yield template_peptide, [arg]
 
+    @utils.apply_stereochemistry
     def generate(self, args):
 
         self.reactant, self.reactions = args
@@ -433,14 +433,6 @@ class MacrocycleGenerator(IGenerator):
 
 
 class Methylateor(IGenerator):
-    def get_args(self, data):
-        pass
-
-    def generate(self, args):
-        pass
-
-
-class StereoChemPermutor(IGenerator):
     def get_args(self, data):
         pass
 
