@@ -5,6 +5,8 @@ from itertools import product
 
 from rdkit import Chem
 
+import utils
+
 # class RegioSQMFilter:
 
 #     def __init__(self, original_func):
@@ -52,8 +54,21 @@ def apply_stereochemistry(original_func):
 
 def regiosqm_filter(original_func):
 
+    predictions = utils.get_hashed_regiosqm_predictions()
+
     @wraps(original_func)
     def regiosqm_filter_wrapper(*args, **kwargs):
-        return original_func(*args, **kwargs)
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            if original_result['type'] in ('friedel_crafts', 'pictet_spangler'):  # filter is applicable
+                sidechain = original_result['sidechain']
+                rxn_atom = original_result['rxn_atom_idx']
+                if rxn_atom in predictions[sidechain]:  # the reaction is predicted by RegioSQM
+                    data.append(original_result)
+            else:  # filter is not applicable to this type of reaction
+                data.append(original_result)
+
+        return data
 
     return regiosqm_filter_wrapper
