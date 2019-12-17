@@ -288,6 +288,17 @@ RSQM_DEFAULTS = {
     }
 }
 
+####################################### pKaFilter #######################################
+PKA_DEFAULTS = {
+    'inputs': {
+        'col_filters': COL3,
+        'col_macrocycles': COL1
+    },
+    'outputs': {
+        'col_filtered': COL1
+    }
+}
+
 ####################################### MacrocycleModifier #######################################
 MCM_DEFAULTS = {
     'inputs': {
@@ -309,5 +320,6 @@ DEFAULTS = {
     'ConformerGenerator': CG_DEFAULTS,
     'ReactionGenerator': RG_DEFAULTS,
     'RegioSQMFilter': RSQM_DEFAULTS,
+    'pKaFilter': PKA_DEFAULTS,
     'MacrocycleModifier': MCM_DEFAULTS
 }
