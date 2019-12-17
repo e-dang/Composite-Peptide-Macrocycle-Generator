@@ -2,8 +2,10 @@ import exceptions
 from abc import ABC, abstractmethod
 from itertools import chain, product
 from copy import deepcopy
+from collections import defaultdict
 
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 import utils
 import molecules
@@ -320,8 +322,60 @@ class TemplatePeptideGenerator(IGenerator):
 
 
 # class MacrocycleGenerator(IGenerator):
+
 #     def get_args(self, data):
-#         pass
+
+#         # hash all reactions based on sidechain
+#         reactions = defaultdict(list)
+#         template_only_reactions = defaultdict(list)
+#         for reaction in data.reactions:
+#             try:
+#                 reactions[reaction['sidechain']].append(reaction)
+#             except KeyError:  # template only reaction
+#                 template_only_reactions[reaction['template']].append(reaction)
+
+#         for template_peptide in data.template_peptides:
+#             args = []
+#             sidechain_data = set(monomer['sidechain'] for monomer in template_peptide['peptide']['monomers'] if
+#                                  monomer['sidechain'] is not None)
+#             for sidechain_id in sidechain_data:
+#                 args.extend(filter(lambda x: x['template'] in ('all', template_peptide['template']),
+#                                    reactions[sidechain_id]))
+
+#             # can apply pictet_spangler reaction
+#             if template_peptide['template'] != 'temp1':
+#                 try:
+#                     first_monomer = template_peptide['peptide']['monomers'][0]['sidechain']
+#                 # first monomer has side_chain without an _id (natural amino acid or modified proline)
+#                 except TypeError:
+#                     first_monomer = None
+
+#                 # get pictet_spangler reactions involving only the first monomer or any other type of reaction
+#                 args = filter(lambda x: ((x['type'] == 'pictet_spangler' and x['sidechain'] == first_monomer)
+#                                          or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene')), args)
+
+#                 # sort args based on if they are pictet_spangler or not
+#                 pictet, other = [], []
+#                 for rxn in args:
+#                     other.append(rxn) if rxn['type'] != 'pictet_spangler' else pictet.append(rxn)
+
+#                 first_set = list(product(pictet, other))
+#                 second_set = list(product(template_only_reactions[template_peptide['template']], other))
+#                 if first_set and second_set:
+#                     for arg in first_set + second_set:
+#                         yield template_peptide, arg
+#                 elif second_set:
+#                     for arg in second_set:
+#                         yield template_peptide, arg
+#                 elif first_set:
+#                     for arg in first_set:
+#                         yield template_peptide, arg
+#                 else:
+#                     for arg in other:
+#                         yield template_peptide, [arg]
+#             else:  # friedel_crafts, tsuji_trost, pyrrolo_indolene
+#                 for arg in args:
+#                     yield template_peptide, [arg]
 
 #     def generate(self, args):
 
@@ -329,8 +383,8 @@ class TemplatePeptideGenerator(IGenerator):
 #         reactants = [Chem.Mol(self.reactant['binary'])]
 #         rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in self.reactions]
 
-#         for i, rxn in enumerate(rxns):
-#             self.results = {}
+#         for _, rxn in enumerate(rxns):
+#             self.macrocycles = {}
 #             for reactant in reactants:
 #                 for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
 #                     try:
@@ -343,52 +397,36 @@ class TemplatePeptideGenerator(IGenerator):
 #                         atom = macrocycle.GetAtomWithIdx(atom)
 #                         if atom.GetIsAromatic():
 #                             atom.SetProp('_protected', '1')
-#                     self.results[macrocycle.ToBinary()] = macrocycle
-#             reactants = list(results.values())
+#                     self.macrocycles[macrocycle.ToBinary()] = macrocycle
+#             reactants = list(self.macrocycles.values())
 
-#         self.results = {}  # final results at this point are stored in reactants variable
+#         self.macrocycles = {}  # final results at this point are stored in reactants variable
 #         for macrocycle in reactants:
 #             binary = macrocycle.ToBinary()
 #             Chem.Kekulize(macrocycle)
-#             self.results[binary] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
+#             self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = binary
 
-#         return self.fomat_data()
+#         return self.format_data()
 
 #     def format_data(self):
 #         rxns = []
 #         sc_id, rxn_idx = '', ''
-#         for reaction in reactions:
+#         for reaction in self.reactions:
 #             rxn_idx += str(reaction['rxn_atom_idx'])
+#             sc_id += reaction['sidechain'] if reaction['sidechain'] is not None else ''
+#             rxns.append(reaction['_id'])
 
-#             try:
-#                 sc_id += reaction['side_chain']['_id']
-#             except KeyError:
-#                 sc_id += 'to'
+#         data = []
+#         for i, (kekule, binary) in enumerate(self.macrocycles.items()):
+#             data.append({'_id': self.reactant['_id'] + sc_id + rxn_idx + str(i),
+#                          'type': 'macrocycle',
+#                          'binary': binary,
+#                          'kekule': kekule,
+#                          'has_confs': False,
+#                          'template_peptide': self.reactant['_id'],
+#                          'reactions': rxns})
 
-#             try:
-#                 rxns.append({'_id': reaction['_id'],
-#                              'type': reaction['type'],
-#                              'parent_side_chain': reaction['side_chain']['parent_side_chain'],
-#                              'conn_atom_idx': reaction['side_chain']['conn_atom_idx'],
-#                              'rxn_atom_idx': reaction['rxn_atom_idx']})
-#             except KeyError:
-#                 rxns.append({'_id': reaction['_id'],
-#                              'type': reaction['type'],
-#                              'parent_side_chain': None,
-#                              'conn_atom_idx': None,
-#                              'rxn_atom_idx': reaction['rxn_atom_idx']})
-
-#         for i, (binary, kekule) in enumerate(macrocycles.items()):
-#             doc = {
-#                 '_id': tp_hybrid['_id'] + sc_id + rxn_idx + str(i),
-#                 'type': 'macrocycle',
-#                 'binary': binary,
-#                 'kekule': kekule,
-#                 'tp_hybrid': tp_hybrid['_id'],
-#                 'reactions': rxns,
-#                 'has_confs': False
-#             }
-#             self.result_data.append(doc)
+#         return data
 
 
 class Methylateor(IGenerator):
@@ -448,21 +486,22 @@ class BiMolecularReactionGenerator(IGenerator):
     SIDECHAIN_EAS_MAP_NUM = reactions.IReaction.SIDECHAIN_EAS_MAP_NUM
 
     def get_args(self, data):
-        return product(data.sidechains, data.templates, data.reactions)
+        return product(data.sidechains, data.reactions)
 
     def generate(self, args):
 
         self.reactions = {}
-        self.sidechain, self.template, self.reaction = args
+        self.sidechain, self.reaction = args
         sidechain = Chem.Mol(self.sidechain['binary'])
 
         for atom in sidechain.GetAtoms():
-
             atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
-            self.reaction(deepcopy(sidechain), self.template, atom)
-            if self.reaction:
-                self.reaction.create_reaction()
-                self.reactions[self.reaction.smarts] = (self.reaction.binary, atom.GetIdx(), self.reaction.name)
+            for template in utils.get_templates():
+                self.reaction(deepcopy(sidechain), template, atom)
+                if self.reaction:
+                    self.reaction.create_reaction()
+                    self.reactions[self.reaction.smarts] = (self.reaction.binary, atom.GetIdx(),
+                                                            self.reaction.name, template.name)
 
             atom.SetAtomMapNum(0)
 
@@ -471,13 +510,13 @@ class BiMolecularReactionGenerator(IGenerator):
     def format_data(self):
 
         data = []
-        for i, (smarts, (binary, rxn_atom_idx, rxn_type)) in enumerate(self.reactions.items()):
+        for i, (smarts, (binary, rxn_atom_idx, rxn_type, template)) in enumerate(self.reactions.items()):
             data.append({'_id': self.sidechain['_id'] + str(i) + rxn_type[:2],
                          'type': rxn_type,
                          'binary': binary,
                          'smarts': smarts,
                          'rxn_atom_idx': rxn_atom_idx,
-                         'template': self.template.name,
+                         'template': template,
                          'sidechain': self.sidechain['shared_id']})
 
         return data

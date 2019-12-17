@@ -15,6 +15,10 @@ class IDataInitializer(ABC):
 
 class DataInitializer(IDataInitializer):
 
+    def __init__(self, data_format):
+
+        self.data_format = data_format
+
     def initialize(self):
 
         self.phase_1()
@@ -22,15 +26,15 @@ class DataInitializer(IDataInitializer):
 
     def phase_1(self):
 
-        self.record_initializers = [IDInitializer(), IndexInitializer()]
+        self.record_initializers = [IDInitializer(self.data_format), IndexInitializer(self.data_format)]
         self.select_initialization(self.record_initializers)
 
     def phase_2(self):
 
-        self.id_iterator = iterators.IDIterator()
-        self.index_iterator = iterators.IndexIterator()
-        self.mol_initializers = [SideChainInitializer(self.id_iterator),
-                                 MonomerInitializer(self.id_iterator, self.index_iterator)]
+        self.id_iterator = iterators.IDIterator(self.data_format)
+        self.index_iterator = iterators.IndexIterator(self.data_format)
+        self.mol_initializers = [SideChainInitializer(self.data_format, self.id_iterator),
+                                 MonomerInitializer(self.data_format, self.id_iterator, self.index_iterator)]
         self.select_initialization(self.mol_initializers)
 
     def select_initialization(self, initializers):
@@ -41,9 +45,13 @@ class DataInitializer(IDataInitializer):
 
 class SideChainInitializer(IDataInitializer):
 
-    def __init__(self, id_iterator):
+    def __init__(self, data_format, id_iterator):
+        if data_format == 'json':
+            self.saver = project_io.JsonSideChainIO()
+        elif data_format == 'mongo':
+            self.saver = project_io.MongoSideChainIO()
+
         self.loader = project_io.ChemDrawSideChainIO()
-        self.saver = project_io.JsonSideChainIO()
         self.id_generator = id_iterator
 
     def initialize(self):
@@ -61,14 +69,19 @@ class SideChainInitializer(IDataInitializer):
                          'shared_id': _id})
 
         self.saver.save(data)
+        self.id_generator.save()
 
 
 class MonomerInitializer(IDataInitializer):
 
-    def __init__(self, id_iterator, index_iterator):
+    def __init__(self, data_format, id_iterator, index_iterator):
+
+        if data_format == 'json':
+            self.saver = project_io.JsonMonomerIO()
+        elif data_format == 'mongo':
+            self.saver = project_io.MongoMonomerIO()
 
         self.loader = project_io.ChemDrawMonomerIO()
-        self.saver = project_io.JsonMonomerIO()
         self.id_generator = id_iterator
         self.index_generator = index_iterator
 
@@ -88,13 +101,17 @@ class MonomerInitializer(IDataInitializer):
                          'sidechain': None})
 
         self.saver.save(data)
+        self.index_generator.save()
 
 
 class IDInitializer(IDataInitializer):
 
-    def __init__(self):
+    def __init__(self, data_format):
 
-        self.saver = project_io.JsonIDIO()
+        if data_format == 'json':
+            self.saver = project_io.JsonIDIO()
+        elif data_format == 'mongo':
+            self.saver = project_io.MongoIDIO()
 
     def initialize(self):
 
@@ -105,9 +122,11 @@ class IDInitializer(IDataInitializer):
 
 class IndexInitializer(IDataInitializer):
 
-    def __init__(self):
-
-        self.saver = project_io.JsonIndexIO()
+    def __init__(self, data_format):
+        if data_format == 'json':
+            self.saver = project_io.JsonIndexIO()
+        elif data_format == 'mongo':
+            self.saver = project_io.MongoIndexIO()
 
     def initialize(self):
         self.saver.save({'_id': 'index',

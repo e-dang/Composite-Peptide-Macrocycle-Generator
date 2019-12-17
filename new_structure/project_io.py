@@ -3,7 +3,7 @@ import os
 from abc import ABC, abstractmethod
 
 from bson import json_util
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 from rdkit import Chem
 
 import config
@@ -240,12 +240,19 @@ class JsonTemplatePeptideIO(AbstractJsonIO):
 
 
 class JsonMacrocycleIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling macrocycle data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'macrocycles.json')
 
     def load(self):
-        pass
+
+        return super().from_json(self._FILEPATH)
 
     def save(self, data):
-        pass
+
+        super().to_json(self._FILEPATH, data)
 
 
 class JsonReactionIO(AbstractJsonIO):
@@ -324,10 +331,6 @@ class MongoDataBase():
                 for ind in index:
                     self[collection].create_index(ind, unique=True)
 
-        # intialize records
-        self[config.COL4].insert_one({'type': 'parent_sidechain', 'count': 0, 'prefix': ''})
-        self[config.COL4].insert_one({'type': 'last_inserted', 'collection': '', 'ids': []})
-
     def clear(self):
         """
         Helper method that removes all collections from the database.
@@ -365,24 +368,58 @@ class AbstractMongoIO(IOInterface, MongoDataBase):
             data (iterable[dict]): The data to be saved.
         """
 
+        # try:
         self[collection].insert_many(data, ordered=True)
+        # except errors.BulkWriteError as err:
+        #     print(err.details)
+        #     raise
 
 
-class MongoHeterocycleIO(AbstractMongoIO):
+class MongoIDIO(AbstractMongoIO):
     """
-    Implmentation of the AbstractMongoIO class for handling heterocycle data.
+    Implmentation of the AbstractMongoIO class for handling id data.
     """
 
-    _COLLECTION = config.COL1
-    _QUERY = {'type': 'heterocycle'}
+    _COLLECTION = config.COL4
+    _QUERY = {'_id': 'id'}
 
     def load(self):
 
-        return super().from_mongo(self._COLLECTION, self._QUERY)
+        return super().from_mongo(self._COLLECTION, self._QUERY)[0]
 
     def save(self, data):
 
-        super().to_mongo(self._COLLECTION, data)
+        try:
+            super().to_mongo(self._COLLECTION, [data])
+        except errors.BulkWriteError:
+            self.update(data)
+
+    def update(self, data):
+
+        self[self._COLLECTION].find_one_and_replace(self._QUERY, data)
+
+
+class MongoIndexIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling index data.
+    """
+
+    _COLLECTION = config.COL4
+    _QUERY = {'_id': 'index'}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)[0]
+
+    def save(self, data):
+
+        try:
+            super().to_mongo(self._COLLECTION, [data])
+        except errors.BulkWriteError:
+            self.update(data)
+
+    def update(self, data):
+        self[self._COLLECTION].find_one_and_replace(self._QUERY, data)
 
 
 class MongoSideChainIO(AbstractMongoIO):
@@ -443,6 +480,23 @@ class MongoTemplatePeptideIO(AbstractMongoIO):
 
     _COLLECTION = config.COL1
     _QUERY = {'type': 'template_peptide'}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)
+
+    def save(self, data):
+
+        super().to_mongo(self._COLLECTION, data)
+
+
+class MongoMacrocycleIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling macrocycle data.
+    """
+
+    _COLLECTION = config.COL1
+    _QUERY = {'type': 'macrocycle'}
 
     def load(self):
 

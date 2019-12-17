@@ -18,23 +18,29 @@ class IRecordIterator(ABC):
     def get_next(self):
         pass
 
+    @abstractmethod
+    def save(self):
+        pass
+
 
 class IDIterator:
 
     ALPHABET = 'a b c d e f g h i j k l m n o p q r s t u v w x y z'.split(' ')
 
-    def __init__(self):
+    def __init__(self, data_format):
 
-        self.io = project_io.JsonIDIO()
+        if data_format == 'json':
+            self.io = project_io.JsonIDIO()
+        elif data_format == 'mongo':
+            self.io = project_io.MongoIDIO()
+
         self.record = self.io.load()
         self.count = self.record['count']
         self.prefix = self.record['prefix']
 
     def __del__(self):
 
-        self.record['count'] = self.count
-        self.record['prefix'] = self.prefix
-        self.io.save(self.record)
+        self.save()
 
     def get_next(self):
         """
@@ -83,21 +89,35 @@ class IDIterator:
         # no recursive wrapping needed
         return prefix[:-1] + str(chr(ending))
 
+    def save(self):
+
+        self.record['count'] = self.count
+        self.record['prefix'] = self.prefix
+        self.io.save(self.record)
+
 
 class IndexIterator:
 
-    def __init__(self):
-        self.io = project_io.JsonIndexIO()
+    def __init__(self, data_format):
+        if data_format == 'json':
+            self.io = project_io.JsonIndexIO()
+        elif data_format == 'mongo':
+            self.io = project_io.MongoIndexIO()
+
         self.record = self.io.load()
         self.index = self.record['index']
 
     def __del__(self):
 
-        self.record['index'] = self.index
-        self.io.save(self.record)
+        self.save()
 
     def get_next(self):
 
         index = self.index
         self.index += 1
         return index
+
+    def save(self):
+
+        self.record['index'] = self.index
+        self.io.save(self.record)

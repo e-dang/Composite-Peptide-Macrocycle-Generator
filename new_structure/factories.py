@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import multiprocessing
 import generators
 import data_handlers
-import iterators
 
 
 class IFactory(ABC):
@@ -114,8 +113,8 @@ class SCConnectionModificationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.generator = generators.SideChainConnectionModifier(iterators.IDIterator())
         self.handler = data_handlers.SCCMDataHandler(data_format)
+        self.generator = generators.SideChainConnectionModifier(self.handler.id_iterator)
 
 
 class MonomerGenerationArgs(IFactoryArgument):
@@ -126,8 +125,8 @@ class MonomerGenerationArgs(IFactoryArgument):
 
     def __init__(self, data_format):
 
-        self.generator = generators.MonomerGenerator(iterators.IndexIterator())
         self.handler = data_handlers.MGDataHandler(data_format)
+        self.generator = generators.MonomerGenerator(self.handler.index_iterator)
 
 
 class PeptideGenerationArgs(IFactoryArgument):
@@ -144,6 +143,14 @@ class TemplatePeptideGenerationArgs(IFactoryArgument):
 
         self.generator = generators.TemplatePeptideGenerator()
         self.handler = data_handlers.TPGDataHandler(data_format)
+
+
+# class MacrocycleGenerationArgs(IFactoryArgument):
+
+#     def __init__(self, data_format):
+
+#         self.generator = generators.MacrocycleGenerator()
+#         self.handler = data_handlers.MCGDataHandler(data_format)
 
 
 class UniMolecularReactionGenerationArgs(IFactoryArgument):

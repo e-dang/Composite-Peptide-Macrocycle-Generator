@@ -4,6 +4,7 @@ from collections import namedtuple
 import project_io
 import reactions
 import utils
+import iterators
 
 
 class IDataHandler(ABC):
@@ -44,6 +45,7 @@ class SCCMDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
+        self.id_iterator = iterators.IDIterator(data_format)
         if data_format == 'json':
             self._sidechain_io = project_io.JsonSideChainIO()
         elif data_format == 'mongo':
@@ -57,6 +59,7 @@ class SCCMDataHandler(IDataHandler):
     def save(self, data):
 
         self._sidechain_io.save(data)
+        self.id_iterator.save()
 
 
 class MGDataHandler(IDataHandler):
@@ -67,6 +70,7 @@ class MGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
+        self.index_iterator = iterators.IndexIterator(data_format)
         if data_format == 'json':
             self._sidechain_loader = project_io.JsonSideChainIO()
             self._monomer_saver = project_io.JsonMonomerIO()
@@ -82,6 +86,7 @@ class MGDataHandler(IDataHandler):
     def save(self, data):
 
         self._monomer_saver.save(data)
+        self.index_iterator.save()
 
 
 class PGDataHandler(IDataHandler):
@@ -129,6 +134,29 @@ class TPGDataHandler(IDataHandler):
         self._template_peptide_saver.save(data)
 
 
+# class MCGDataHandler(IDataHandler):
+
+#     def __init__(self, data_format):
+
+#         if data_format == 'json':
+#             self._template_peptide_loader = project_io.JsonTemplatePeptideIO()
+#             self._reaction_loader = project_io.JsonReactionIO()
+#             self._macrocycle_saver = project_io.JsonMacrocycleIO()
+#         elif data_format == 'mongo':
+#             self._template_peptide_loader = project_io.MongoTemplatePeptideIO()
+#             self._reaction_loader = project_io.MongoReactionIO()
+#             self._macrocycle_saver - project_io.MongoMacrocycleIO()
+
+#     def load(self):
+
+#         MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
+#         return MacrocycleGeneratorData(self._template_peptide_loader.load(), self._reaction_loader.load())
+
+#     def save(self, data):
+
+#         self._macrocycle_saver.save(data)
+
+
 class UMRGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
@@ -154,7 +182,6 @@ class BMRGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
-        self._templates = utils.get_templates()
         self._reactions = utils.get_bimolecular_reactions()
         if data_format == 'json':
             self._sidechain_loader = project_io.JsonSideChainIO()
@@ -165,9 +192,8 @@ class BMRGDataHandler(IDataHandler):
 
     def load(self):
 
-        BiMolecularReactionGeneratorData = namedtuple(
-            'BiMolecularReactionGeneratorData', 'sidechains templates reactions')
-        return BiMolecularReactionGeneratorData(self._sidechain_loader.load(), self._templates, self._reactions)
+        BiMolecularReactionGeneratorData = namedtuple('BiMolecularReactionGeneratorData', 'sidechains reactions')
+        return BiMolecularReactionGeneratorData(self._sidechain_loader.load(), self._reactions)
 
     def save(self, data):
 
