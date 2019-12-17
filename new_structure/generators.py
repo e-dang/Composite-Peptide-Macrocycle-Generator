@@ -1,16 +1,16 @@
 import exceptions
 from abc import ABC, abstractmethod
-from itertools import chain, product
-from copy import deepcopy
 from collections import defaultdict
+from copy import deepcopy
+from itertools import chain, product
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-import utils
+import decorators
 import molecules
 import reactions
-import iterators
+import utils
 
 
 class IGenerator(ABC):
@@ -377,7 +377,7 @@ class MacrocycleGenerator(IGenerator):
                 for arg in args:
                     yield template_peptide, [arg]
 
-    @utils.apply_stereochemistry
+    @decorators.apply_stereochemistry
     def generate(self, args):
 
         self.reactant, self.reactions = args
@@ -482,6 +482,7 @@ class BiMolecularReactionGenerator(IGenerator):
     def get_args(self, data):
         return product(filter(lambda x: x['connection'] == 'methyl', data.sidechains), data.reactions)
 
+    @decorators.regiosqm_filter
     def generate(self, args):
 
         self.reactions = {}

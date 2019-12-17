@@ -1,17 +1,14 @@
 import exceptions
 import os
-from copy import deepcopy
-from itertools import product
-from functools import wraps
+from collections import defaultdict
 
 from rdkit import Chem
-from rdkit.Chem import Draw
 
-import molecules
-import reactions
-import project_io
-import initializers
 import importers
+import initializers
+import molecules
+import project_io
+import reactions
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -80,38 +77,6 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
         stereo_center.SetChiralTag(Chem.ChiralType.CHI_TETRAHEDRAL_CW)
 
     return Chem.MolFromSmiles(Chem.MolToSmiles(combo))
-
-
-def apply_stereochemistry(original_func):
-
-    stereo_types = [Chem.ChiralType.CHI_TETRAHEDRAL_CCW, Chem.ChiralType.CHI_TETRAHEDRAL_CW]
-
-    @wraps(original_func)
-    def stereochemistry_wrapper(*args, **kwargs):
-
-        data = []
-        for original_result in original_func(*args, **kwargs):
-            parent_mol = Chem.Mol(original_result['binary'])
-
-            filter_func = lambda x: x[1] == '?'
-            stereocenters = list(filter(filter_func, Chem.FindMolChiralCenters(parent_mol, includeUnassigned=True)))
-            atom_idx_stereo_pairs = [product([atom_idx], stereo_types) for atom_idx, _ in stereocenters]
-
-            for i, stereo_assignments in enumerate(product(*atom_idx_stereo_pairs)):
-                new_mol = Chem.Mol(original_result['binary'])
-                for atom_idx, stereo in stereo_assignments:
-                    new_mol.GetAtomWithIdx(atom_idx).SetChiralTag(stereo)
-
-                doc = deepcopy(original_result)
-                doc['_id'] = doc['_id'] + str(i)
-                doc['binary'] = new_mol.ToBinary()
-                Chem.Kekulize(new_mol)
-                doc['kekule'] = Chem.MolToSmiles(new_mol, kekuleSmiles=True)
-                data.append(doc)
-
-        return data
-
-    return stereochemistry_wrapper
 
 
 def create_regiosqm_smiles_file(sidechain_io):
@@ -277,3 +242,26 @@ def get_reactions_of_type(rxn_type):
 
 get_bimolecular_reactions = get_reactions_of_type('bimolecular')
 get_unimolecular_reactions = get_reactions_of_type('unimolecular')
+
+
+def get_hashed_predictions(func):
+
+    def hasher():
+        hashed_predictions = {}
+        for prediction in func():
+            hashed_predictions[prediction['_id']] = prediction['predictions']
+
+    return hasher
+
+
+def get_regiosqm_predictions(data_format):
+
+    if data_format == 'json':
+        regio_io = project_io.JsonRegioSQMIO()
+    elif data_format == 'mongo':
+        regio_io = project_io.MongoRegioSQMIO()
+
+    return regio_io.load()
+
+
+get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_predictions)
