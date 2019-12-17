@@ -1,6 +1,5 @@
 
 import os
-from collections import namedtuple
 from pymongo import ASCENDING
 
 ################################################ Directories ################################################
@@ -11,13 +10,12 @@ TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 
 ################################################ Globals ################################################
 CAPACITY = 500000000
+DATA_FORMAT = 'mongo'
 
 ################################################ MongoDB Schema ################################################
 HOST = 'localhost'
 PORT = 27017
 DATABASE = 'test'
-# MongoSettings = namedtuple('MongoSettings', ['host', 'port', 'database'])
-# MONGO_SETTINGS = MongoSettings(MONGO_HOST, MONGO_PORT, MONGO_DATABASE)
 
 COL1 = 'molecules'
 COL2 = 'reactions'
@@ -96,7 +94,7 @@ COL3_VALIDATOR = {
     }
 }
 
-# used for recording metadata such as used _ids and last insertions
+# used for recording metadata such as used _ids and indices
 COL4_VALIDATOR = {
     '$jsonSchema': {
         'bsonType': 'object',
@@ -106,16 +104,6 @@ COL4_VALIDATOR = {
                 'bsonType': 'string',
                 'description': 'The type of molecule this counter applies to'
             }
-            # 'count': {
-            #     'bsonType': 'int',
-            #     'maximum': 25,
-            #     'minimum': 0,
-            #     'description': 'Determines the letter to be appended to prefix'
-            # },
-            # 'prefix': {
-            #     'bsonType': 'string',
-            #     'description': 'The prefix to the ID determined by count'
-            # }
         }
     }
 }
@@ -123,8 +111,6 @@ VALIDATORS = [COL1_VALIDATOR, COL2_VALIDATOR, COL3_VALIDATOR, COL4_VALIDATOR]
 
 COL1_INDEX = [[('kekule', ASCENDING)]]
 COL2_INDEX = [[('smarts', ASCENDING)]]
-# COL3_INDEX = [('_id', ASCENDING)]
-# COL4_INDEX = [('_id', ASCENDING)]
 COL3_INDEX = None
 COL4_INDEX = None
 INDICES = [COL1_INDEX, COL2_INDEX, COL3_INDEX, COL4_INDEX]

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import config
 import project_io
 
 
@@ -12,7 +13,7 @@ class IDataInitializer(ABC):
 
 class RecordInitializer(IDataInitializer):
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         if data_format == 'json':
             id_io = project_io.JsonIDIO()

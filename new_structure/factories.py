@@ -1,7 +1,8 @@
-from abc import ABC, abstractmethod
 import multiprocessing
-import generators
+from abc import ABC, abstractmethod
+
 import data_handlers
+import generators
 
 
 class IFactory(ABC):
@@ -96,12 +97,9 @@ class IFactoryArgument(ABC):
     """
 
     @abstractmethod
-    def __init__(self, data_format):
+    def __init__(self):
         """
         An intializer method for creating the Generator and DataHandler classes.
-
-        Args:
-            data_format (str): The format of the data to load from and save to.
         """
 
 
@@ -111,9 +109,9 @@ class SCConnectionModificationArgs(IFactoryArgument):
     molecules into sidechain molecules.
     """
 
-    def __init__(self, data_format):
+    def __init__(self):
 
-        self.handler = data_handlers.SCCMDataHandler(data_format)
+        self.handler = data_handlers.SCCMDataHandler()
         self.generator = generators.SideChainConnectionModifier(self.handler.id_iterator)
 
 
@@ -123,47 +121,47 @@ class MonomerGenerationArgs(IFactoryArgument):
     molecules into monomers.
     """
 
-    def __init__(self, data_format):
+    def __init__(self):
 
-        self.handler = data_handlers.MGDataHandler(data_format)
+        self.handler = data_handlers.MGDataHandler()
         self.generator = generators.MonomerGenerator(self.handler.index_iterator)
 
 
 class PeptideGenerationArgs(IFactoryArgument):
 
-    def __init__(self, data_format):
+    def __init__(self):
 
         self.generator = generators.PeptideGenerator()
-        self.handler = data_handlers.PGDataHandler(data_format)
+        self.handler = data_handlers.PGDataHandler()
 
 
 class TemplatePeptideGenerationArgs(IFactoryArgument):
 
-    def __init__(self, data_format):
+    def __init__(self):
 
         self.generator = generators.TemplatePeptideGenerator()
-        self.handler = data_handlers.TPGDataHandler(data_format)
+        self.handler = data_handlers.TPGDataHandler()
 
 
 class MacrocycleGenerationArgs(IFactoryArgument):
 
-    def __init__(self, data_format):
+    def __init__(self):
 
         self.generator = generators.MacrocycleGenerator()
-        self.handler = data_handlers.MCGDataHandler(data_format)
+        self.handler = data_handlers.MCGDataHandler()
 
 
 class UniMolecularReactionGenerationArgs(IFactoryArgument):
 
-    def __init__(self, data_format):
+    def __init__(self):
 
         self.generator = generators.UniMolecularReactionGenerator()
-        self.handler = data_handlers.UMRGDataHandler(data_format)
+        self.handler = data_handlers.UMRGDataHandler()
 
 
 class BiMolecularReactionGenerationArgs(IFactoryArgument):
 
-    def __init__(self, data_format):
+    def __init__(self):
 
         self.generator = generators.BiMolecularReactionGenerator()
-        self.handler = data_handlers.BMRGDataHandler(data_format)
+        self.handler = data_handlers.BMRGDataHandler()

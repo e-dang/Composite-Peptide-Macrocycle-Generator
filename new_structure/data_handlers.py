@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
 
-import project_io
-import reactions
-import utils
+import config
 import iterators
+import project_io
+import utils
 
 
 class IDataHandler(ABC):
@@ -43,7 +43,7 @@ class SCCMDataHandler(IDataHandler):
     Generator.
     """
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         if data_format == 'json':
             id_io = project_io.JsonIDIO()
@@ -71,7 +71,7 @@ class MGDataHandler(IDataHandler):
     Generator.
     """
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         if data_format == 'json':
             index_io = project_io.JsonIndexIO()
@@ -101,7 +101,7 @@ class PGDataHandler(IDataHandler):
     Generator.
     """
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         if data_format == 'json':
             self._monomer_loader = project_io.JsonMonomerIO()
@@ -121,7 +121,7 @@ class PGDataHandler(IDataHandler):
 
 class TPGDataHandler(IDataHandler):
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         if data_format == 'json':
             self._peptide_loader = project_io.JsonPeptideIO()
@@ -142,7 +142,7 @@ class TPGDataHandler(IDataHandler):
 
 class MCGDataHandler(IDataHandler):
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         if data_format == 'json':
             self._template_peptide_loader = project_io.JsonTemplatePeptideIO()
@@ -165,7 +165,7 @@ class MCGDataHandler(IDataHandler):
 
 class UMRGDataHandler(IDataHandler):
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         self._templates = utils.get_templates()
         self._reactions = utils.get_unimolecular_reactions()
@@ -186,7 +186,7 @@ class UMRGDataHandler(IDataHandler):
 
 class BMRGDataHandler(IDataHandler):
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
 
         self._reactions = utils.get_bimolecular_reactions()
         if data_format == 'json':

@@ -1,9 +1,9 @@
 import exceptions
 import os
-from collections import defaultdict
 
 from rdkit import Chem
 
+import config
 import importers
 import initializers
 import molecules
@@ -84,7 +84,7 @@ def create_regiosqm_smiles_file(sidechain_io):
     project_io.RawRegioSQMIO().save(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
 
 
-def reset(data_format):
+def reset(data_format=config.DATA_FORMAT):
 
     if data_format == 'mongo':
         database = project_io.MongoDataBase()
@@ -254,7 +254,7 @@ def get_hashed_predictions(func):
     return hasher
 
 
-def get_regiosqm_predictions(data_format):
+def get_regiosqm_predictions(data_format=config.DATA_FORMAT):
 
     if data_format == 'json':
         regio_io = project_io.JsonRegioSQMIO()

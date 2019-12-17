@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from rdkit import Chem
 
+import config
 import iterators
 import project_io
 
@@ -15,7 +16,7 @@ class IImporter(ABC):
 
 class DataImporter(IImporter):
 
-    def __init__(self, data_format):
+    def __init__(self, data_format=config.DATA_FORMAT):
         if data_format == 'json':
             sidechain_io = project_io.JsonSideChainIO()
             monomer_io = project_io.JsonMonomerIO()
