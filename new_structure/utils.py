@@ -250,6 +250,7 @@ def get_hashed_predictions(func):
         hashed_predictions = {}
         for prediction in func():
             hashed_predictions[prediction['_id']] = prediction['predictions']
+        return hashed_predictions
 
     return hasher
 
