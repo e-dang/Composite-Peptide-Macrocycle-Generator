@@ -378,6 +378,7 @@ class MacrocycleGenerator(IGenerator):
                     yield template_peptide, [arg]
 
     @decorators.apply_stereochemistry
+    @decorators.carboxyl_to_amide
     def generate(self, args):
 
         self.reactant, self.reactions = args
@@ -413,9 +414,9 @@ class MacrocycleGenerator(IGenerator):
         rxns = []
         sc_id, rxn_idx = '', ''
         for reaction in self.reactions:
-            rxn_idx += str(reaction['rxn_atom_idx'])
             rxns.append(reaction['_id'])
             try:
+                rxn_idx += str(reaction['rxn_atom_idx'])
                 sc_id += reaction['sidechain']
             except KeyError:
                 pass
@@ -427,17 +428,10 @@ class MacrocycleGenerator(IGenerator):
                          'binary': binary,
                          'kekule': kekule,
                          'has_confs': False,
+                         'modifications': '',
                          'template_peptide': self.reactant['_id'],
                          'reactions': rxns})
         return data
-
-
-class Methylateor(IGenerator):
-    def get_args(self, data):
-        pass
-
-    def generate(self, args):
-        pass
 
 
 class MacrocycleConformerGenerator(IGenerator):
@@ -469,7 +463,6 @@ class UniMolecularReactionGenerator(IGenerator):
                  'type': self.reaction.name,
                  'binary': self.reaction.binary,
                  'smarts': self.reaction.smarts,
-                 'rxn_atom_idx': None,
                  'template': self.mol.name}]
 
         return data

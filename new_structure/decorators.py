@@ -1,20 +1,11 @@
 
 from functools import wraps
 from copy import deepcopy
-from itertools import product
+from itertools import product, chain, combinations
 
 from rdkit import Chem
 
 import utils
-
-# class RegioSQMFilter:
-
-#     def __init__(self, original_func):
-#         self.original_func = original_func
-
-#     @wraps(original_func)
-#     def __call__(self, *args, **kwargs):
-#         return self.original_func(*args, **kwargs)
 
 
 def apply_stereochemistry(original_func):
@@ -50,6 +41,55 @@ def apply_stereochemistry(original_func):
         return data
 
     return stereochemistry_wrapper
+
+
+def methylate(original_func):
+
+    @wraps(original_func)
+    def methlyate_wrapper(*args, **kwargs):
+
+        return original_func(*args, **kwargs)
+
+    return methlyate_wrapper
+
+
+def carboxyl_to_amide(original_func):
+
+    carboxyl = Chem.MolFromSmarts('[OH1]C(=O)')
+
+    @wraps(original_func)
+    def c_to_a_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            # find all combinations of carboxyls
+            macrocycle = Chem.Mol(original_result['binary'])
+            matches = macrocycle.GetSubstructMatches(carboxyl)
+            for i in range(1, len(matches) + 1):
+                for atom_tuple in combinations(matches, r=i):
+                    # perform conversion to amide
+                    macrocycle = Chem.Mol(original_result['binary'])
+                    for atom_idx in chain.from_iterable(atom_tuple):
+                        atom = macrocycle.GetAtomWithIdx(atom_idx)
+                        if atom.GetSymbol() == 'O' and atom.GetTotalNumHs() == 1:
+                            atom.SetAtomicNum(7)  # nitrogen atomic number
+                            Chem.SanitizeMol(macrocycle)
+
+                    # format data
+                    binary = macrocycle.ToBinary()
+                    Chem.Kekulize(macrocycle)
+                    doc = deepcopy(original_result)
+                    doc['_id'] += 'a' + str(i)
+                    doc['binary'] = binary
+                    doc['kekule'] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
+                    doc['modifications'] += 'a' * i
+                    data.append(doc)
+
+            data.append(original_result)  # save original result
+
+        return data
+
+    return c_to_a_wrapper
 
 
 def regiosqm_filter(original_func):
