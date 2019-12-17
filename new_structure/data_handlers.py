@@ -45,11 +45,14 @@ class SCCMDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
-        self.id_iterator = iterators.IDIterator(data_format)
         if data_format == 'json':
+            id_io = project_io.JsonIDIO()
             self._sidechain_io = project_io.JsonSideChainIO()
         elif data_format == 'mongo':
+            id_io = project_io.MongoIDIO()
             self._sidechain_io = project_io.MongoSideChainIO()
+
+        self.id_iterator = iterators.IDIterator(id_io)
 
     def load(self):
 
@@ -70,13 +73,16 @@ class MGDataHandler(IDataHandler):
 
     def __init__(self, data_format):
 
-        self.index_iterator = iterators.IndexIterator(data_format)
         if data_format == 'json':
+            index_io = project_io.JsonIndexIO()
             self._sidechain_loader = project_io.JsonSideChainIO()
             self._monomer_saver = project_io.JsonMonomerIO()
         elif data_format == 'mongo':
+            index_io = project_io.MongoIndexIO()
             self._sidechain_loader = project_io.MongoSideChainIO()
             self._monomer_saver = project_io.MongoMonomerIO()
+
+        self.index_iterator = iterators.IndexIterator(index_io)
 
     def load(self):
 
