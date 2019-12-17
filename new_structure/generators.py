@@ -334,6 +334,7 @@ class MacrocycleGenerator(IGenerator):
             except KeyError:  # template only reaction
                 template_only_reactions[reaction['template']].append(reaction)
 
+        print(template_only_reactions)
         for template_peptide in data.template_peptides:
             args = []
             sidechain_data = set(monomer['sidechain'] for monomer in template_peptide['peptide']['monomers'] if
@@ -413,8 +414,11 @@ class MacrocycleGenerator(IGenerator):
         sc_id, rxn_idx = '', ''
         for reaction in self.reactions:
             rxn_idx += str(reaction['rxn_atom_idx'])
-            sc_id += reaction['sidechain'] if reaction['sidechain'] is not None else ''
             rxns.append(reaction['_id'])
+            try:
+                sc_id += reaction['sidechain']
+            except KeyError:
+                pass
 
         data = []
         for i, (kekule, binary) in enumerate(self.macrocycles.items()):
@@ -474,8 +478,7 @@ class UniMolecularReactionGenerator(IGenerator):
                  'binary': self.reaction.binary,
                  'smarts': self.reaction.smarts,
                  'rxn_atom_idx': None,
-                 'template': self.mol.name,
-                 'sidechain': None}]
+                 'template': self.mol.name}]
 
         return data
 
