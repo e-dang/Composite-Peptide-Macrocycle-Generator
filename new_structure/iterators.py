@@ -27,20 +27,18 @@ class IDIterator:
 
     ALPHABET = 'a b c d e f g h i j k l m n o p q r s t u v w x y z'.split(' ')
 
-    def __init__(self, data_format):
+    def __init__(self, id_io):
 
-        if data_format == 'json':
-            self.io = project_io.JsonIDIO()
-        elif data_format == 'mongo':
-            self.io = project_io.MongoIDIO()
-
-        self.record = self.io.load()
+        self.id_io = id_io
+        self.record = self.id_io.load()
         self.count = self.record['count']
         self.prefix = self.record['prefix']
+        self.current = True
 
     def __del__(self):
 
-        self.save()
+        if not self.current:
+            self.save()
 
     def get_next(self):
         """
@@ -62,6 +60,7 @@ class IDIterator:
             code = self.prefix + self.ALPHABET[self.count]
 
         self.count += 1
+        self.current = False
         return code
 
     def set_prefix(self, prefix):
@@ -93,31 +92,33 @@ class IDIterator:
 
         self.record['count'] = self.count
         self.record['prefix'] = self.prefix
-        self.io.save(self.record)
+        self.id_io.save(self.record)
+        self.current = True
 
 
 class IndexIterator:
 
-    def __init__(self, data_format):
-        if data_format == 'json':
-            self.io = project_io.JsonIndexIO()
-        elif data_format == 'mongo':
-            self.io = project_io.MongoIndexIO()
+    def __init__(self, index_io):
 
-        self.record = self.io.load()
+        self.index_io = index_io
+        self.record = self.index_io.load()
         self.index = self.record['index']
+        self.current = True
 
     def __del__(self):
 
-        self.save()
+        if not self.current:
+            self.save()
 
     def get_next(self):
 
         index = self.index
         self.index += 1
+        self.current = False
         return index
 
     def save(self):
 
         self.record['index'] = self.index
-        self.io.save(self.record)
+        self.index_io.save(self.record)
+        self.current = True

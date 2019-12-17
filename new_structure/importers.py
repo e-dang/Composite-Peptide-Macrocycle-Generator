@@ -19,16 +19,18 @@ class DataImporter(IImporter):
         if data_format == 'json':
             sidechain_io = project_io.JsonSideChainIO()
             monomer_io = project_io.JsonMonomerIO()
-            id_iterator = iterators.IDIterator(data_format)
-            index_iterator = iterators.IndexIterator(data_format)
+            id_io = project_io.JsonIDIO()
+            index_io = project_io.JsonIndexIO()
             regiosqm_io = project_io.JsonRegioSQMIO()
         elif data_format == 'mongo':
             sidechain_io = project_io.MongoSideChainIO()
             monomer_io = project_io.MongoMonomerIO()
-            id_iterator = iterators.IDIterator(data_format)
-            index_iterator = iterators.IndexIterator(data_format)
+            id_io = project_io.MongoIDIO()
+            index_io = project_io.MongoIndexIO()
             regiosqm_io = project_io.MongoRegioSQMIO()
 
+        id_iterator = iterators.IDIterator(id_io)
+        index_iterator = iterators.IndexIterator(index_io)
         self.molecule_importers = [SideChainImporter(sidechain_io, id_iterator),
                                    MonomerImporter(monomer_io, id_iterator, index_iterator)]
         self.prediction_importers = [RegioSQMImporter(regiosqm_io)]
