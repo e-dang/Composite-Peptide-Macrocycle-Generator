@@ -9,6 +9,7 @@ from rdkit.Chem import Draw
 
 import molecules
 import reactions
+import project_io
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -109,6 +110,14 @@ def apply_stereochemistry(original_func):
         return data
 
     return stereochemistry_wrapper
+
+
+def create_regiosqm_smiles_file(sidechain_io):
+
+    data = []
+    for sidechain in filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()):
+        data.append((sidechain['_id'], Chem.MolToSmiles(Chem.Mol(sidechain['binary']))))
+    project_io.RawRegioSQMIO().save(data)
 
 
 def file_rotator(filepath):

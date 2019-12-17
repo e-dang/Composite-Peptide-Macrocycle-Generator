@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 from abc import ABC, abstractmethod
@@ -29,6 +30,23 @@ class IOInterface(ABC):
         Args:
             data (iterable[dict]): The data to be saved.
         """
+
+
+class RawRegioSQMIO(IOInterface):
+
+    _RESULT_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_results_nm_3.csv')
+    _SMILES_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_sidechains.smiles')
+
+    def load(self):
+
+        with open(self._RESULT_FILEPATH, 'r') as file:
+            return csv.reader(file, delimiter=',')
+
+    def save(self, data):
+
+        with open(self._SMILES_FILEPATH, 'w') as file:
+            for _id, smiles in data:
+                file.write(_id + '\t' + smiles + '\n')
 
 
 class ChemDrawIO(IOInterface):
@@ -159,22 +177,6 @@ class JsonIndexIO(AbstractJsonIO):
             json.dump(data, file)
 
 
-class JsonHeterocycleIO(AbstractJsonIO):
-    """
-    Implmentation of the AbstractJsonIO class for handling heterocycle data.
-    """
-
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'heterocycles.json')
-
-    def load(self):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data):
-
-        super().to_json(self._FILEPATH, data)
-
-
 class JsonSideChainIO(AbstractJsonIO):
     """
     Implmentation of the AbstractJsonIO class for handling sidechain data.
@@ -261,6 +263,22 @@ class JsonReactionIO(AbstractJsonIO):
     """
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'reactions.json')
+
+    def load(self):
+
+        return super().from_json(self._FILEPATH)
+
+    def save(self, data):
+
+        super().to_json(self._FILEPATH, data)
+
+
+class JsonRegioSQMIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling RegioSQM data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'regiosqm.json')
 
     def load(self):
 
@@ -514,6 +532,20 @@ class MongoReactionIO(AbstractMongoIO):
 
     _COLLECTION = config.COL2
     _QUERY = {}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)
+
+    def save(self, data):
+
+        super().to_mongo(self._COLLECTION, data)
+
+
+class MongoRegioSQMIO(AbstractMongoIO):
+
+    _COLLECTION = config.COL3
+    _QUERY = {'type': 'regiosqm'}
 
     def load(self):
 
