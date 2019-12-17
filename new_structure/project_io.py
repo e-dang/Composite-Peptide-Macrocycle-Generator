@@ -40,7 +40,7 @@ class RawRegioSQMIO(IOInterface):
     def load(self):
 
         with open(self._RESULT_FILEPATH, 'r') as file:
-            return csv.reader(file, delimiter=',')
+            return list(csv.reader(file, delimiter=','))
 
     def save(self, data):
 
