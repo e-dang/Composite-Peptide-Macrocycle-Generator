@@ -83,14 +83,6 @@ class MolFactory(IFactory):
                 'The supplied factory_arg must have instance members \'generator\', \'loader\', and \'saver\'')
 
 
-class FilterFactory(IFactory):
-    def run(self):
-        pass
-
-    def run_serial(self):
-        pass
-
-
 class IFactoryArgument(ABC):
     """
     An interface for classes that wrap Generator and DataHandler classes together to be used by a Factory.
