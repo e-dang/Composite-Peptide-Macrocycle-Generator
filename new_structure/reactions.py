@@ -30,6 +30,11 @@ class IReaction(ABC):
     def type(self):
         pass
 
+    @property
+    @abstractmethod
+    def applicable_template(self):
+        pass
+
     @abstractmethod
     def validate(self):
         pass
@@ -99,6 +104,7 @@ class AbstractBMSideChainReaction(AbstractBiMolecularReaction):
                 atom.SetIsotope(0)
             else:
                 atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+                utils.atom_to_wildcard(atom)
 
 
 class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
@@ -159,6 +165,10 @@ class FriedelCrafts(AbstractBMSideChainReaction):
     def name(self):
         return 'friedel_crafts'
 
+    @property
+    def applicable_template(self):
+        return 'all'
+
     def validate(self):
 
         # check if sidechain reacting atom is valid
@@ -199,6 +209,10 @@ class TsujiTrost(AbstractBMSideChainReaction):
     def name(self):
         return 'tsuji_trost'
 
+    @property
+    def applicable_template(self):
+        return 'all'
+
     def validate(self):
 
         # check if sidechain reacting atom is valid
@@ -235,6 +249,7 @@ class PictetSpangler(AbstractBMMonomerReaction):
         try:
             self.reset()
             super().initialize(sidechain, template.pictet_spangler_kekule, reacting_atom)
+            self.template_name = template.name
             self.tag_connection_atom()
             self.validate()
         except AttributeError:  # doesn't have pictet_spangler_kekule attribute
@@ -243,6 +258,10 @@ class PictetSpangler(AbstractBMMonomerReaction):
     @property
     def name(self):
         return 'pictet_spangler'
+
+    @property
+    def applicable_template(self):
+        return self.template_name
 
     def validate(self):
 
@@ -317,6 +336,7 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
         try:
             self.reset()
             self.template = Chem.MolFromSmiles(template.template_pictet_spangler_kekule)
+            self.template_name = template.name
             self.validate()
         except AttributeError:  # doesn't have template_pictet_spangler_kekule attribute
             self.valid = False
@@ -324,6 +344,10 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
     @property
     def name(self):
         return 'template_pictet_spangler'
+
+    @property
+    def applicable_template(self):
+        return self.template_name
 
     def validate(self):
 
@@ -403,6 +427,10 @@ class PyrroloIndolene(AbstractBMMonomerReaction):
     @property
     def name(self):
         return 'pyrrolo_indolene'
+
+    @property
+    def applicable_template(self):
+        return 'all'
 
     def validate(self):
 

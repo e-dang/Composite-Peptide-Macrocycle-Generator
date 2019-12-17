@@ -145,12 +145,12 @@ class TemplatePeptideGenerationArgs(IFactoryArgument):
         self.handler = data_handlers.TPGDataHandler(data_format)
 
 
-# class MacrocycleGenerationArgs(IFactoryArgument):
+class MacrocycleGenerationArgs(IFactoryArgument):
 
-#     def __init__(self, data_format):
+    def __init__(self, data_format):
 
-#         self.generator = generators.MacrocycleGenerator()
-#         self.handler = data_handlers.MCGDataHandler(data_format)
+        self.generator = generators.MacrocycleGenerator()
+        self.handler = data_handlers.MCGDataHandler(data_format)
 
 
 class UniMolecularReactionGenerationArgs(IFactoryArgument):

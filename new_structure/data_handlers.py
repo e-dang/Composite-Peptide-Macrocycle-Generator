@@ -134,27 +134,27 @@ class TPGDataHandler(IDataHandler):
         self._template_peptide_saver.save(data)
 
 
-# class MCGDataHandler(IDataHandler):
+class MCGDataHandler(IDataHandler):
 
-#     def __init__(self, data_format):
+    def __init__(self, data_format):
 
-#         if data_format == 'json':
-#             self._template_peptide_loader = project_io.JsonTemplatePeptideIO()
-#             self._reaction_loader = project_io.JsonReactionIO()
-#             self._macrocycle_saver = project_io.JsonMacrocycleIO()
-#         elif data_format == 'mongo':
-#             self._template_peptide_loader = project_io.MongoTemplatePeptideIO()
-#             self._reaction_loader = project_io.MongoReactionIO()
-#             self._macrocycle_saver - project_io.MongoMacrocycleIO()
+        if data_format == 'json':
+            self._template_peptide_loader = project_io.JsonTemplatePeptideIO()
+            self._reaction_loader = project_io.JsonReactionIO()
+            self._macrocycle_saver = project_io.JsonMacrocycleIO()
+        elif data_format == 'mongo':
+            self._template_peptide_loader = project_io.MongoTemplatePeptideIO()
+            self._reaction_loader = project_io.MongoReactionIO()
+            self._macrocycle_saver = project_io.MongoMacrocycleIO()
 
-#     def load(self):
+    def load(self):
 
-#         MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
-#         return MacrocycleGeneratorData(self._template_peptide_loader.load(), self._reaction_loader.load())
+        MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
+        return MacrocycleGeneratorData(self._template_peptide_loader.load(), self._reaction_loader.load())
 
-#     def save(self, data):
+    def save(self, data):
 
-#         self._macrocycle_saver.save(data)
+        self._macrocycle_saver.save(data)
 
 
 class UMRGDataHandler(IDataHandler):
