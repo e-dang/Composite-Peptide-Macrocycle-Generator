@@ -3,4 +3,4 @@ backup
 data
 logs
 __pycache__
-macrocycles/test.py
+test.py
