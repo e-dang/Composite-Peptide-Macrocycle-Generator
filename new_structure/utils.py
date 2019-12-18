@@ -80,9 +80,37 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
     return Chem.MolFromSmiles(Chem.MolToSmiles(combo))
 
 
-def create_regiosqm_smiles_file(sidechain_io):
+def create_regiosqm_smiles_file():
+
+    if config.DATA_FORMAT == 'json':
+        sidechain_io = project_io.JsonSideChainIO()
+    elif config.DATA_FORMAT == 'mongo':
+        sidechain_io = project_io.MongoSideChainIO()
 
     project_io.RawRegioSQMIO().save(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
+
+
+def create_pka_smiles_file():
+
+    if config.DATA_FORMAT == 'json':
+        sidechain_io = project_io.JsonSideChainIO()
+    elif config.DATA_FORMAT == 'mongo':
+        sidechain_io = project_io.MongoSideChainIO()
+
+    data = []
+    for sidechain in filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()):
+        atom_map = 1
+        mol = Chem.Mol(sidechain['binary'])
+        for atom in mol.GetAtoms():
+            if atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() > 0:
+                atom.SetAtomMapNum(atom_map)
+                atom_map += 1
+
+        if atom_map > 1:
+            Chem.Kekulize(mol)
+            data.append((sidechain['_id'], Chem.MolToSmiles(mol, kekuleSmiles=True)))
+
+    project_io.RawpKaIO().save(data)
 
 
 def reset(data_format=config.DATA_FORMAT):
@@ -257,7 +285,7 @@ def get_hashed_predictions(func):
     def hasher():
         hashed_predictions = {}
         for prediction in func():
-            hashed_predictions[prediction['_id']] = prediction['predictions']
+            hashed_predictions[prediction['sidechain']] = prediction['predictions']
         return hashed_predictions
 
     return hasher

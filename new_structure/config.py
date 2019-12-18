@@ -76,16 +76,12 @@ COL2_VALIDATOR = {
     }
 }
 
-# used for storing filtering results
+# used for storing filters
 COL3_VALIDATOR = {
     '$jsonSchema': {
         'bsonType': 'object',
-        'required': ['_id', 'type'],
+        'required': ['type'],
         'properties': {
-            '_id': {
-                'bsonType': 'string',
-                'description': 'The id of the molecule'
-            },
             'type': {
                 'enum': ['regiosqm', 'pka'],
                 'description': 'The filter that has been applied to the molecule'

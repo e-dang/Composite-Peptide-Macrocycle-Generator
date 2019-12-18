@@ -49,6 +49,21 @@ class RawRegioSQMIO(IOInterface):
                 file.write(sidechain['_id'] + ' ' + sidechain['kekule'] + '\n')
 
 
+class RawpKaIO(IOInterface):
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'external', 'pkas.txt')
+
+    def load(self):
+        with open(self._FILEPATH, 'r') as file:
+            return list(file.readlines())
+
+    def save(self, data):
+
+        with open(self._FILEPATH, 'w') as file:
+            for sidechain_id, kekule in data:
+                file.write(sidechain_id + '; ' + kekule + '; ' + '\n')
+
+
 class ChemDrawIO(IOInterface):
 
     def __init__(self, filepath):
@@ -279,6 +294,22 @@ class JsonRegioSQMIO(AbstractJsonIO):
     """
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'regiosqm.json')
+
+    def load(self):
+
+        return super().from_json(self._FILEPATH)
+
+    def save(self, data):
+
+        super().to_json(self._FILEPATH, data)
+
+
+class JsonpKaIO(AbstractJsonIO):
+    """
+    Implmentation of the AbstractJsonIO class for handling pKa data.
+    """
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'pka.json')
 
     def load(self):
 
@@ -543,9 +574,29 @@ class MongoReactionIO(AbstractMongoIO):
 
 
 class MongoRegioSQMIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling RegioSQM prediction data.
+    """
 
     _COLLECTION = config.COL3
     _QUERY = {'type': 'regiosqm'}
+
+    def load(self):
+
+        return super().from_mongo(self._COLLECTION, self._QUERY)
+
+    def save(self, data):
+
+        super().to_mongo(self._COLLECTION, data)
+
+
+class MongopKaIO(AbstractMongoIO):
+    """
+    Implmentation of the AbstractMongoIO class for handling pKa prediction data.
+    """
+
+    _COLLECTION = config.COL3
+    _QUERY = {'type': 'pka'}
 
     def load(self):
 
