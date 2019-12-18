@@ -417,11 +417,11 @@ class AbstractMongoIO(IOInterface, MongoDataBase):
             data (iterable[dict]): The data to be saved.
         """
 
-        # try:
-        self[collection].insert_many(data, ordered=True)
-        # except errors.BulkWriteError as err:
-        #     print(err.details)
-        #     raise
+        try:
+            self[collection].insert_many(data, ordered=True)
+        except errors.BulkWriteError as err:
+            print(err.details)
+            raise
 
 
 class MongoIDIO(AbstractMongoIO):

@@ -301,4 +301,15 @@ def get_regiosqm_predictions(data_format=config.DATA_FORMAT):
     return regio_io.load()
 
 
+def get_pka_predictions(data_format=config.DATA_FORMAT):
+
+    if data_format == 'json':
+        pka_io = project_io.JsonpKaIO()
+    elif data_format == 'mongo':
+        pka_io = project_io.MongopKaIO()
+
+    return pka_io.load()
+
+
 get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_predictions)
+get_hashed_pka_predictions = get_hashed_predictions(get_pka_predictions)

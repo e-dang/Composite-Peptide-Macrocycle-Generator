@@ -476,14 +476,25 @@ class BiMolecularReactionGenerator(IGenerator):
     def get_args(self, data):
         return product(filter(lambda x: x['connection'] == 'methyl', data.sidechains), data.reactions)
 
+    @decorators.pka_filter
     @decorators.regiosqm_filter
     def generate(self, args):
 
         self.reactions = {}
         self.sidechain, self.reaction = args
-        sidechain = Chem.Mol(self.sidechain['binary'])
+        sidechain = Chem.MolFromSmiles(self.sidechain['kekule']) # need to do this since filter predictions are based on
+                                                                 # atom indices and binary doesn't maintain the same
+                                                                 # order
 
-        for atom in sidechain.GetAtoms():
+        # get non-symmetric atoms
+        unique_pairs = map(set, zip(*sidechain.GetSubstructMatches(sidechain, uniquify=False)))
+        Chem.Kekulize(sidechain) # have to kekulize after substruct match...
+        sorted_unique_pairs = map(sorted, map(list, unique_pairs))
+        reduced_pairs = set(tuple(pair) for pair in sorted_unique_pairs)
+        non_symmetric_atom_idxs = [sidechain.GetAtomWithIdx(pair[0]) for pair in reduced_pairs]
+
+        # create reactions
+        for atom in non_symmetric_atom_idxs:
             atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
             for template in utils.get_templates():
                 self.reaction(deepcopy(sidechain), template, atom)

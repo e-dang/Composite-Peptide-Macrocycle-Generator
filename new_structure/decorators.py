@@ -144,3 +144,26 @@ def regiosqm_filter(original_func):
         return data
 
     return regiosqm_filter_wrapper
+
+
+def pka_filter(original_func):
+
+    predictions = utils.get_hashed_pka_predictions()
+    cutoff = 13.5
+
+    @wraps(original_func)
+    def pka_filter_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            if original_result['type'] == 'tsuji_trost':  # filter is applicable
+                pkas = predictions[original_result['sidechain']]
+                rxn_atom = original_result['rxn_atom_idx']
+                if pkas[str(rxn_atom)] < cutoff and pkas[str(rxn_atom)] > 0:  # reaction is predicted by pKa filter
+                    data.append(original_result)
+            else:   # filter is not applicable to this type of reaction
+                data.append(original_result)
+
+        return data
+
+    return pka_filter_wrapper
