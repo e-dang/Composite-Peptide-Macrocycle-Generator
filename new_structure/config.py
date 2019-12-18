@@ -61,7 +61,7 @@ COL2_VALIDATOR = {
             },
             'type': {
                 'enum': ['friedel_crafts', 'tsuji_trost', 'pictet_spangler', 'pyrrolo_indolene',
-                         'template_pictet_spangler'],
+                         'template_pictet_spangler', 'unmasked_aldehyde_cyclization'],
                 'description': 'The type of molecule or data contained in the document'
             },
             'binary': {

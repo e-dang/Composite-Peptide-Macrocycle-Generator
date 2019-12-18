@@ -4,7 +4,6 @@ from copy import deepcopy
 from itertools import product, chain, combinations
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
 
 import utils
 

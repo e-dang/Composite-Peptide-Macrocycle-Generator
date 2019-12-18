@@ -72,6 +72,9 @@ class IReaction(ABC):
 
 class AbstractUniMolecularReaction(IReaction):
 
+    CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
+    OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
+
     @property
     def type(self):
         return 'unimolecular'
@@ -133,15 +136,12 @@ class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
 
     def create_monomer(self):
 
-        # get and modify backbone
-        backbone = molecules.AlphaBackBone().tagged_mol
-        carboxyl = Chem.MolFromSmarts('C(=O)O')
-        replacement = Chem.MolFromSmarts(f'[*:{self.BACKBONE_CARBOXYL_MAP_NUM}]')
-        backbone = AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
+        # get modified backbone
+        backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
 
         # tag n-terminus nitrogen for oligomerization
-        for atom in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
-            atom = backbone.GetAtomWithIdx(atom)
+        for atom_idx in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
+            atom = backbone.GetAtomWithIdx(atom_idx)
             if atom.GetSymbol() == 'N':
                 atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
                 break
@@ -327,8 +327,6 @@ class PictetSpangler(AbstractBMMonomerReaction):
 
 class TemplatePictetSpangler(AbstractUniMolecularReaction):
 
-    CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
-    OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
     REACTING_ATOM_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_REACTING_ATOM_MAP_NUM  # 9
     NITROGEN_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_NITROGEN_MAP_NUM  # 10
 
@@ -408,6 +406,105 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
         # create bond between the peptide nitrogen atom and the aldehyde carbon
         map_nums = (self.NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
         self.product = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
+
+
+class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
+
+    BACKBONE_CARBOXYL_MAP_NUM = 5
+    BACKBONE_NITROGEN_MAP_NUM = 6
+
+    def __call__(self, template):
+        try:
+            self.reset()
+            self.template = Chem.MolFromSmiles(template.pictet_spangler_kekule)
+            self.template_name = template.name
+            self.validate()
+        except AttributeError:  # doesn't have template_pictet_spangler_kekule attribute
+            self.valid = False
+
+    @property
+    def name(self):
+        return 'unmasked_aldehyde_cyclization'
+
+    @property
+    def applicable_template(self):
+        return self.template_name
+
+    def validate(self):
+
+        olig_carbon_flag, ps_carbon_flag, ps_oxygen_flag = False, False, False
+        aldehyde = Chem.MolFromSmarts('[CH1]=O')
+        for atom_idx in chain.from_iterable(self.template.GetSubstructMatches(aldehyde)):
+            atom = self.template.GetAtomWithIdx(atom_idx)
+            if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() == self.TEMPLATE_OLIGOMERIZATION_MAP_NUM:
+                olig_carbon_flag = True
+            elif atom.GetSymbol() == 'C' and atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                for neighbor in atom.GetNeighbors():  # must have adjacent methylene
+                    if neighbor.GetSymbol() == 'C' and neighbor.GetTotalNumHs() == 2:
+                        ps_carbon_flag = True
+            elif atom.GetSymbol() == 'O' and atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                ps_oxygen_flag = True
+
+        if not olig_carbon_flag:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde oligomerization carbon')
+
+        if not ps_carbon_flag:
+            self.valid = False
+            return
+
+        if not ps_oxygen_flag:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde oxygen')
+
+        self.valid = True
+
+    def create_reaction(self):
+        self.create_reactant()
+        self.create_product()
+        self.create_reaction_smarts([self.reactant], self.product)
+
+    def create_reactant(self):
+
+        backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
+
+        # tag n-terminus nitrogen for oligomerization and clear backbone carbon oligomerzation map num
+        for atom in backbone.GetAtoms():
+            if atom.GetSymbol() == 'N':
+                atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
+            elif atom.GetAtomMapNum() == molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM:
+                atom.SetAtomMapNum(0)
+
+        map_nums = (self.TEMPLATE_OLIGOMERIZATION_MAP_NUM, self.BACKBONE_NITROGEN_MAP_NUM)
+        self.reactant = utils.connect_mols(self.template, backbone, map_nums=map_nums, clear_map_nums=False)
+
+    def create_product(self):
+
+        # create local copy of reactant to transform into product
+        reactant = Chem.RWMol(self.reactant)
+
+        # reset atom map number on aldehyde oxygen on INSTANCE VARIABLE reactant
+        for atom in self.reactant.GetAtoms():
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                atom.SetAtomMapNum(0)
+
+        # remove pictet spangler aldehyde oxygen and set the pictet spangler aldehyde carbon's single bond with its
+        # neighboring carbon to a double bond in LOCAL copy of reactant
+        for atom in list(reactant.GetAtoms()):
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                reactant.RemoveAtom(atom.GetIdx())
+            elif atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                carb_atom = atom
+                for bond in atom.GetBonds():
+                    if bond.GetBondType() == Chem.BondType.SINGLE:
+                        bond.SetBondType(Chem.BondType.DOUBLE)
+
+        # adjust hydrogens
+        carb_atom.SetNumExplicitHs(carb_atom.GetTotalNumHs() + 1)
+
+        # connect backbone nitrogen to aldehyde carbon
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
+        self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
 
 
 class PyrroloIndolene(AbstractBMMonomerReaction):

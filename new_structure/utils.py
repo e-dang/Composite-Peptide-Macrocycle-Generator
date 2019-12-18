@@ -2,6 +2,7 @@ import exceptions
 import os
 
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 import config
 import importers
@@ -227,9 +228,16 @@ get_hashed_connections = get_hashed_molecules(get_connections)
 get_hashed_backbones = get_hashed_molecules(get_backbones)
 
 
+def get_partial_backbone(map_num):
+    backbone = molecules.AlphaBackBone().tagged_mol
+    carboxyl = Chem.MolFromSmarts('C(=O)O')
+    replacement = Chem.MolFromSmarts(f'[*:{map_num}]')
+    return AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
+
+
 def get_reactions():
     return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler(),
-            reactions.TemplatePictetSpangler(), reactions.PyrroloIndolene()]
+            reactions.TemplatePictetSpangler(), reactions.PyrroloIndolene(), reactions.UnmaskedAldehydeCyclization()]
 
 
 def get_reactions_of_type(rxn_type):
