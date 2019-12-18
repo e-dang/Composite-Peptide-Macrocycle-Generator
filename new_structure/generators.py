@@ -378,6 +378,7 @@ class MacrocycleGenerator(IGenerator):
                     yield template_peptide, [arg]
 
     @decorators.apply_stereochemistry
+    @decorators.methylate
     @decorators.carboxyl_to_amide
     def generate(self, args):
 

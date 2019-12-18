@@ -4,6 +4,7 @@ from copy import deepcopy
 from itertools import product, chain, combinations
 
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 import utils
 
@@ -32,7 +33,7 @@ def apply_stereochemistry(original_func):
 
                 # format data
                 doc = deepcopy(original_result)
-                doc['_id'] = doc['_id'] + str(i)
+                doc['_id'] += 's' + str(i)
                 doc['binary'] = new_mol.ToBinary()
                 Chem.Kekulize(new_mol)
                 doc['kekule'] = Chem.MolToSmiles(new_mol, kekuleSmiles=True)
@@ -45,10 +46,42 @@ def apply_stereochemistry(original_func):
 
 def methylate(original_func):
 
+    candidate_heteroatoms = Chem.MolFromSmarts('[NH1,NH2,nH1]')
+    methyl = Chem.MolFromSmarts('[CH4:1]')
+
     @wraps(original_func)
     def methlyate_wrapper(*args, **kwargs):
 
-        return original_func(*args, **kwargs)
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            data.append(original_result)
+
+            # find all combinations of candidate methylation sites
+            matches = Chem.Mol(original_result['binary']).GetSubstructMatches(candidate_heteroatoms)
+            for i in range(1, len(matches) + 1):
+                for atom_tuple in combinations(matches, r=i):
+
+                    # apply methylation
+                    macrocycle = Chem.Mol(original_result['binary'])
+                    atom_maps = []
+                    for atom_map, atom_idx in enumerate(chain.from_iterable(atom_tuple), start=2):
+                        macrocycle.GetAtomWithIdx(atom_idx).SetAtomMapNum(atom_map)
+                        atom_maps.append(atom_map)
+                    for atom in macrocycle.GetAtoms():
+                        if atom.GetAtomMapNum() in atom_maps:
+                            macrocycle = utils.connect_mols(macrocycle, methyl, map_nums=[1, atom.GetAtomMapNum()])
+
+                    # format data
+                    binary = macrocycle.ToBinary()
+                    Chem.Kekulize(macrocycle)
+                    doc = deepcopy(original_result)
+                    doc['_id'] += 'm' + 'm'.join(map(str, chain.from_iterable(atom_tuple)))
+                    doc['binary'] = binary
+                    doc['kekule'] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
+                    doc['modifications'] += 'm' * i
+                    data.append(doc)
+
+        return data
 
     return methlyate_wrapper
 
@@ -62,11 +95,13 @@ def carboxyl_to_amide(original_func):
 
         data = []
         for original_result in original_func(*args, **kwargs):
+            data.append(original_result)
+
             # find all combinations of carboxyls
-            macrocycle = Chem.Mol(original_result['binary'])
-            matches = macrocycle.GetSubstructMatches(carboxyl)
+            matches = Chem.Mol(original_result['binary']).GetSubstructMatches(carboxyl)
             for i in range(1, len(matches) + 1):
                 for atom_tuple in combinations(matches, r=i):
+
                     # perform conversion to amide
                     macrocycle = Chem.Mol(original_result['binary'])
                     for atom_idx in chain.from_iterable(atom_tuple):
@@ -79,13 +114,11 @@ def carboxyl_to_amide(original_func):
                     binary = macrocycle.ToBinary()
                     Chem.Kekulize(macrocycle)
                     doc = deepcopy(original_result)
-                    doc['_id'] += 'a' + str(i)
+                    doc['_id'] += 'a' + 'a'.join(map(str, chain.from_iterable(atom_tuple)))
                     doc['binary'] = binary
                     doc['kekule'] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
                     doc['modifications'] += 'a' * i
                     data.append(doc)
-
-            data.append(original_result)  # save original result
 
         return data
 
