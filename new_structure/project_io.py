@@ -77,7 +77,8 @@ class ChemDrawIO(IOInterface):
     def save(self, data):
 
         writer = Chem.SDWriter(self.filepath)
-        writer.write(data)
+        for mol in data:
+            writer.write(mol)
         writer.close()
 
 
