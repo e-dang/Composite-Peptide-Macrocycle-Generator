@@ -122,7 +122,7 @@ class CinnamoylTemplate2(ITemplateMol):
 
     @property
     def pictet_spangler_kekule(self):
-        return f'[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]=[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]CC(C[*:{self.REACTION_WILDCARD1_MAP_NUM}])[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O'
+        return f'[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]=[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]C[C@H](C[*:{self.REACTION_WILDCARD1_MAP_NUM}])[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O'
 
     @property
     def oligomerization_kekule(self):
@@ -144,11 +144,11 @@ class CinnamoylTemplate3(ITemplateMol):
 
     @property
     def pictet_spangler_kekule(self):
-        return f'[*:{self.REACTION_WILDCARD1_MAP_NUM}]CCC(C[*:{self.REACTION_WILDCARD2_MAP_NUM}])(C[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O)[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]'
+        return f'[*:{self.REACTION_WILDCARD1_MAP_NUM}]CC[C@@](C[*:{self.REACTION_WILDCARD2_MAP_NUM}])(C[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O)[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]'
 
     @property
     def template_pictet_spangler_kekule(self):
-        return f'C#CCCCC([CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}])(CC(=O)[NH1:{self.TEMPLATE_PS_NITROGEN_MAP_NUM}][*:{self.REACTION_WILDCARD1_MAP_NUM}])CC1=[CH1:{self.TEMPLATE_PS_REACTING_ATOM_MAP_NUM}]C=CC([*:{self.REACTION_WILDCARD2_MAP_NUM}])=C1'
+        return f'C#CCCC[C@@]([CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}])(CC(=O)[NH1:{self.TEMPLATE_PS_NITROGEN_MAP_NUM}][*:{self.REACTION_WILDCARD1_MAP_NUM}])CC1=[CH1:{self.TEMPLATE_PS_REACTING_ATOM_MAP_NUM}]C=CC([*:{self.REACTION_WILDCARD2_MAP_NUM}])=C1'
 
     @property
     def oligomerization_kekule(self):
