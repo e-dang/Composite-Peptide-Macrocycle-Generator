@@ -45,7 +45,7 @@ def apply_stereochemistry(original_func):
 
 def methylate(original_func):
 
-    candidate_heteroatoms = Chem.MolFromSmarts('[NH1,NH2,nH1]')
+    candidate_heteroatoms = Chem.MolFromSmarts('[nH1]')  # only methylate heterocycle amines
     methyl = Chem.MolFromSmarts('[CH4:1]')
 
     @wraps(original_func)
