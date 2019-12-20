@@ -466,7 +466,10 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
 
     def create_reactant(self):
 
-        backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
+        backbone = molecules.AlphaBackBone().tagged_mol
+        carboxyl = Chem.MolFromSmarts('CC(=O)O')
+        replacement = Chem.MolFromSmarts(f'[*:{self.BACKBONE_CARBOXYL_MAP_NUM}]')
+        backbone = AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
 
         # tag n-terminus nitrogen for oligomerization and clear backbone carbon oligomerzation map num
         for atom in backbone.GetAtoms():
