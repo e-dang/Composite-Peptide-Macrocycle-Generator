@@ -144,7 +144,7 @@ class CinnamoylTemplate3(ITemplateMol):
 
     @property
     def pictet_spangler_kekule(self):
-        return f'[*:{self.REACTION_WILDCARD1_MAP_NUM}]CC[C@@](C[*:{self.REACTION_WILDCARD2_MAP_NUM}])(C[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O)[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]'
+        return f'C#CCCC[C@](C[*:{self.REACTION_WILDCARD1_MAP_NUM}])(C[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O)[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]=[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]'
 
     @property
     def template_pictet_spangler_kekule(self):
