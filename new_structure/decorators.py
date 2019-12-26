@@ -6,6 +6,7 @@ from itertools import product, chain, combinations
 from rdkit import Chem
 
 import utils
+import proxies
 
 
 def apply_stereochemistry(original_func):
@@ -126,7 +127,7 @@ def carboxyl_to_amide(original_func):
 
 def regiosqm_filter(original_func):
 
-    predictions = utils.get_hashed_regiosqm_predictions()
+    predictions = proxies.RegioSQMProxy()
 
     @wraps(original_func)
     def regiosqm_filter_wrapper(*args, **kwargs):
@@ -148,7 +149,7 @@ def regiosqm_filter(original_func):
 
 def pka_filter(original_func):
 
-    predictions = utils.get_hashed_pka_predictions()
+    predictions = proxies.pKaProxy()
     cutoff = 13.5
 
     @wraps(original_func)
