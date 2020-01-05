@@ -1,5 +1,7 @@
 import exceptions
+import functools
 import os
+import random
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -10,6 +12,7 @@ import initializers
 import molecules
 import project_io
 import reactions
+import planners
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -121,6 +124,31 @@ def reset(data_format=config.DATA_FORMAT):
 
     initializers.RecordInitializer(data_format).initialize()
     importers.DataImporter(data_format).import_data()
+
+
+def random_order_cartesian_product(*factors):
+    """
+    Randomly samples the cartesian product of the factors without repeats.
+    Code from https://stackoverflow.com/questions/48686767/how-to-sample-from-cartesian-product-without-repetition
+
+    Yields:
+        list: A list of containing a random sample from the cartesian produce of the factors.
+    """
+
+    amount = functools.reduce(lambda prod, factor: prod * len(factor), factors, 1)
+    index_linked_list = [None, None]
+    for max_index in reversed(range(amount)):
+        index = random.randint(0, max_index)
+        index_link = index_linked_list
+        while index_link[1] is not None and index_link[1][0] <= index:  # pylint: disable=E1136
+            index += 1
+            index_link = index_link[1]
+        index_link[1] = [index, index_link[1]]
+        items = []
+        for factor in factors:
+            items.append(factor[index % len(factor)])
+            index //= len(factor)
+        yield items
 
 
 def file_rotator(filepath):
@@ -313,3 +341,14 @@ def get_pka_predictions(data_format=config.DATA_FORMAT):
 
 get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_predictions)
 get_hashed_pka_predictions = get_hashed_predictions(get_pka_predictions)
+
+
+def generate_peptide_plan(peptide_length, num_peptides, data_format=config.DATA_FORMAT):
+
+    if data_format == 'json':
+        monomer_io = project_io.JsonMonomerIO()
+    elif data_format == 'mongo':
+        monomer_io = project_io.MongoMonomerIO()
+
+    planner = planners.PeptidePublicationPlanner(monomer_io, peptide_length, num_peptides)
+    planner.create_plan()

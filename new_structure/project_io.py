@@ -32,6 +32,22 @@ class IOInterface(ABC):
         """
 
 
+class PeptidePlannerIO(IOInterface):
+
+    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'peptide_plan.txt')
+
+    def load(self):
+        with open(self._FILEPATH, 'r') as file:
+            return file.readlines()
+
+    def save(self, data):
+        length = len(list(data)[0])
+        with open(utils.attach_file_num(self._FILEPATH, length), 'w') as file:
+            for monomer_idxs in data:
+                monomer_idxs = str(monomer_idxs).strip('(').strip(')').replace(' ', '')
+                file.write(monomer_idxs + '\n')
+
+
 class RawRegioSQMIO(IOInterface):
 
     _RESULT_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_results_nm_3.csv')
