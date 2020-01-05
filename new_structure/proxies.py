@@ -11,8 +11,8 @@ class IProxy(ABC):
 
     def __getitem__(self, key):
 
-        if not self.flag:
-            self.data = self.hasher()
+        if not self.flag:  # pylint: disable=E0203
+            self.data = self.hasher()  # pylint: disable=E1103
             self.flag = True
 
         return self.data[key]
