@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 import data_handlers
 import generators
+import argument_producers
 
 
 class IFactory(ABC):
@@ -40,11 +41,11 @@ class MolFactory(IFactory):
 
     def run(self, factory_arg):
 
-        generator, handler = self.split_args(factory_arg)
+        generator, handler, arg_producer = self.split_args(factory_arg)
 
         result_data = []
         with multiprocessing.Pool() as pool:
-            for result_mols in pool.imap_unordered(generator.generate, generator.get_args(handler.load())):
+            for result_mols in pool.imap_unordered(generator.generate, arg_producer(handler.load())):
                 for result_mol in result_mols:
                     result_data.append(result_mol)
 
@@ -52,10 +53,10 @@ class MolFactory(IFactory):
 
     def run_serial(self, factory_arg):
 
-        generator, handler = self.split_args(factory_arg)
+        generator, handler, arg_producer = self.split_args(factory_arg)
 
         result_data = []
-        for arg in generator.get_args(handler.load()):
+        for arg in arg_producer(handler.load()):
             for result_mol in generator.generate(arg):
                 result_data.append(result_mol)
 
@@ -77,7 +78,7 @@ class MolFactory(IFactory):
         """
 
         try:
-            return factory_arg.generator, factory_arg.handler
+            return factory_arg.generator, factory_arg.handler, factory_arg.arg_producer
         except AttributeError:
             raise AttributeError(
                 'The supplied factory_arg must have instance members \'generator\', \'loader\', and \'saver\'')
@@ -105,6 +106,7 @@ class SCConnectionModificationArgs(IFactoryArgument):
 
         self.handler = data_handlers.SCCMDataHandler()
         self.generator = generators.SideChainConnectionModifier(self.handler.id_iterator)
+        self.arg_producer = argument_producers.NullArgProducer()
 
 
 class MonomerGenerationArgs(IFactoryArgument):
@@ -117,43 +119,49 @@ class MonomerGenerationArgs(IFactoryArgument):
 
         self.handler = data_handlers.MGDataHandler()
         self.generator = generators.MonomerGenerator(self.handler.index_iterator)
+        self.arg_producer = argument_producers.NullArgProducer()
 
 
 class PeptideGenerationArgs(IFactoryArgument):
 
     def __init__(self):
 
-        self.generator = generators.PeptideGenerator()
         self.handler = data_handlers.PGDataHandler()
+        self.generator = generators.PeptideGenerator()
+        self.arg_producer = argument_producers.TestPeptideGeneratorArgProducer()
 
 
 class TemplatePeptideGenerationArgs(IFactoryArgument):
 
     def __init__(self):
 
-        self.generator = generators.TemplatePeptideGenerator()
         self.handler = data_handlers.TPGDataHandler()
+        self.generator = generators.TemplatePeptideGenerator()
+        self.arg_producer = argument_producers.NullArgProducer()
 
 
 class MacrocycleGenerationArgs(IFactoryArgument):
 
     def __init__(self):
 
-        self.generator = generators.MacrocycleGenerator()
         self.handler = data_handlers.MCGDataHandler()
+        self.generator = generators.MacrocycleGenerator()
+        self.arg_producer = argument_producers.MacrocycleGeneratorArgProducer()
 
 
 class UniMolecularReactionGenerationArgs(IFactoryArgument):
 
     def __init__(self):
 
-        self.generator = generators.UniMolecularReactionGenerator()
         self.handler = data_handlers.UMRGDataHandler()
+        self.generator = generators.UniMolecularReactionGenerator()
+        self.arg_producer = argument_producers.CartesianProductArgProducer()
 
 
 class BiMolecularReactionGenerationArgs(IFactoryArgument):
 
     def __init__(self):
 
-        self.generator = generators.BiMolecularReactionGenerator()
         self.handler = data_handlers.BMRGDataHandler()
+        self.generator = generators.BiMolecularReactionGenerator()
+        self.arg_producer = argument_producers.CartesianProductArgProducer()

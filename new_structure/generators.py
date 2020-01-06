@@ -1,8 +1,7 @@
 import exceptions
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from copy import deepcopy
-from itertools import chain, product
+from itertools import chain
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -17,15 +16,6 @@ class IGenerator(ABC):
     """
     Interface for classes that operate on molecular structure(s) in order to generate new structures.
     """
-
-    @abstractmethod
-    def get_args(self, data):
-        """
-        Abstract method for formatting the arguments that will be passed to the method generate().
-
-        Args:
-            data (iterable): An iterable, possibly containing other iterables, that contain the molecule data as dicts.
-        """
 
     @abstractmethod
     def generate(self, args):
@@ -47,10 +37,6 @@ class SideChainConnectionModifier(IGenerator):
 
     def __init__(self, id_iterator):
         self.id_iterator = id_iterator
-
-    def get_args(self, data):
-
-        return data.sidechains
 
     def generate(self, args):
 
@@ -104,10 +90,6 @@ class MonomerGenerator(IGenerator):
 
     def __init__(self, index_iterator):
         self.index_iterator = index_iterator
-
-    def get_args(self, data):
-
-        return data.sidechains
 
     def generate(self, args):
 
@@ -169,14 +151,6 @@ class PeptideGenerator(IGenerator):
     PEPTIDE_CARBON_MAP_NUM = 2
     MAP_NUMS = (MONOMER_NITROGEN_MAP_NUM, PEPTIDE_CARBON_MAP_NUM)
 
-    def get_args(self, data):
-        # temporary for testing
-        for i, arg in enumerate(filter(self.is_valid_monomers, product(data.monomers, repeat=data.peptide_length))):
-            if i == 100:
-                break
-            else:
-                yield arg
-
     def generate(self, args):
 
         self.monomers = args
@@ -210,23 +184,6 @@ class PeptideGenerator(IGenerator):
             self.backbone_prev = self.backbone
 
         return self.format_data()
-
-    def is_valid_monomers(self, monomers):
-        """
-        Determines the validity of the peptide.
-
-        Args:
-            monomers (list): Contains the monomer documents.
-
-        Returns:
-            bool: True if at least one monomer is required.
-        """
-
-        for monomer in monomers:
-            if monomer['required']:
-                return True
-
-        return False
 
     def tag_monomer_n_term(self):
 
@@ -283,9 +240,6 @@ class TemplatePeptideGenerator(IGenerator):
     PEPTIDE_NITROGEN_MAP_NUM = 2
     MAP_NUMS = (TEMPLATE_CARBON_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
 
-    def get_args(self, data):
-        return data.peptides
-
     def generate(self, args):
 
         self.template_peptides = {}
@@ -323,59 +277,6 @@ class TemplatePeptideGenerator(IGenerator):
 
 class MacrocycleGenerator(IGenerator):
 
-    def get_args(self, data):
-
-        # hash all reactions based on sidechain
-        reactions = defaultdict(list)
-        template_only_reactions = defaultdict(list)
-        for reaction in data.reactions:
-            try:
-                reactions[reaction['sidechain']].append(reaction)
-            except KeyError:  # template only reaction
-                template_only_reactions[reaction['template']].append(reaction)
-
-        for template_peptide in data.template_peptides:
-            args = []
-            sidechain_data = set(monomer['sidechain'] for monomer in template_peptide['peptide']['monomers'] if
-                                 monomer['sidechain'] is not None)
-            for sidechain_id in sidechain_data:
-                args.extend(filter(lambda x: x['template'] in ('all', template_peptide['template']),
-                                   reactions[sidechain_id]))
-
-            # can apply pictet_spangler reaction
-            if template_peptide['template'] != 'temp1':
-                try:
-                    first_monomer = template_peptide['peptide']['monomers'][0]['sidechain']
-                # first monomer has side_chain without an _id (natural amino acid or modified proline)
-                except TypeError:
-                    first_monomer = None
-
-                # get pictet_spangler reactions involving only the first monomer or any other type of reaction
-                args = filter(lambda x: ((x['type'] == 'pictet_spangler' and x['sidechain'] == first_monomer)
-                                         or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene')), args)
-
-                # sort args based on if they are pictet_spangler or not
-                pictet, other = [], []
-                for rxn in args:
-                    other.append(rxn) if rxn['type'] != 'pictet_spangler' else pictet.append(rxn)
-
-                first_set = list(product(pictet, other))
-                second_set = list(product(template_only_reactions[template_peptide['template']], other))
-                if first_set and second_set:
-                    for arg in first_set + second_set:
-                        yield template_peptide, arg
-                elif second_set:
-                    for arg in second_set:
-                        yield template_peptide, arg
-                elif first_set:
-                    for arg in first_set:
-                        yield template_peptide, arg
-                else:
-                    for arg in other:
-                        yield template_peptide, [arg]
-            else:  # friedel_crafts, tsuji_trost, pyrrolo_indolene
-                for arg in args:
-                    yield template_peptide, [arg]
 
     @decorators.apply_stereochemistry
     @decorators.methylate
@@ -386,7 +287,7 @@ class MacrocycleGenerator(IGenerator):
         reactants = [Chem.Mol(self.reactant['binary'])]
         rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in self.reactions]
 
-        for _, rxn in enumerate(rxns):
+        for rxn in rxns:
             self.macrocycles = {}
             for reactant in reactants:
                 for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
@@ -430,23 +331,19 @@ class MacrocycleGenerator(IGenerator):
                          'kekule': kekule,
                          'has_confs': False,
                          'modifications': '',
+                         'template': self.reactant['template'],
                          'template_peptide': self.reactant['_id'],
                          'reactions': rxns})
         return data
 
 
 class MacrocycleConformerGenerator(IGenerator):
-    def get_args(self, data):
-        pass
 
     def generate(self, args):
         pass
 
 
 class UniMolecularReactionGenerator(IGenerator):
-
-    def get_args(self, data):
-        return product(data.mols, data.reactions)
 
     def generate(self, args):
 
@@ -472,9 +369,6 @@ class UniMolecularReactionGenerator(IGenerator):
 class BiMolecularReactionGenerator(IGenerator):
 
     SIDECHAIN_EAS_MAP_NUM = reactions.IReaction.SIDECHAIN_EAS_MAP_NUM
-
-    def get_args(self, data):
-        return product(filter(lambda x: x['connection'] == 'methyl', data.sidechains), data.reactions)
 
     @decorators.pka_filter
     @decorators.regiosqm_filter

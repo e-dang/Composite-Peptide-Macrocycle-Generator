@@ -56,8 +56,7 @@ class SCCMDataHandler(IDataHandler):
 
     def load(self):
 
-        SideChainGeneratorData = namedtuple('SideChainGeneratorData', 'sidechains')
-        return SideChainGeneratorData(self._sidechain_io.load())
+        return self._sidechain_io.load()
 
     def save(self, data):
 
@@ -86,8 +85,7 @@ class MGDataHandler(IDataHandler):
 
     def load(self):
 
-        MonomerGeneratorData = namedtuple('MonomerGeneratorData', 'sidechains')
-        return MonomerGeneratorData(self._sidechain_loader.load())
+        return self._sidechain_loader.load()
 
     def save(self, data):
 
@@ -111,8 +109,7 @@ class PGDataHandler(IDataHandler):
             self._peptide_saver = project_io.MongoPeptideIO()
 
     def load(self):
-        PeptideGeneratorData = namedtuple('PeptideGeneratorData', 'monomers peptide_length')
-        return PeptideGeneratorData(self._monomer_loader.load(), 3)
+        return self._monomer_loader.load(), 3
 
     def save(self, data):
 
@@ -132,8 +129,7 @@ class TPGDataHandler(IDataHandler):
 
     def load(self):
 
-        TemplatePeptideGeneratorData = namedtuple('TemplatePeptideGeneratorData', 'peptides')
-        return TemplatePeptideGeneratorData(self._peptide_loader.load())
+        return self._peptide_loader.load()
 
     def save(self, data):
 
@@ -176,8 +172,7 @@ class UMRGDataHandler(IDataHandler):
 
     def load(self):
 
-        UniMolecularReactionGenerationData = namedtuple('UniMolecularReactionGenerationData', 'mols reactions')
-        return UniMolecularReactionGenerationData(self._templates, self._reactions)
+        return self._templates, self._reactions
 
     def save(self, data):
 
@@ -198,8 +193,7 @@ class BMRGDataHandler(IDataHandler):
 
     def load(self):
 
-        BiMolecularReactionGeneratorData = namedtuple('BiMolecularReactionGeneratorData', 'sidechains reactions')
-        return BiMolecularReactionGeneratorData(self._sidechain_loader.load(), self._reactions)
+        return list(filter(lambda x: x['connection'] == 'methyl', self._sidechain_loader.load())), self._reactions
 
     def save(self, data):
 
