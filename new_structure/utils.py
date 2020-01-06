@@ -336,7 +336,7 @@ def get_hashed_predictions(func):
     def hasher():
         hashed_predictions = {}
         for prediction in func():
-            hashed_predictions[prediction['sidechain']] = prediction['predictions']
+            hashed_predictions[prediction['reacting_mol']] = prediction['predictions']
         return hashed_predictions
 
     return hasher

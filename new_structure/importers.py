@@ -36,7 +36,8 @@ class DataImporter(IImporter):
         index_iterator = iterators.IndexIterator(index_io)
         self.molecule_importers = [SideChainImporter(sidechain_io, id_iterator),
                                    MonomerImporter(monomer_io, id_iterator, index_iterator)]
-        self.prediction_importers = [RegioSQMImporter(regiosqm_io, sidechain_io), pKaImporter(pka_io, sidechain_io)]
+        self.prediction_importers = [RegioSQMImporter(regiosqm_io, sidechain_io, monomer_io),
+                                     pKaImporter(pka_io, sidechain_io)]
 
     def import_data(self):
         self.import_molecules()
@@ -111,45 +112,49 @@ class MonomerImporter(IImporter):
 
 class RegioSQMImporter(IImporter):
 
-    def __init__(self, regiosqm_io, sidechain_io, solvent='nitromethane', cutoff=3):
+    def __init__(self, regiosqm_io, sidechain_io, monomer_io, solvent='nitromethane', cutoff=3):
 
         self.raw_regiosqm_io = project_io.RawRegioSQMIO()
         self.regiosqm_io = regiosqm_io
         self.sidechain_io = sidechain_io
+        self.monomer_io = monomer_io
         self.solvent = solvent
         self.cutoff = cutoff
-        self.hashed_sidechains = {}
+        self.hashed_mols = {}
 
-    def hash_sidechains(self):
+    def hash_mols(self):
 
         for sidechain in filter(lambda x: x['connection'] == 'methyl', self.sidechain_io.load()):
-            self.hashed_sidechains[sidechain['_id']] = sidechain['kekule']
+            self.hashed_mols[sidechain['_id']] = sidechain['kekule']
+
+        for monomer in filter(lambda x: x['required'], self.monomer_io.load()):
+            self.hashed_mols[monomer['_id']] = monomer['kekule']
 
     def import_data(self):
 
         data = []
-        self.hash_sidechains()
+        self.hash_mols()
         for i, row in enumerate(self.raw_regiosqm_io.load()):
             if i % 3 == 0:
-                sidechain_id = row[0]
+                reacting_mol_id = row[0]
             elif i % 3 == 1:
                 predictions = [int(row[j]) for j in range(0, len(row), 2)]
             else:
-                self.check(sidechain_id, predictions)
+                self.check(reacting_mol_id, predictions)
                 data.append({'type': 'regiosqm',
                              'predictions': predictions,
-                             'sidechain': sidechain_id,
+                             'reacting_mol': reacting_mol_id,
                              'solvent': self.solvent,
                              'cutoff': self.cutoff})
 
         self.regiosqm_io.save(data)
 
-    def check(self, sidechain_id, predictions):
+    def check(self, reacting_mol_id, predictions):
 
-        sidechain = Chem.MolFromSmiles(self.hashed_sidechains[sidechain_id])
-        Chem.Kekulize(sidechain)
+        reacting_mol = Chem.MolFromSmiles(self.hashed_mols[reacting_mol_id])
+        Chem.Kekulize(reacting_mol)
         for atom_idx in predictions:
-            atom = sidechain.GetAtomWithIdx(atom_idx)
+            atom = reacting_mol.GetAtomWithIdx(atom_idx)
             assert atom.GetSymbol() == 'C'
             assert atom.GetTotalNumHs() > 0
             assert atom.GetIsAromatic()
@@ -204,7 +209,7 @@ class pKaImporter(IImporter):
             # format data
             data.append({'type': 'pka',
                          'predictions': heteroatom_pkas,
-                         'sidechain': _id,
+                         'reacting_mol': _id,
                          'solvent': self.solvent})
 
         self.pka_io.save(data)
