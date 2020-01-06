@@ -100,7 +100,7 @@ def create_regiosqm_smiles_file():
         monomer_io = project_io.MongoMonomerIO()
 
     data = list(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
-    data.append(list(filter(lambda x: x['required'], monomer_io.load())))
+    data.extend(list(filter(lambda x: x['required'], monomer_io.load())))
     project_io.RawRegioSQMIO().save(data)
 
 
@@ -125,6 +125,18 @@ def create_pka_smiles_file():
             data.append((sidechain['_id'], Chem.MolToSmiles(mol, kekuleSmiles=True)))
 
     project_io.RawpKaIO().save(data)
+
+
+def initialize(data_format=config.DATA_FORMAT):
+
+    if data_format == 'mongo':
+        database = project_io.MongoDataBase()
+        database.setup()
+
+    initializers.RecordInitializer(data_format).initialize()
+    importers.DataImporter(data_format).import_molecules()
+    create_regiosqm_smiles_file()
+    create_pka_smiles_file()
 
 
 def reset(data_format=config.DATA_FORMAT):
