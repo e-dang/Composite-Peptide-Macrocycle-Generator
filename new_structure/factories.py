@@ -122,13 +122,22 @@ class MonomerGenerationArgs(IFactoryArgument):
         self.arg_producer = argument_producers.NullArgProducer()
 
 
-class PeptideGenerationArgs(IFactoryArgument):
+class TestPeptideGenerationArgs(IFactoryArgument):
 
     def __init__(self):
 
-        self.handler = data_handlers.PGDataHandler()
+        self.handler = data_handlers.TestPGDataHandler()
         self.generator = generators.PeptideGenerator()
         self.arg_producer = argument_producers.TestPeptideGeneratorArgProducer()
+
+
+class PublicationPeptideGenerationArgs(IFactoryArgument):
+
+    def __init__(self):
+
+        self.handler = data_handlers.PublicationPGDataHandler(peptide_length=3)
+        self.generator = generators.PeptideGenerator()
+        self.arg_producer = argument_producers.PeptideGeneratorArgProducer()
 
 
 class TemplatePeptideGenerationArgs(IFactoryArgument):

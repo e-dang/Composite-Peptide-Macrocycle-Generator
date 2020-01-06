@@ -17,7 +17,7 @@ class PeptidePublicationPlanner(IPlanner):
 
     def __init__(self, monomer_io, peptide_length, num_peptides):
         self.monomers = monomer_io.load()
-        self.saver = project_io.PeptidePlannerIO()
+        self.saver = project_io.PeptidePlannerIO(peptide_length)
         self.peptide_length = peptide_length
         self.num_peptides = num_peptides
         self.monomer_combinations = set()

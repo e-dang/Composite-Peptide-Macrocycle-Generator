@@ -3,6 +3,9 @@ from collections import defaultdict
 from itertools import product
 from random import sample
 
+import config
+import project_io
+
 
 class IArgumentProducer(ABC):
 
@@ -39,12 +42,18 @@ class TestPeptideGeneratorArgProducer(IArgumentProducer):
 
 class PeptideGeneratorArgProducer(IArgumentProducer):
 
-    def __init__(self, monomer_io):
+    def __init__(self, data_format=config.DATA_FORMAT):
+        if data_format == 'json':
+            monomer_io = project_io.JsonMonomerIO()
+        elif data_format == 'mongo':
+            monomer_io = project_io.MongoMonomerIO()
+
         self.monomers = sorted(list(monomer_io.load()), key=lambda x: x['index'])
 
     def __call__(self, data):
 
         for monomer_idxs in data:
+            monomer_idxs = map(int, monomer_idxs.strip('\n').split(','))
             yield [self.monomers[monomer_idx - 1] for monomer_idx in monomer_idxs]
 
 
