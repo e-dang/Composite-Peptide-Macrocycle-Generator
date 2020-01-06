@@ -135,9 +135,9 @@ def regiosqm_filter(original_func):
         data = []
         for original_result in original_func(*args, **kwargs):
             if original_result['type'] in ('friedel_crafts', 'pictet_spangler'):  # filter is applicable
-                sidechain = original_result['sidechain']
+                reacting_mol = original_result['reacting_mol']
                 rxn_atom = original_result['rxn_atom_idx']
-                if rxn_atom in predictions[sidechain]:  # the reaction is predicted by RegioSQM
+                if rxn_atom in predictions[reacting_mol]:  # the reaction is predicted by RegioSQM
                     data.append(original_result)
             else:  # filter is not applicable to this type of reaction
                 data.append(original_result)
@@ -158,7 +158,7 @@ def pka_filter(original_func):
         data = []
         for original_result in original_func(*args, **kwargs):
             if original_result['type'] == 'tsuji_trost':  # filter is applicable
-                pkas = predictions[original_result['sidechain']]
+                pkas = predictions[original_result['reacting_mol']]
                 rxn_atom = original_result['rxn_atom_idx']
                 if pkas[str(rxn_atom)] < cutoff and pkas[str(rxn_atom)] > 0:  # reaction is predicted by pKa filter
                     data.append(original_result)

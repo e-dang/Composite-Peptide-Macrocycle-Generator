@@ -96,7 +96,7 @@ class MonomerGenerator(IGenerator):
         self.monomers = {}
         self.sidechain = args
         sidechain = Chem.Mol(self.sidechain['binary'])
-        required = bool(list(sidechain.GetAromaticAtoms()))
+        required = bool(AllChem.CalcNumAromaticRings(sidechain))
 
         # find candidate attachment point at terminal end of alkyl chains
         matches = sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3;!13CH3]'))
@@ -286,6 +286,7 @@ class MacrocycleGenerator(IGenerator):
         self.reactant, self.reactions = args
         reactants = [Chem.Mol(self.reactant['binary'])]
         rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in self.reactions]
+        # rxns = [(AllChem.ChemicalReaction(reaction['binary']), reaction['type']) for reaction in self.reactions]
 
         for rxn in rxns:
             self.macrocycles = {}
@@ -302,6 +303,8 @@ class MacrocycleGenerator(IGenerator):
                         if atom.GetIsAromatic():
                             atom.SetProp('_protected', '1')
                     self.macrocycles[macrocycle.ToBinary()] = macrocycle
+            # if rxn_type in ('pictet_spangler', 'template_pictet_spangler', 'unmasked_aldehyde_cyclization') and len(list(self.macrocycles.values())) == 0:
+            #     continue
             reactants = list(self.macrocycles.values())
 
         self.macrocycles = {}  # final results at this point are stored in reactants variable
@@ -347,8 +350,8 @@ class UniMolecularReactionGenerator(IGenerator):
 
     def generate(self, args):
 
-        self.mol, self.reaction = args
-        self.reaction(self.mol)
+        self.reacting_mol, self.reaction = args
+        self.reaction(self.reacting_mol)
         if self.reaction:
             self.reaction.create_reaction()
             return self.format_data()
@@ -357,41 +360,41 @@ class UniMolecularReactionGenerator(IGenerator):
 
     def format_data(self):
 
-        data = [{'_id': self.mol.name + self.reaction.name[:2],
+        data = [{'_id': self.reacting_mol.name + self.reaction.name[:2],
                  'type': self.reaction.name,
                  'binary': self.reaction.binary,
                  'smarts': self.reaction.smarts,
-                 'template': self.mol.name}]
+                 'template': self.reacting_mol.name}]
 
         return data
 
 
 class BiMolecularReactionGenerator(IGenerator):
 
-    SIDECHAIN_EAS_MAP_NUM = reactions.IReaction.SIDECHAIN_EAS_MAP_NUM
+    REACTING_MOL_EAS_MAP_NUM = reactions.IReaction.REACTING_MOL_EAS_MAP_NUM
 
     @decorators.pka_filter
     @decorators.regiosqm_filter
     def generate(self, args):
 
         self.reactions = {}
-        self.sidechain, self.reaction = args
-        sidechain = Chem.MolFromSmiles(self.sidechain['kekule']) # need to do this since filter predictions are based on
-                                                                 # atom indices and binary doesn't maintain the same
-                                                                 # order
+        self.reacting_mol, self.reaction = args
+        reacting_mol = Chem.MolFromSmiles(self.reacting_mol['kekule']) # need to do this since filter predictions are
+                                                                       # based on atom indices and binary doesn't
+                                                                       # maintain the same order
 
         # get non-symmetric atoms
-        unique_pairs = map(set, zip(*sidechain.GetSubstructMatches(sidechain, uniquify=False)))
-        Chem.Kekulize(sidechain) # have to kekulize after substruct match...
+        unique_pairs = map(set, zip(*reacting_mol.GetSubstructMatches(reacting_mol, uniquify=False)))
+        Chem.Kekulize(reacting_mol) # have to kekulize after substruct match...
         sorted_unique_pairs = map(sorted, map(list, unique_pairs))
         reduced_pairs = set(tuple(pair) for pair in sorted_unique_pairs)
-        non_symmetric_atom_idxs = [sidechain.GetAtomWithIdx(pair[0]) for pair in reduced_pairs]
+        non_symmetric_atom_idxs = [reacting_mol.GetAtomWithIdx(pair[0]) for pair in reduced_pairs]
 
         # create reactions
         for atom in non_symmetric_atom_idxs:
-            atom.SetAtomMapNum(self.SIDECHAIN_EAS_MAP_NUM)
+            atom.SetAtomMapNum(self.REACTING_MOL_EAS_MAP_NUM)
             for template in utils.get_templates():
-                self.reaction(deepcopy(sidechain), template, atom)
+                self.reaction(deepcopy(reacting_mol), template, atom)
                 if self.reaction:
                     self.reaction.create_reaction()
                     self.reactions[self.reaction.smarts] = (self.reaction.binary, atom.GetIdx(),
@@ -405,12 +408,14 @@ class BiMolecularReactionGenerator(IGenerator):
 
         data = []
         for i, (smarts, (binary, rxn_atom_idx, rxn_type, template)) in enumerate(self.reactions.items()):
-            data.append({'_id': self.sidechain['_id'] + str(i) + rxn_type[:2],
+            reacting_mol_id = self.reacting_mol['shared_id'] if self.reacting_mol['type'] == 'sidechain' \
+                                else self.reacting_mol['_id']
+            data.append({'_id': self.reacting_mol['_id'] + str(i) + rxn_type[:2],
                          'type': rxn_type,
                          'binary': binary,
                          'smarts': smarts,
                          'rxn_atom_idx': rxn_atom_idx,
                          'template': template,
-                         'sidechain': self.sidechain['shared_id']})
+                         'reacting_mol': reacting_mol_id})
 
         return data
