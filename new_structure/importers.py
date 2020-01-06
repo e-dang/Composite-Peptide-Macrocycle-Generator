@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from rdkit import Chem
-from rdkit.Chem import Draw
+from rdkit.Chem import AllChem
 import config
 import iterators
 import project_io
@@ -89,18 +89,21 @@ class MonomerImporter(IImporter):
     def import_data(self):
 
         data = []
+        patt = Chem.MolFromSmarts('[NH;R]')
         for monomer in self.loader.load():
             binary = monomer.ToBinary()
             monomer = Chem.MolFromSmiles(Chem.MolToSmiles(monomer))  # canonicalize
+            proline = bool(AllChem.CalcNumAliphaticRings(monomer)) and monomer.HasSubstructMatch(patt)
             Chem.Kekulize(monomer)
             data.append({'_id': self.id_iterator.get_next().upper(),
                          'type': 'monomer',
                          'binary': binary,
                          'kekule': Chem.MolToSmiles(monomer, kekuleSmiles=True),
                          'index': self.index_iterator.get_next(),
-                         'required': False,
+                         'required': bool(AllChem.CalcNumAromaticRings(monomer)),
                          'backbone': 'alpha',
-                         'sidechain': None})
+                         'sidechain': None,
+                         'proline': proline})
 
         self.saver.save(data)
         self.index_iterator.save()
