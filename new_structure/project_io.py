@@ -54,7 +54,7 @@ class PeptidePlannerIO(IOInterface):
 class RawRegioSQMIO(IOInterface):
 
     _RESULT_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_results_nm_3.csv')
-    _SMILES_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_sidechains.smiles')
+    _SMILES_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_mols.smiles')
 
     def load(self):
 
@@ -64,8 +64,8 @@ class RawRegioSQMIO(IOInterface):
     def save(self, data):
 
         with open(self._SMILES_FILEPATH, 'w') as file:
-            for sidechain in data:
-                file.write(sidechain['_id'] + ' ' + sidechain['kekule'] + '\n')
+            for mol in data:
+                file.write(mol['_id'] + ' ' + mol['kekule'] + '\n')
 
 
 class RawpKaIO(IOInterface):
@@ -79,8 +79,8 @@ class RawpKaIO(IOInterface):
     def save(self, data):
 
         with open(self._FILEPATH, 'w') as file:
-            for sidechain_id, kekule in data:
-                file.write(sidechain_id + '; ' + kekule + '; ' + '\n')
+            for mol_id, kekule in data:
+                file.write(mol_id + '; ' + kekule + '; ' + '\n')
 
 
 class ChemDrawIO(IOInterface):

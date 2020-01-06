@@ -87,10 +87,14 @@ def create_regiosqm_smiles_file():
 
     if config.DATA_FORMAT == 'json':
         sidechain_io = project_io.JsonSideChainIO()
+        monomer_io = project_io.JsonMonomerIO()
     elif config.DATA_FORMAT == 'mongo':
         sidechain_io = project_io.MongoSideChainIO()
+        monomer_io = project_io.MongoMonomerIO()
 
-    project_io.RawRegioSQMIO().save(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
+    data = list(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
+    data.append(list(filter(lambda x: x['required'], monomer_io.load())))
+    project_io.RawRegioSQMIO().save(data)
 
 
 def create_pka_smiles_file():
