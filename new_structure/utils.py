@@ -83,6 +83,13 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
     return Chem.MolFromSmiles(Chem.MolToSmiles(combo))
 
 
+def find_atom(mol, atom_map_num):
+
+    for atom in mol.GetAtoms():
+        if atom.GetAtomMapNum() == atom_map_num:
+            return atom
+
+
 def create_regiosqm_smiles_file():
 
     if config.DATA_FORMAT == 'json':
