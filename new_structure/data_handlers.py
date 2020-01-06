@@ -211,14 +211,18 @@ class BMRGDataHandler(IDataHandler):
         self._reactions = utils.get_bimolecular_reactions()
         if data_format == 'json':
             self._sidechain_loader = project_io.JsonSideChainIO()
+            self._monomer_loader = project_io.JsonMonomerIO()
             self._reaction_saver = project_io.JsonReactionIO()
         elif data_format == 'mongo':
             self._sidechain_loader = project_io.MongoSideChainIO()
+            self._monomer_loader = project_io.MongoMonomerIO()
             self._reaction_saver = project_io.MongoReactionIO()
 
     def load(self):
 
-        return list(filter(lambda x: x['connection'] == 'methyl', self._sidechain_loader.load())), self._reactions
+        reacting_mols = list(filter(lambda x: x['connection'] == 'methyl', self._sidechain_loader.load()))
+        reacting_mols.extend(list(filter(lambda x: x['required'], self._monomer_loader.load())))
+        return reacting_mols, self._reactions
 
     def save(self, data):
 
