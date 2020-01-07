@@ -1,753 +1,710 @@
-
-import multiprocessing
-from collections import namedtuple
-from copy import deepcopy
-from itertools import chain, product
-from logging import INFO
-
+from abc import ABC, abstractmethod
+import molecules
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
-
-import macrocycles.config as config
-import macrocycles.utils as utils
-
-LOGGER = utils.create_logger(__name__, INFO)
-
-
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
-
-ReactionInfo = namedtuple('ReactionInfo', 'binary rxn_atom_idx type')
+from itertools import chain
+import utils
+from copy import deepcopy
+import exceptions
 
 
-class Reaction():
+class IReaction(ABC):
 
-    def __init__(self, validation, product_generator, name, reacting_atom, *reactants):
+    TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM  # 1
+    TEMPLATE_EAS_MAP_NUM = molecules.ITemplateMol.EAS_CARBON_MAP_NUM  # 2
+    SIDECHAIN_OLIGOMERIZATION_MAP_NUM = 3
+    REACTING_MOL_EAS_MAP_NUM = 4
+    BACKBONE_CARBOXYL_MAP_NUM = 5
+    BACKBONE_NITROGEN_MAP_NUM = 6
 
-        self.validation = validation
-        self.product_generator = product_generator
-        self.name = name
-        self.reacting_atom = reacting_atom
-        self.reactants = reactants
-        self.valid = False
+    @abstractmethod
+    def __call__(self):
+        pass
 
-    def __repr__(self):
-        name = f'name: {self.name}'
-        reactants = f'reactants: {[Chem.MolToSmiles(reactant) for reactant in self.reactants]}'
-        prod = f'product: {Chem.MolToSmiles(self.product)}'
-        return '\n'.join([name, reactants, prod])
+    @property
+    @abstractmethod
+    def name(self):
+        pass
 
-    def __str__(self):
-        if self.product is None:
-            return None
+    @property
+    @abstractmethod
+    def type(self):
+        pass
 
-        reactants = [Chem.MolToSmiles(reactant) for reactant in self.reactants]
-        return '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(self.product)
+    @property
+    @abstractmethod
+    def applicable_template(self):
+        pass
+
+    @abstractmethod
+    def validate(self):
+        pass
+
+    @abstractmethod
+    def create_reaction(self):
+        pass
+
+    @abstractmethod
+    def create_product(self):
+        pass
 
     def __bool__(self):
-        return self.validation()
-
-    @property
-    def product(self):
-        try:
-            return self.cached_product  # pylint: disable=access-member-before-definition
-        except AttributeError:
-            pass
-
-        if self:
-            self.cached_product = self.product_generator()
-            return self.cached_product
-
-        self.cached_product = None
-        return self.cached_product
-
-    @property
-    def reaction(self):
-        if self.product is None:
-            return None
-
-        return AllChem.ReactionFromSmarts(str(self))
+        return self.valid
 
     @property
     def binary(self):
         return self.reaction.ToBinary()
 
+    def create_reaction_smarts(self, reactants, product):
+
+        reactants = [Chem.MolToSmiles(reactant) for reactant in reactants]
+        self.smarts = '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product)
+        self.reaction = AllChem.ReactionFromSmarts(self.smarts)
+
+    def reset(self):
+        self.reacting_atom = None
+        self.template = None
+        self.product = None
+        self.reaction = None
+        self.smarts = None
+        self.valid = None
+
+
+class AbstractUniMolecularReaction(IReaction):
+
+    CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
+    OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
+
     @property
-    def data(self):
-        if self.product is None:
-            return None
+    def type(self):
+        return 'unimolecular'
 
-        return ReactionInfo(self.binary, self.reacting_atom.GetIdx(), self.name)
 
-    def sc_attach_adjacent_N(self, carboxyl_map_num, nitrogen_map_num, clear_map_nums=True):
+class AbstractBiMolecularReaction(IReaction):
 
-        # get side_chain and backbone
-        side_chain = self.reactants[0]
-        db = utils.MongoDataBase(logger=None)
-        backbone = Chem.Mol(db['molecules'].find_one({'_id': 'alpha'})['binary'])
+    BACKBONE_OLIGOMERIZATION_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM  # 1
+    C_TERM_WILDCARD_MAP_NUM = 52
+    N_TERM_WILDCARD_MAP_NUM = 53
 
-        # tag backbone nitrogen and remove carboxyl group
-        backbone = AllChem.ReplaceSubstructs(backbone, Chem.MolFromSmarts(
-            'C(=O)O'), Chem.MolFromSmarts(f'[*:{carboxyl_map_num}]'))[0]
-        for atom in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
-            atom = backbone.GetAtomWithIdx(atom)
+    def initialize(self, reacting_mol, template, reacting_atom):
+        self.reacting_mol = reacting_mol
+        self.template = Chem.MolFromSmiles(template)
+        self.reacting_atom = reacting_atom
+
+    @property
+    def type(self):
+        return 'bimolecular'
+
+    def reset(self):
+        self.reacting_mol = None
+        self.is_monomer = False
+        self.is_sidechain = False
+        super().reset()
+
+    def determine_reacting_mol_type(self):
+
+        backbones = map(Chem.MolFromSmarts, [backbone.kekule for backbone in utils.get_backbones()])
+        for backbone in backbones:
+            if self.reacting_mol.HasSubstructMatch(backbone):
+                self.is_monomer = True
+                return
+
+        self.is_sidechain = True
+
+    def tag_sidechain_connection_atom(self, change_to_wildcard=True):
+
+        matches = self.reacting_mol.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+        for atom_idx in chain.from_iterable(matches):
+            atom = self.reacting_mol.GetAtomWithIdx(atom_idx)
+            if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
+                atom.SetIsotope(0)
+            else:
+                atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+                if change_to_wildcard:
+                    utils.atom_to_wildcard(atom)
+
+    def tag_monomer_connection_atom(self):
+
+        n_term_patt1 = Chem.MolFromSmarts('[NH2]')  # regular amino acid backbone type
+        n_term_patt2 = Chem.MolFromSmarts('[NH;R]')  # proline backbone type
+        c_term_patt = Chem.MolFromSmarts('C(=O)[OH]')
+        n_term_replacement1 = Chem.MolFromSmarts(
+            f'[NH1:{self.BACKBONE_NITROGEN_MAP_NUM}][*:{self.N_TERM_WILDCARD_MAP_NUM}]')
+        n_term_replacement2 = Chem.MolFromSmarts(
+            f'[N;R{self.BACKBONE_NITROGEN_MAP_NUM}][*:{self.N_TERM_WILDCARD_MAP_NUM}]')
+        c_term_replacement = Chem.MolFromSmarts(
+            f'[C:{self.BACKBONE_CARBOXYL_MAP_NUM}](=O)[*:{self.C_TERM_WILDCARD_MAP_NUM}]')
+
+        # if reacting_mol doesnt have the specified pattern, ReplaceSubstracts() returns the mol unmodified
+        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, n_term_patt1, n_term_replacement1)[0]
+        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, n_term_patt2, n_term_replacement2)[0]
+        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, c_term_patt, c_term_replacement)[0]
+
+    def create_monomer(self):
+
+        # get modified backbone
+        backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
+
+        # tag n-terminus nitrogen for oligomerization
+        for atom_idx in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
+            atom = backbone.GetAtomWithIdx(atom_idx)
             if atom.GetSymbol() == 'N':
-                atom.SetAtomMapNum(nitrogen_map_num)
+                atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
                 break
 
-        # create monomer with side_chain adjacent to nitrogen
-        ignored_map_nums = [config.SC_EAS_MAP_NUM, nitrogen_map_num, carboxyl_map_num]
-        return utils.Base.merge(side_chain, backbone, ignored_map_nums=ignored_map_nums, clear_map_nums=clear_map_nums)
-
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
+        # create monomer
+        map_nums = (self.BACKBONE_OLIGOMERIZATION_MAP_NUM, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+        return utils.connect_mols(self.reacting_mol, backbone, map_nums=map_nums)
 
 
-class FriedelCafts(Reaction):
+# class AbstractBMSideChainReaction(AbstractBiMolecularReaction):
 
-    def __init__(self, side_chain, template, reacting_atom):
+#     @property
+#     def type(self):
+#         return super().type + '_sidechain_reaction'
 
-        super().__init__(self.is_valid, self.generate_product, 'friedel_crafts', reacting_atom, side_chain, template)
+#     def tag_connection_atom(self):
 
-    def is_valid(self):
-
-        if self.valid:
-            return True
-
-        if self.reacting_atom.GetSymbol() == 'C' \
-                and self.reacting_atom.GetTotalNumHs() != 0 \
-                and self.reacting_atom.GetIsAromatic():
-            self.preprocess()
-            return True
-
-        return False
-
-    def preprocess(self):
-        self.reactants = [self.reactants[0], Chem.MolFromSmarts(
-            f'[*:{config.TEMP_WILDCARD_MAP_NUM}]/C=C/[CH3:{config.TEMP_EAS_MAP_NUM}]')]
-
-    def generate_product(self):
-        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.SC_WILDCARD_MAP_NUM]
-        return utils.Base.merge(*self.reactants, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
-
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
+#         matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+#         for atom_idx in chain.from_iterable(matches):
+#             atom = self.sidechain.GetAtomWithIdx(atom_idx)
+#             if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
+#                 atom.SetIsotope(0)
+#             else:
+#                 atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+#                 utils.atom_to_wildcard(atom)
 
 
-class TsujiTrost(Reaction):
+# class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
 
-    def __init__(self, side_chain, template, reacting_atom):
+#     BACKBONE_OLIGOMERIZATION_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM  # 1
+#     BACKBONE_CARBOXYL_MAP_NUM = 5
+#     BACKBONE_NITROGEN_MAP_NUM = 6
 
-        super().__init__(self.is_valid, self.generate_product, 'tsuji_trost', reacting_atom, side_chain, template)
+#     @abstractmethod
+#     def create_reactant(self):
+#         pass
 
-    def is_valid(self):
-        if self.valid:
-            return True
+#     @property
+#     def type(self):
+#         return super().type + '_monomer_reaction'
 
-        if self.reacting_atom.GetSymbol() in ['N', 'O', 'S'] and self.reacting_atom.GetTotalNumHs() > 0:
-            self.preprocess()
-            return True
+#     def tag_connection_atom(self):
 
-        return False
+#         matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+#         for atom_idx in chain.from_iterable(matches):
+#             atom = self.sidechain.GetAtomWithIdx(atom_idx)
+#             if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
+#                 atom.SetIsotope(0)
+#             else:
+#                 atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
 
-    def preprocess(self):
-        self.reactants = [self.reactants[0], Chem.MolFromSmarts(
-            f'[*:{config.TEMP_WILDCARD_MAP_NUM}]/C=C/[CH3:{config.TEMP_EAS_MAP_NUM}]')]
+#     def create_monomer(self):
 
-    def generate_product(self):
-        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.SC_WILDCARD_MAP_NUM]
-        return utils.Base.merge(*self.reactants, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+#         # get modified backbone
+#         backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
 
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
+#         # tag n-terminus nitrogen for oligomerization
+#         for atom_idx in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
+#             atom = backbone.GetAtomWithIdx(atom_idx)
+#             if atom.GetSymbol() == 'N':
+#                 atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
+#                 break
+
+#         # create monomer
+#         map_nums = (self.BACKBONE_OLIGOMERIZATION_MAP_NUM, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+#         return utils.connect_mols(self.sidechain, backbone, map_nums=map_nums)
 
 
-class PictetSpangler(Reaction):
-    CARBON_PS_MAP_NUM = 5
-    CARBON_PEP_MAP_NUM = 6
-    NITROGEN_PS_MAP_NUM = 7
-    OXYGEN_PS_MAP_NUM = 8
-    C_TERM_WILDCARD_MAP_NUM = 9
-    ALKYN_WILDCARD_MAP_NUM = 10
+class FriedelCrafts(AbstractBiMolecularReaction):
 
-    def __init__(self, side_chain, template, reacting_atom):
+    def __call__(self, reacting_mol, template, reacting_atom):
+        try:
+            self.reset()
+            super().initialize(reacting_mol, template.friedel_crafts_kekule, reacting_atom)
+            self.validate()
+        except AttributeError:  # template doesn't have a friedel_crafts_kekule
+            self.valid = False
 
-        super().__init__(self.is_valid, self.generate_product, 'pictet_spangler', reacting_atom, side_chain, template)
+    @property
+    def name(self):
+        return 'friedel_crafts'
 
-    def is_valid(self):
-        if self.valid:
-            return True
+    @property
+    def applicable_template(self):
+        return 'all'
 
-        side_chain, template = self.reactants
+    def validate(self):
 
-        # check reacting atom is aromatic carbon
+        # check if reacting atom is valid
+        if self.reacting_atom.GetSymbol() != 'C' \
+                or self.reacting_atom.GetTotalNumHs() == 0 \
+                or not self.reacting_atom.GetIsAromatic():
+            self.valid = False
+            return
+
+        # check template reaction kekule has propylene substructure
+        if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
+            raise exceptions.InvalidMolecule(
+                'The provided template must have a propylene substructure to participate in a friedel crafts reaction')
+
+        self.valid = True
+
+    def create_reaction(self):
+        self.determine_reacting_mol_type()
+        if self.is_sidechain:
+            self.tag_sidechain_connection_atom()
+        elif self.is_monomer:
+            self.tag_monomer_connection_atom()
+        else:
+            raise exceptions.UnIdentifiedMolType('Unable to determine whether the reacting molecule '
+                                                 f'{Chem.MolToSmiles(self.reacting_mol)} is a sidechain or a monomer')
+        self.create_product()
+        self.create_reaction_smarts([self.reacting_mol, self.template], self.product)
+
+    def create_product(self):
+        map_nums = (self.REACTING_MOL_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM)
+        self.product = utils.connect_mols(self.reacting_mol, self.template, map_nums=map_nums, clear_map_nums=False)
+
+
+class TsujiTrost(AbstractBiMolecularReaction):
+
+    def __call__(self, reacting_mol, template, reacting_atom):
+        try:
+            self.reset()
+            super().initialize(reacting_mol, template.tsuji_trost_kekule, reacting_atom)
+            self.validate()
+        except AttributeError:  # doesn't have tsuji_trost_kekule attribute
+            self.valid = False
+
+    @property
+    def name(self):
+        return 'tsuji_trost'
+
+    @property
+    def applicable_template(self):
+        return 'all'
+
+    def validate(self):
+
+        # check if reacting atom is valid
+        if self.reacting_atom.GetSymbol() not in ['N', 'O', 'S'] \
+                or self.reacting_atom.GetTotalNumHs() == 0:
+            self.valid = False
+            return
+
+        # check template reaction kekule has propylene substructure
+        if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
+            raise exceptions.InvalidMolecule(
+                'The provided template must have a propylene substructure to participate in a tsuji trost reaction')
+
+        self.valid = True
+
+    def create_reaction(self):
+        self.determine_reacting_mol_type()
+        if self.is_sidechain:
+            self.tag_sidechain_connection_atom()
+        elif self.is_monomer:
+            self.tag_monomer_connection_atom()
+        else:
+            raise exceptions.UnIdentifiedMolType('Unable to determine whether the reacting molecule '
+                                                 f'{Chem.MolToSmiles(self.reacting_mol)} is a sidechain or a monomer')
+        self.create_product()
+        self.create_reaction_smarts([self.reacting_mol, self.template], self.product)
+
+    def create_product(self):
+
+        map_nums = [self.REACTING_MOL_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM]
+        self.product = utils.connect_mols(self.reacting_mol, self.template, map_nums=map_nums, clear_map_nums=False)
+
+
+class PictetSpangler(AbstractBiMolecularReaction):
+
+    TEMPLATE_CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
+    TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
+
+    def __call__(self, reacting_mol, template, reacting_atom):
+        try:
+            self.reset()
+            super().initialize(reacting_mol, template.pictet_spangler_kekule, reacting_atom)
+            self.template_name = template.name
+            self.determine_reacting_mol_type()
+            self.validate()
+        except AttributeError:  # doesn't have pictet_spangler_kekule attribute
+            self.valid = False
+
+    @property
+    def name(self):
+        return 'pictet_spangler'
+
+    @property
+    def applicable_template(self):
+        return self.template_name
+
+    def validate(self):
+
+        # check reacting atom is aromatic carbon with at least one hydrogen
         if not self.reacting_atom.GetIsAromatic() \
                 or self.reacting_atom.GetSymbol() != 'C' \
                 or self.reacting_atom.GetTotalNumHs() == 0:
-            return False
+            self.valid = False
+            return
 
-        # check that attachment point of side_chain is two atoms away from reacting atom
-        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
-        paths = Chem.FindAllPathsOfLengthN(side_chain, 3, useBonds=False, rootedAtAtom=self.reacting_atom.GetIdx())
-        atoms = set().union([atom for path in paths for atom in path])
-        if wild_card.GetIdx() not in atoms - set(atom.GetIdx() for atom in wild_card.GetNeighbors()):
-            return False
+        if self.is_sidechain:  # check that attachment point of sidechain is two atoms away from reacting atom
+            self.tag_sidechain_connection_atom(change_to_wildcard=False)
+            connection_atom = utils.find_atom(self.reacting_mol, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+            paths = Chem.FindAllPathsOfLengthN(self.reacting_mol, 3, useBonds=False,
+                                               rootedAtAtom=self.reacting_atom.GetIdx())
+            atoms = set().union([atom for path in paths for atom in path])
+            if connection_atom.GetIdx() not in atoms - set(atom.GetIdx() for atom in connection_atom.GetNeighbors()):
+                self.valid = False
+                return
+
+        if self.is_monomer:  # check that reacting atom is 4 atoms away from n-terminus
+            self.tag_monomer_connection_atom()
+            n_term_atom = utils.find_atom(self.reacting_mol, self.BACKBONE_NITROGEN_MAP_NUM)
+            paths = Chem.FindAllPathsOfLengthN(self.reacting_mol, 5, useBonds=False,
+                                               rootedAtAtom=self.reacting_atom.GetIdx())
+            atoms = set().union([atom for path in paths for atom in path])
+            if n_term_atom.GetIdx() not in atoms - set(atom.GetIdx() for atom in n_term_atom.GetNeighbors()):
+                self.valid = False
+                return
 
         # check that template has unmasked aldehyde (this aldehyde will participate in pictet spangler)
-        match = template.GetSubstructMatch(Chem.MolFromSmarts('C(=O)'))
-        if not match:
-            return False
+        if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C(=O)')):
+            raise exceptions.InvalidMolecule(
+                'The provided template must have an aldehyde to participate in a pictet spangler reaction')
 
-        self.preprocess(wild_card, match)
         self.valid = True
-        return True
 
-    def preprocess(self, wild_card, substruct_match):
-        monomers = self.modify_side_chain(wild_card)
-        template = self.modify_template(substruct_match)
-        self.create_reactant(monomers, template)
+    def create_reaction(self):
+        self.create_reactant()
+        self.create_product()
+        self.create_reaction_smarts([self.reactant], self.product)
 
-    def modify_side_chain(self, wild_card):
+    def create_reactant(self):
 
-        # change side_chain wild_card back to carbon
-        wild_card.SetAtomicNum(6)
+        map_nums = (self.TEMPLATE_OLIGOMERIZATION_MAP_NUM, self.BACKBONE_NITROGEN_MAP_NUM)
 
-        # create monomer
-        return super().sc_attach_adjacent_N(self.C_TERM_WILDCARD_MAP_NUM, self.NITROGEN_PS_MAP_NUM)
+        if self.is_sidechain:
+            monomer = super().create_monomer()
+            self.reactant = utils.connect_mols(monomer, self.template, map_nums=map_nums, clear_map_nums=False)
+        else:
+            # remove wildcard atom attached to n-terminus added in call to tag_monomer_connection_atom()
+            wildcard_atom = utils.find_atom(self.reacting_atom, self.N_TERM_WILDCARD_MAP_NUM)
+            self.reacting_mol = Chem.RWMol(self.reacting_mol)
+            self.reacting_mol.RemoveAtom(wildcard_atom.GetIdx())
 
-    def modify_template(self, substruct_match):
-        template = self.reactants[1]
+            # connect template to monomer
+            self.reactant = utils.connect_mols(self.reacting_mol, self.template,
+                                               map_nums=map_nums, clear_map_nums=False)
 
-        # tag substruct match in template
-        for atom in substruct_match:
-            atom = template.GetAtomWithIdx(atom)
-            if atom.GetSymbol() == 'C':
-                atom.SetAtomMapNum(self.CARBON_PS_MAP_NUM)
-            elif atom.GetSymbol() == 'O':
-                atom.SetAtomMapNum(self.OXYGEN_PS_MAP_NUM)
+    def create_product(self):
 
-        # change wild card atom to carbonyl
-        unique = set()
-        rxn = AllChem.ReactionFromSmarts('[#0:1][*:2]>>[C:1](=O)[*:2]')
-        for prod in chain.from_iterable(rxn.RunReactants((template,))):
-            Chem.SanitizeMol(prod)
-            unique.add(prod.ToBinary())
+        reactant = Chem.RWMol(self.reactant)  # copy of reactant molecule that will be transformed into product
 
-        # set atom map number of peptide carbonyl
-        template = Chem.Mol(unique.pop())
-        for atom in chain.from_iterable(template.GetSubstructMatches(Chem.MolFromSmarts('C(=O)'))):
-            atom = template.GetAtomWithIdx(atom)
-            if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() != self.CARBON_PS_MAP_NUM:
-                atom.SetAtomMapNum(self.CARBON_PEP_MAP_NUM)
-
-        # change cinnamoyl unit to wildcard
-        unique = set()
-        rxn = AllChem.ReactionFromSmarts(
-            f'C/C=C/c1cc[$(c(F)),$(c)]c([*:{config.TEMP_EAS_MAP_NUM}])c1>>*[*:{config.TEMP_EAS_MAP_NUM}]')
-        for prod in chain.from_iterable(rxn.RunReactants((template,))):
-            Chem.SanitizeMol(prod)
-            unique.add(prod.ToBinary())
-
-        # tag new wildcard atom
-        template = Chem.Mol(unique.pop())
-        for atom in template.GetAtoms():
-            if atom.GetAtomicNum() == 0:
-                atom.SetAtomMapNum(config.TEMP_EAS_MAP_NUM)
+        # reset atom map number on the INSTANCE VARIABLE reactant
+        for atom in self.reactant.GetAtoms():
+            if atom.GetAtomMapNum() == self.TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM:
+                atom.SetAtomMapNum(0)
                 break
 
-        # change alkyne to anther wildcard
-        wild_card2 = Chem.MolFromSmarts(f'[*:{self.ALKYN_WILDCARD_MAP_NUM}]')
-        alkyne = Chem.MolFromSmarts('C#C')
-        template = AllChem.ReplaceSubstructs(template, alkyne, wild_card2)[0]
-
-        return template
-
-    def create_reactant(self, monomer, template):
-
-        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, config.SC_EAS_MAP_NUM, self.C_TERM_WILDCARD_MAP_NUM,
-                            self.CARBON_PS_MAP_NUM, self.OXYGEN_PS_MAP_NUM, self.ALKYN_WILDCARD_MAP_NUM]
-        self.reactants = [utils.Base.merge(monomer, template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)]
-
-    def generate_product(self):
-        reactant = Chem.RWMol(self.reactants[0])
-
-        # reset atom map number on reactant
-        for atom in self.reactants[0].GetAtoms():
-            if atom.GetAtomMapNum() == self.OXYGEN_PS_MAP_NUM:
-                atom.SetAtomMapNum(0)
-
-        # remove oxygen from unmasked aldehyde
+        # remove oxygen from unmasked aldehyde on LOCAL VARIABLE reactant
         for atom in list(reactant.GetAtoms()):
-            if atom.GetAtomMapNum() == self.OXYGEN_PS_MAP_NUM:
+            if atom.GetAtomMapNum() == self.TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM:
                 reactant.RemoveAtom(atom.GetIdx())
                 break
 
-        # create bond between side_chain EAS carbon and unmasked aldehyde carbon
-        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, self.CARBON_PEP_MAP_NUM, self.ALKYN_WILDCARD_MAP_NUM,
-                            self.NITROGEN_PS_MAP_NUM, self.C_TERM_WILDCARD_MAP_NUM]
-        reactant = utils.Base.merge(reactant, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+        # create bond between sidechain EAS carbon and unmasked aldehyde carbon
+        map_nums = (self.REACTING_MOL_EAS_MAP_NUM, self.TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
+        reactant = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
 
         # create bond between peptide nitrogen and unmasked aldehyde carbon
-        ignored_map_nums = [config.TEMP_EAS_MAP_NUM, config.SC_EAS_MAP_NUM, self.ALKYN_WILDCARD_MAP_NUM,
-                            self.CARBON_PEP_MAP_NUM, self.C_TERM_WILDCARD_MAP_NUM]
-        return utils.Base.merge(reactant, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
-
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
+        self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
 
 
-class PyrroloIndolene(Reaction):
+class PyrroloIndolene(AbstractBiMolecularReaction):
 
-    ADJ_CARBON_MAP_NUM = 5
-    NITROGEN_MAP_NUM = 6
-    C_TERM_WILDCARD_MAP_NUM = 7
-    N_TERM_WILDCARD_MAP_NUM = 8
+    ADJ_CARBON_MAP_NUM = 7
 
-    def __init__(self, side_chain, template, reacting_atom):
+    def __call__(self, sidechain, template, reacting_atom):
+        try:
+            self.reset()
+            super().initialize(sidechain, template.pyrrolo_indolene_kekule, reacting_atom)
+            self.tag_connection_atom(change_to_wildcard=False)
+            self.validate()
+        except AttributeError:  # doesn't have pyrrolo_indolene_kekule attribute
+            self.valid = False
 
-        super().__init__(self.is_valid, self.generate_product, 'pyrrolo_indolene', reacting_atom, side_chain, template)
+    @property
+    def name(self):
+        return 'pyrrolo_indolene'
 
-    def is_valid(self):
-        if self.valid:
-            return True
+    @property
+    def applicable_template(self):
+        return 'all'
 
-        side_chain, template = self.reactants
+    def validate(self):
 
-        # side_chain must be an indole
-        match = side_chain.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12'))
-        if not match:
-            return False
+        # check template reaction kekule has propylene substructure
+        if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
+            raise exceptions.InvalidMolecule(
+                'The provided template must have a propylene substructure to participate in a pyrrolo-indolene reaction')
+
+        # sidechain must be an indole
+        if not self.reacting_mol.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12')):
+            self.valid = False
+            return
 
         # reaction initiated at carbon that is the attachment point to amino acid backbone, which contains no hydrogens
         if self.reacting_atom.GetTotalNumHs() != 0 or self.reacting_atom.GetSymbol() != 'C':
-            return False
+            self.valid = False
+            return
 
         # reaction also involves carbon adjacent to reacting_atom which must have a hydrogen
         if 1 not in [atom.GetTotalNumHs() for atom in self.reacting_atom.GetNeighbors()]:
-            return False
+            self.valid = False
+            return
 
         # check if carbon is the correct bridged carbon (adjacent to nitrogen)
-        wild_card = [atom for atom in side_chain.GetAtoms() if atom.GetAtomicNum() == 0][0]
-        if self.reacting_atom.GetIdx() not in [atom.GetIdx() for atom in wild_card.GetNeighbors()]:
-            return False
-
-        self.preprocess()
-        self.valid = True
-        return True
-
-    def preprocess(self):
-        side_chain = self.modify_side_chain()
-        self.reactants = [side_chain, Chem.MolFromSmarts(
-            f'[*:{config.TEMP_WILDCARD_MAP_NUM}]/C=C/[CH3:{config.TEMP_EAS_MAP_NUM}]')]
-
-    def modify_side_chain(self):
-
-        # change side_chain wild card back to carbon
-        for atom in self.reactants[0].GetAtoms():
-            if atom.GetAtomicNum() == 0:
-                atom.SetAtomicNum(6)
+        for atom in self.reacting_mol.GetAtoms():
+            if atom.GetAtomMapNum() == self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM:
+                connection_atom = atom
                 break
+        if self.reacting_atom.GetIdx() not in [atom.GetIdx() for atom in connection_atom.GetNeighbors()]:
+            self.valid = False
+            return
 
-        # get side_chain and backbone
-        side_chain = super().sc_attach_adjacent_N(self.C_TERM_WILDCARD_MAP_NUM, self.NITROGEN_MAP_NUM)
+        self.valid = True
 
-        # add wildcard atom to backbone nitrogen
-        unique = set()
-        rxn = AllChem.ReactionFromSmarts('[NH2:1][*:2]>>*[NH1:1][*:2]')
-        for prod in chain.from_iterable(rxn.RunReactants((side_chain,))):
-            Chem.SanitizeMol(prod)
-            unique.add(prod.ToBinary())
+    def create_reaction(self):
 
-        # tag new wildcard atom, peptide nitrogen, and carbon adjacent to reacting atom that has a hydrogen
-        side_chain = Chem.Mol(unique.pop())
-        for atom in side_chain.GetAtoms():
-            if atom.GetAtomMapNum() == 0 and atom.GetAtomicNum() == 0:
-                atom.SetAtomMapNum(self.N_TERM_WILDCARD_MAP_NUM)
-                neighbor = atom.GetNeighbors()[0]
-                neighbor.SetAtomMapNum(self.NITROGEN_MAP_NUM)
-            elif atom.GetAtomMapNum() == config.SC_EAS_MAP_NUM:
+        self.create_reactant()
+        self.create_product()
+        self.create_reaction_smarts([self.monomer, self.template], self.product)
+
+    def create_reactant(self):
+
+        self.monomer = super().create_monomer()
+
+        # attach a wildcard atom to n-terminus so reaction matches indole at any position in peptide chain
+        extra_atom = Chem.MolFromSmarts(f'[CH4:{self.N_TERM_WILDCARD_MAP_NUM}]')  # will be changed to wildcard
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM)
+        self.monomer = utils.connect_mols(self.monomer, extra_atom, map_nums=map_nums, clear_map_nums=False)
+
+        for atom in self.monomer.GetAtoms():
+            if atom.GetAtomMapNum() == self.N_TERM_WILDCARD_MAP_NUM:  # change methyl to wildcard
+                utils.atom_to_wildcard(atom)
+            elif atom.GetAtomMapNum() == self.REACTING_MOL_EAS_MAP_NUM:  # tag carbon adjacent to reacting atom
                 for neighbor in atom.GetNeighbors():
                     if neighbor.GetTotalNumHs() == 1 and neighbor.GetIsAromatic():
                         neighbor.SetAtomMapNum(self.ADJ_CARBON_MAP_NUM)
-                        break
 
-        return side_chain
+    def create_product(self):
 
-    def generate_product(self):
+        # copy of monomer that will be changed into product
+        monomer = deepcopy(self.monomer)
 
-        side_chain, template = deepcopy(self.reactants)
+        for atom in monomer.GetAtoms():
+            if atom.GetAtomMapNum() == self.REACTING_MOL_EAS_MAP_NUM:
+                eas_atom = atom
+            elif atom.GetAtomMapNum() == self.ADJ_CARBON_MAP_NUM:
+                adj_atom = atom
 
-        atoms = []
-        for atom in side_chain.GetAtoms():
-            if atom.GetAtomMapNum() in (config.SC_EAS_MAP_NUM, self.ADJ_CARBON_MAP_NUM):
-                atoms.append(atom)
-                if len(atoms) == 2:
-                    break
-
-        # bond between reacting_atom and adjacent atom becomes single bond
-        bond = side_chain.GetBondBetweenAtoms(atoms[0].GetIdx(), atoms[1].GetIdx())
+        # bond between eas_atom (i.e. the reacting atom) and adj_atom becomes single bond
+        bond = monomer.GetBondBetweenAtoms(eas_atom.GetIdx(), adj_atom.GetIdx())
         bond.SetBondType(Chem.BondType.SINGLE)
-        atoms[0].SetNumExplicitHs(atoms[0].GetTotalNumHs() + 1)
-        atoms[1].SetNumExplicitHs(atoms[1].GetTotalNumHs() + 1)
+        eas_atom.SetNumExplicitHs(eas_atom.GetTotalNumHs() + 1)
+        adj_atom.SetNumExplicitHs(adj_atom.GetTotalNumHs() + 1)
 
-        # merge peptide nitrogen to adj carbon
-        ignored_map_nums = [self.C_TERM_WILDCARD_MAP_NUM, config.SC_EAS_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM]
-        side_chain = utils.Base.merge(side_chain, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+        # merge backbone nitrogen to adjacent carbon
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.ADJ_CARBON_MAP_NUM)
+        reactant = utils.connect_mols(monomer, map_nums=map_nums, clear_map_nums=False)
 
-        # merge template with side_chain
-        ignored_map_nums = [self.C_TERM_WILDCARD_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM,
-                            config.TEMP_WILDCARD_MAP_NUM, self.ADJ_CARBON_MAP_NUM, self.NITROGEN_MAP_NUM]
-        return utils.Base.merge(side_chain, template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
-
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
+        # merge template with monomer
+        map_nums = (self.TEMPLATE_EAS_MAP_NUM, self.REACTING_MOL_EAS_MAP_NUM)
+        self.product = utils.connect_mols(reactant, self.template, map_nums=map_nums, clear_map_nums=False)
 
 
-class TemplateOnlyPictetSpangler(Reaction):
+class TemplatePictetSpangler(AbstractUniMolecularReaction):
 
-    NITROGEN_PS_MAP_NUM = 5
-    CARBON_PS_MAP_NUM = 6
-    ALDEHYDE_CARBON = 7
-    ALDEHYDE_OXYGEN = 8
+    REACTING_ATOM_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_REACTING_ATOM_MAP_NUM  # 9
+    NITROGEN_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_NITROGEN_MAP_NUM  # 10
 
-    def __init__(self, template):
-        super().__init__(self.is_valid, self.generate_product, 'template_only_pictet_spangler', None, template)
-
-    def is_valid(self):
-        if self.valid:  # pylint: disable=access-member-before-definition
-            return True
-
-        self.find_reacting_atom()
-
-        # a valid reacting atom could not be found
-        if self.reacting_atom is None:
-            return False
-
-        self.preprocess()
-        self.valid = True
-        return True
-
-    def find_reacting_atom(self):
-
-        template = self.reactants[0]
-
-        # template must contain unmasked aldehyde
-        for atom in chain.from_iterable(template.GetSubstructMatches(Chem.MolFromSmarts('C(=O)'))):
-            atom = template.GetAtomWithIdx(atom)
-            if atom.GetSymbol() == 'C':
-                atom.SetAtomMapNum(self.ALDEHYDE_CARBON)
-                aldehyde_carbon = atom.GetIdx()
-            else:
-                atom.SetAtomMapNum(self.ALDEHYDE_OXYGEN)
+    def __call__(self, template):
         try:
-            # find all atoms 5 atoms away from aldehyde_carbon
-            paths = Chem.FindAllPathsOfLengthN(template, 5, useBonds=False, rootedAtAtom=aldehyde_carbon)
-            candidate_atoms = set().union([template.GetAtomWithIdx(atom) for path in paths for atom in path])
+            self.reset()
+            self.template = Chem.MolFromSmiles(template.template_pictet_spangler_kekule)
+            self.template_name = template.name
+            self.validate()
+        except AttributeError:  # doesn't have template_pictet_spangler_kekule attribute
+            self.valid = False
 
-            # reacting atom must be on phenyl ring ortho to the unmasked aldehyde and para to the alkene where EAS takes
-            # place, as well as have one hydrogen
-            candidate_atoms = filter(lambda x: x.GetIsAromatic() and x.GetTotalNumHs() == 1, candidate_atoms)
-            for atom in candidate_atoms:
-                neighbor_hydrogen_counts = 0
+    @property
+    def name(self):
+        return 'template_pictet_spangler'
 
-                for neighbor in atom.GetNeighbors():
-                    neighbor_hydrogen_counts += neighbor.GetTotalNumHs()
+    @property
+    def applicable_template(self):
+        return self.template_name
 
-                if neighbor_hydrogen_counts == 1:
-                    atom.SetAtomMapNum(self.CARBON_PS_MAP_NUM)
-                    self.reacting_atom = atom
-                    break
-        except UnboundLocalError:  # no aldehyde present in template
-            pass
+    def validate(self):
 
-    def preprocess(self):
+        # check that template mol has all atom map numbers required to make reaction
+        c_aldehyde, o_aldehyde, reacting, nitrogen = False, False, False, False
+        for atom in self.template.GetAtoms():
+            if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                c_aldehyde = True
+            elif atom.GetSymbol() == 'O' and atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                o_aldehyde = True
+            elif atom.GetAtomMapNum() == self.REACTING_ATOM_MAP_NUM:
+                reacting = True
+            elif atom.GetSymbol() == 'N' and atom.GetAtomMapNum() == self.NITROGEN_MAP_NUM:
+                nitrogen = True
 
-        template = self.reactants[0]  # pylint: disable=access-member-before-definition
+        # if error raised, it means the hard coded template_pictet_spangler_kekule is invalid and should be looked at
+        if not c_aldehyde:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde carbon')
+        if not o_aldehyde:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde oxygen')
+        if not reacting:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped reacting atom')
+        if not nitrogen:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped peptide nitrogen atom')
 
-        # change wild card atom to amide
-        unique = set()
-        rxn = AllChem.ReactionFromSmarts('[#0:1][*:2]>>[*:2][C:1](=O)[NH1]*')
-        for prod in chain.from_iterable(rxn.RunReactants((template,))):
-            Chem.SanitizeMol(prod)
-            unique.add(prod.ToBinary())
+        self.valid = True
 
-        # tag amide nitrogen and wild card atoms
-        template = Chem.Mol(unique.pop())
-        for atom in template.GetAtoms():
-            if atom.GetSymbol() == 'N':
-                atom.SetAtomMapNum(self.NITROGEN_PS_MAP_NUM)
-            elif atom.GetAtomicNum() == 0 and atom.GetAtomMapNum() == 0:
-                atom.SetAtomMapNum(config.TEMP_WILDCARD_MAP_NUM)
+    def create_reaction(self):
+        self.create_product()
+        self.create_reaction_smarts([self.template], self.product)
 
-        # change alkene to wild card
-        unique = set()
-        rxn = AllChem.ReactionFromSmarts('[*:2]C=CC>>[*:2]*')
-        for prod in chain.from_iterable(rxn.RunReactants((template,))):
-            Chem.SanitizeMol(prod)
-            unique.add(prod.ToBinary())
+    def create_product(self):
 
-        # tag new wild card atom
-        template = Chem.Mol(unique.pop())
-        for atom in template.GetAtoms():
-            if atom.GetAtomMapNum() == 0 and atom.GetAtomicNum() == 0:
-                atom.SetAtomMapNum(config.TEMP_EAS_MAP_NUM)
+        # copy of template that turns into product
+        template = Chem.RWMol(self.template)
 
-        self.reactants = [template]
-
-    def generate_product(self):
-
-        template = Chem.RWMol(self.reactants[0])
-
-        # remove oxygen atom map number on reactant
-        for atom in self.reactants[0].GetAtoms():
-            if atom.GetAtomMapNum() == self.ALDEHYDE_OXYGEN:
+        # reset atom map number on the INSTANCE VARIABLE template
+        for atom in self.template.GetAtoms():
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
                 atom.SetAtomMapNum(0)
                 break
 
-        # remove aldehyde oxygen atom
+        # remove oxygen from unmasked aldehyde on LOCAL VARIABLE template
         for atom in list(template.GetAtoms()):
-            if atom.GetAtomMapNum() == self.ALDEHYDE_OXYGEN:
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
                 template.RemoveAtom(atom.GetIdx())
-                break
+            elif atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                atom.SetNumExplicitHs(atom.GetTotalNumHs() + 2)
 
-        # create bond between template pictet_spangler carbon and aldehyde carbon
-        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.TEMP_EAS_MAP_NUM, self.NITROGEN_PS_MAP_NUM]
-        template = utils.Base.merge(template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
+        # create bond between the peptide nitrogen atom and the aldehyde carbon
+        map_nums = (self.NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
+        template = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
 
-        # create bond between peptide nitrogen and unmasked aldehyde carbon
-        ignored_map_nums = [config.TEMP_WILDCARD_MAP_NUM, config.TEMP_EAS_MAP_NUM, self.CARBON_PS_MAP_NUM]
-        return utils.Base.merge(template, ignored_map_nums=ignored_map_nums, clear_map_nums=False)
-
-
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
-NewReactions = namedtuple('NewReactions', 'reactions side_chain template')
+        # create bond between reacting atom and the aldehyde carbon
+        map_nums = (self.CARBON_ALDEHYDE_MAP_NUM, self.REACTING_ATOM_MAP_NUM)
+        self.product = utils.connect_mols(template, map_nums=map_nums, stereo='CCW', clear_map_nums=False)
 
 
-class ReactionGenerator(utils.Base):
-    """
-    Class for generating atom mapped reaction SMARTS strings from atom mapped template and side chain SMILES strings.
-    Inherits from Base.
+class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
 
-    Attributes:
-        side_chains (list): Contains the different atom mapped side chains.
-        templates (list): Contains the different atom mapped templates.
-        reaction (str): The type of reaction that is being performed (i.e. Friedel-Crafts, Pictet-Spengler,..).
-    """
-
-    _defaults = config.DEFAULTS['ReactionGenerator']
-
-    def __init__(self, logger=LOGGER, make_db_connection=True):
-        """
-        Initializer.
-
-        Args:
-        """
-
-        # I/O
-        super().__init__(LOGGER, make_db_connection)
-
-        # data
-        self.side_chains = []
-        self.templates = []
-
-    def save_data(self, to_mongo=True, to_json=False):
-
-        params = self._defaults['outputs']
-
-        if to_mongo:
-            return self.to_mongo(params['col_reactions'])
-
-        if to_json:
-            self.to_json(params['json_reactions'])
-
-    def load_data(self, source='mongo'):
-        """
-        Overloaded method for loading input data.
-
-        Returns:
-            bool: True if successful.
-        """
-
+    def __call__(self, template):
         try:
-            params = self._defaults['inputs']
+            self.reset()
+            self.template = Chem.MolFromSmiles(template.pictet_spangler_kekule)
+            self.template_name = template.name
+            self.validate()
+        except AttributeError:  # doesn't have template_pictet_spangler_kekule attribute
+            self.valid = False
 
-            if source == 'mongo':
-                self.side_chains = list(self.from_mongo(params['col_side_chains'], {
-                    'type': 'side_chain', 'connection': 'methyl'}))
-                self.templates = list(self.from_mongo(params['col_templates'], {'type': 'template'}))
-            elif source == 'json':
-                self.side_chains = self.from_json(params['json_side_chains'])
-                self.templates = self.from_json(params['json_templates'])
-            else:
-                self.logger.warning(f'The source type \'{source}\' for input data is unrecognized')
-        except Exception:
-            self.logger.exception('Unexpected exception occured.')
-        else:
-            return True
+    @property
+    def name(self):
+        return 'unmasked_aldehyde_cyclization'
 
-        return False
+    @property
+    def applicable_template(self):
+        return self.template_name
 
-    def generate(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
+    def validate(self):
 
-        try:
-            for template in self.templates:
-                rxn = TemplateOnlyPictetSpangler(Chem.Mol(template['binary']))
-                if rxn:
-                    data = rxn.data
-                    reaction = {'_id': template['_id'] + '_reaction',
-                                'type': data.type,
-                                'binary': data.binary,
-                                'smarts': str(rxn),
-                                'rxn_atom_idx': data.rxn_atom_idx,
-                                'template': template['_id'],
-                                }
-                    self.result_data.append(reaction)
+        olig_carbon_flag, ps_carbon_flag, ps_oxygen_flag = False, False, False
+        aldehyde = Chem.MolFromSmarts('[CH1]=O')
+        for atom_idx in chain.from_iterable(self.template.GetSubstructMatches(aldehyde)):
+            atom = self.template.GetAtomWithIdx(atom_idx)
+            if atom.GetSymbol() == 'C' and atom.GetAtomMapNum() == self.TEMPLATE_OLIGOMERIZATION_MAP_NUM:
+                olig_carbon_flag = True
+            elif atom.GetSymbol() == 'C' and atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                for neighbor in atom.GetNeighbors():  # must have adjacent methylene
+                    if neighbor.GetSymbol() == 'C' and neighbor.GetTotalNumHs() == 2:
+                        ps_carbon_flag = True
+            elif atom.GetSymbol() == 'O' and atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                ps_oxygen_flag = True
 
-            dependent_rxns, independent_rxns = self.classify_reactions(reactions)
-            dependent_args = product(self.side_chains, dependent_rxns, self.templates)
-            independent_args = product(self.side_chains, independent_rxns)
+        if not olig_carbon_flag:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde oligomerization carbon')
 
-            with multiprocessing.Pool() as pool:
-                results = pool.starmap_async(ReactionGenerator.create_reaction, dependent_args)
-                for rxns, side_chain, template in results.get():
-                    self.accumulate_data(rxns, side_chain, template)
+        if not ps_carbon_flag:
+            self.valid = False
+            return
 
-                results = pool.starmap_async(ReactionGenerator.create_reaction, independent_args)
-                for rxns, side_chain, template in results.get():
-                    self.accumulate_data(rxns, side_chain, template)
-        except Exception:
-            raise
-        else:
-            return True
+        if not ps_oxygen_flag:
+            raise exceptions.InvalidMolecule(
+                'The provided template molecule needs to have a properly atom mapped aldehyde oxygen')
 
-        return False
+        self.valid = True
 
-    def generate_serial(self, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
+    def create_reaction(self):
+        self.create_reactant()
+        self.create_product()
+        self.create_reaction_smarts([self.reactant], self.product)
 
-        try:
-            dependent_rxns, independent_rxns = self.classify_reactions(reactions)
+    def create_reactant(self):
 
-            for side_chain in self.side_chains:
-                for template in self.templates:
-                    for reaction in dependent_rxns:
-                        rxn, _, _ = ReactionGenerator.create_reaction(side_chain, reaction, template)
-                        self.accumulate_data(rxn, side_chain, template)
-                for reaction in independent_rxns:
-                    rxn, _, template = ReactionGenerator.create_reaction(side_chain, reaction)
-                    self.accumulate_data(rxn, side_chain, template)
-        except Exception:
-            raise
-        else:
-            return True
+        backbone = molecules.AlphaBackBone().tagged_mol
+        carboxyl = Chem.MolFromSmarts('CC(=O)O')
+        replacement = Chem.MolFromSmarts(f'[*:{self.BACKBONE_CARBOXYL_MAP_NUM}]')
+        backbone = AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
 
-        return False
+        # tag n-terminus nitrogen for oligomerization and clear backbone carbon oligomerzation map num
+        for atom in backbone.GetAtoms():
+            if atom.GetSymbol() == 'N':
+                atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
+            elif atom.GetAtomMapNum() == molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM:
+                atom.SetAtomMapNum(0)
 
-    def generate_from_ids(self, side_chain_ids, template_ids, reactions=[FriedelCafts, TsujiTrost, PictetSpangler, PyrroloIndolene]):
+        map_nums = (self.TEMPLATE_OLIGOMERIZATION_MAP_NUM, self.BACKBONE_NITROGEN_MAP_NUM)
+        self.reactant = utils.connect_mols(self.template, backbone, map_nums=map_nums, clear_map_nums=False)
 
-        try:
-            params = self._defaults['inputs']
-            self.side_chains = list(self.from_mongo(params['col_side_chains'], {
-                'type': 'side_chain', '_id': {'$in': side_chain_ids}}))
-            self.templates = list(self.from_mongo(params['col_templates'], {
-                'type': 'template', '_id': {'$in': template_ids}}))
-            dependent_rxns, independent_rxns = self.classify_reactions(reactions)
+    def create_product(self):
 
-            for side_chain in self.side_chains:
-                for template in self.templates:
-                    for reaction in dependent_rxns:
-                        rxn, _, _ = ReactionGenerator.create_reaction(side_chain, reaction, template)
-                        self.accumulate_data(rxn, side_chain, template)
+        # create local copy of reactant to transform into product
+        reactant = Chem.RWMol(self.reactant)
 
-                for reaction in independent_rxns:
-                    rxn, _, template = ReactionGenerator.create_reaction(side_chain, reaction)
-                    self.accumulate_data(rxn, side_chain, template)
-        except Exception:
-            raise
-        else:
-            return True
+        # reset atom map number on aldehyde oxygen on INSTANCE VARIABLE reactant
+        for atom in self.reactant.GetAtoms():
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                atom.SetAtomMapNum(0)
 
-        return False
+        # remove pictet spangler aldehyde oxygen and set the pictet spangler aldehyde carbon's single bond with its
+        # neighboring carbon to a double bond in LOCAL copy of reactant
+        for atom in list(reactant.GetAtoms()):
+            if atom.GetAtomMapNum() == self.OXYGEN_ALDEHYDE_MAP_NUM:
+                reactant.RemoveAtom(atom.GetIdx())
+            elif atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
+                carb_atom = atom
+                for bond in atom.GetBonds():
+                    if bond.GetBondType() == Chem.BondType.SINGLE:
+                        bond.SetBondType(Chem.BondType.DOUBLE)
 
-    def accumulate_data(self, reactions, side_chain, template):
-        """
-        Stores all data associated with the different reactions into a dictionary and appends it so self.result_data.
+        # adjust hydrogens
+        carb_atom.SetNumExplicitHs(carb_atom.GetTotalNumHs() + 1)
 
-        Args:
-            template (dict): The associated data of the templates.
-            side_chain (dict): The associated data of the side chain that the regioisomers are derived from.
-            reaction (str): The atom mapped reaction SMARTS string.
-        """
-
-        if template is not None:
-            chunk = len(reactions) * self.templates.index(template)
-            applicable_template = template['_id']
-        else:
-            chunk = len(reactions)
-            applicable_template = 'all'
-
-        for i, (smarts, (binary, rxn_atom_idx, rxn_type)) in enumerate(reactions.items()):
-            doc = {'_id': side_chain['_id'] + str(chunk + i) + rxn_type[:2],
-                   'type': rxn_type,
-                   'binary': binary,
-                   'smarts': smarts,
-                   'rxn_atom_idx': rxn_atom_idx,
-                   'template': applicable_template,
-                   'side_chain': {'_id': side_chain['_id'],
-                                  'parent_side_chain': side_chain['parent_side_chain']['_id'],
-                                  'conn_atom_idx': side_chain['conn_atom_idx']}}
-            self.result_data.append(doc)
-
-    @staticmethod
-    def create_reaction(side_chain, reaction, template=None):
-
-        try:
-            sc_mol = Chem.Mol(side_chain['binary'])
-            temp_mol = Chem.Mol(template['binary'])
-        except TypeError:
-            temp_mol = None
-
-        reactions = {}
-        ReactionGenerator.tag_wildcard_atom(sc_mol)
-
-        for atom in sc_mol.GetAtoms():
-
-            if atom.GetAtomMapNum() == config.SC_WILDCARD_MAP_NUM:
-                continue
-
-            atom.SetAtomMapNum(config.SC_EAS_MAP_NUM)
-            rxn = reaction(deepcopy(sc_mol), deepcopy(temp_mol), atom)
-            if rxn:
-                reactions[str(rxn)] = rxn.data
-
-            atom.SetAtomMapNum(0)
-
-        return NewReactions(reactions, side_chain, template)
-
-    @staticmethod
-    def tag_wildcard_atom(side_chain):
-        matches = side_chain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
-        for pair in matches:
-            for atom_idx in pair:
-                atom = side_chain.GetAtomWithIdx(atom_idx)
-                if atom.GetAtomMapNum() != 0:
-                    atom.SetAtomMapNum(0)
-                else:
-                    atom.SetAtomMapNum(config.SC_WILDCARD_MAP_NUM)
-                    utils.atom_to_wildcard(atom)
-
-    def classify_reactions(self, reactions):
-        params = self._defaults['template_dependent_rxns']
-        dependent_rxns, independent_rxns = [], []
-        for func in reactions:
-            dependent_rxns.append(func) if func.__name__ in params else independent_rxns.append(func)
-
-        return dependent_rxns, independent_rxns
+        # connect backbone nitrogen to aldehyde carbon
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
+        self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)

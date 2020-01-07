@@ -1,31 +1,6 @@
-"""
-Written by Eric Dang.
-github: https://github.com/e-dang
-email: edang830@gmail.com
-"""
-
-
-class MissingMapNumberError(Exception):
+class MissingMapNumber(Exception):
     """
     Raised when Mol is missing atom map numbers in SMILES string.
-    """
-
-
-class AtomSearchError(Exception):
-    """
-    Raised when unable to find atom that meets specified criteria.
-    """
-
-
-class InvalidSmilesString(Exception):
-    """
-    Raised when unable to convert a SMILES/SMARTS string to rdkit Mol.
-    """
-
-
-class DataNotFoundError(Exception):
-    """
-    Raised when the MongoDataBase returns an empty result.
     """
 
 
@@ -35,14 +10,15 @@ class MergeError(Exception):
     """
 
 
-class FailedEmbeddingError(Exception):
+class InvalidMolecule(Exception):
     """
-    Raise when embedding a molecule for conformation generation using ETKDGv2 parameters and random coordinates both
-    fail to produce a starting conformation.
+    Raised when an operation on a molecule cannot be performed due to the molecule missing a feature required for that
+    operation.
     """
 
 
-class CTermNotFound(Exception):
+class UnIdentifiedMolType(Exception):
     """
-    Raised when searching for the c-terminus carboxyl group on a macrocycle fails.
+    Raised when trying to determine whether the reacting molecule in a BiMolecularReaction is a sidechain or monomer
+    fails.
     """
