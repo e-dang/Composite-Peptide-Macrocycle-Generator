@@ -289,6 +289,7 @@ class MacrocycleGenerator(IGenerator):
         self.macrocycles = {}
         self.reactant, reaction_combos = args
 
+        num_atoms = len(Chem.Mol(self.reactant['binary']).GetAtoms())
         for reaction_combo in reaction_combos:
             reactants = [Chem.Mol(self.reactant['binary'])]
             rxns = [(AllChem.ChemicalReaction(reaction['binary']), reaction['type']) for reaction in reaction_combo]
@@ -323,6 +324,11 @@ class MacrocycleGenerator(IGenerator):
                 successful_rxn = True
 
             for binary, macrocycle in macrocycles.items():
+                if abs(num_atoms - len(macrocycle.GetAtoms())) > 7: # hack to get rid of error associated with sidechain
+                    continue                                       # CC1=C(SC(C=CC=C2)=C2N3)C3=CC=C1 making alternate attachment point
+                                                                   # to template and having the reaction for CN1C2=C(C=CC=C2)SC3=CC=CC=C31
+                                                                   # be applied, causing the rest of the macrocycle to be chopped off
+                                                                   # TODO: fix this problem....
                 Chem.Kekulize(macrocycle)
                 self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = (binary, reaction_combo)
 
