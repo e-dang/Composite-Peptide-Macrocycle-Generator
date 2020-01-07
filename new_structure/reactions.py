@@ -602,13 +602,13 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
             elif atom.GetAtomMapNum() == self.CARBON_ALDEHYDE_MAP_NUM:
                 atom.SetNumExplicitHs(atom.GetTotalNumHs() + 2)
 
-        # create bond between reacting atom and the aldehyde carbon
-        map_nums = (self.CARBON_ALDEHYDE_MAP_NUM, self.REACTING_ATOM_MAP_NUM)
-        template = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
-
         # create bond between the peptide nitrogen atom and the aldehyde carbon
         map_nums = (self.NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
-        self.product = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
+        template = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
+
+        # create bond between reacting atom and the aldehyde carbon
+        map_nums = (self.CARBON_ALDEHYDE_MAP_NUM, self.REACTING_ATOM_MAP_NUM)
+        self.product = utils.connect_mols(template, map_nums=map_nums, stereo='CCW', clear_map_nums=False)
 
 
 class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
