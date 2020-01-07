@@ -222,7 +222,7 @@ class AlphaBackBone(IBackBoneMol):
 
     @property
     def kekule(self):
-        return 'NCC(=O)O'
+        return 'NCC(=O)[OH]'
 
     @property
     def tagged_kekule(self):
@@ -240,7 +240,7 @@ class Beta2BackBone(IBackBoneMol):
 
     @property
     def kekule(self):
-        return 'NCCC(=O)O'
+        return 'NCCC(=O)[OH]'
 
     @property
     def tagged_kekule(self):
@@ -258,7 +258,7 @@ class Beta3BackBone(IBackBoneMol):
 
     @property
     def kekule(self):
-        return 'NCCC(=O)O'
+        return 'NCCC(=O)[OH]'
 
     @property
     def tagged_kekule(self):

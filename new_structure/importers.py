@@ -94,7 +94,7 @@ class MonomerImporter(IImporter):
         for monomer in self.loader.load():
             binary = monomer.ToBinary()
             monomer = Chem.MolFromSmiles(Chem.MolToSmiles(monomer))  # canonicalize
-            proline = bool(AllChem.CalcNumAliphaticRings(monomer)) and monomer.HasSubstructMatch(patt)
+            is_proline = bool(AllChem.CalcNumAliphaticRings(monomer)) and monomer.HasSubstructMatch(patt)
             Chem.Kekulize(monomer)
             data.append({'_id': self.id_iterator.get_next().upper(),
                          'type': 'monomer',
@@ -104,7 +104,8 @@ class MonomerImporter(IImporter):
                          'required': bool(AllChem.CalcNumAromaticRings(monomer)),
                          'backbone': 'alpha',
                          'sidechain': None,
-                         'proline': proline})
+                         'is_proline': is_proline,
+                         'imported': True})
 
         self.saver.save(data)
         self.index_iterator.save()

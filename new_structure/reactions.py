@@ -104,13 +104,13 @@ class AbstractBiMolecularReaction(IReaction):
 
     def determine_reacting_mol_type(self):
 
-        backbones = utils.get_hashed_backbones()
-        for backbone in backbones.values():
+        backbones = map(Chem.MolFromSmarts, [backbone.kekule for backbone in utils.get_backbones()])
+        for backbone in backbones:
             if self.reacting_mol.HasSubstructMatch(backbone):
                 self.is_monomer = True
-                break
-        else:
-            self.is_sidechain = True
+                return
+
+        self.is_sidechain = True
 
     def tag_sidechain_connection_atom(self, change_to_wildcard=True):
 

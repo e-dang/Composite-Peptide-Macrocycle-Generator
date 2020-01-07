@@ -131,7 +131,9 @@ class MonomerGenerator(IGenerator):
         """
 
         data = []
+        patt = Chem.MolFromSmarts('[NH;R]')
         for i, (kekule, (binary, required, backbone)) in enumerate(self.monomers.items()):
+            monomer = Chem.Mol(binary)
             data.append({'_id': self.sidechain['_id'].upper() + str(i),
                          'type': 'monomer',
                          'binary': binary,
@@ -139,7 +141,9 @@ class MonomerGenerator(IGenerator):
                          'index': self.index_iterator.get_next(),
                          'required': required,
                          'backbone': backbone,
-                         'sidechain': self.sidechain['shared_id']})
+                         'sidechain': self.sidechain['shared_id'],
+                         'is_proline': bool(AllChem.CalcNumAliphaticRings(monomer)) and monomer.HasSubstructMatch(patt),
+                         'imported': False})
 
         return data
 
@@ -219,7 +223,7 @@ class PeptideGenerator(IGenerator):
         return carboxyl_atom, attachment_atom
 
     def format_data(self):
-        monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'sidechain')}
+        monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'sidechain', 'is_proline')}
                         for monomer in self.monomers]
         pep_id = ''.join([monomer['_id'] for monomer in monomer_data])
 
@@ -388,10 +392,16 @@ class BiMolecularReactionGenerator(IGenerator):
         Chem.Kekulize(reacting_mol) # have to kekulize after substruct match...
         sorted_unique_pairs = map(sorted, map(list, unique_pairs))
         reduced_pairs = set(tuple(pair) for pair in sorted_unique_pairs)
-        non_symmetric_atom_idxs = [reacting_mol.GetAtomWithIdx(pair[0]) for pair in reduced_pairs]
+        non_symmetric_atom_idxs = set(pair[0] for pair in reduced_pairs)
+
+        # remove backbone atoms from non-symmetric atoms (this does nothing if reacting_mol is a sidechain)
+        backbones = utils.get_hashed_backbones()
+        for backbone in backbones.values():
+            atom_idxs = set(chain.from_iterable(reacting_mol.GetSubstructMatches(backbone)))
+            non_symmetric_atom_idxs = non_symmetric_atom_idxs - atom_idxs
 
         # create reactions
-        for atom in non_symmetric_atom_idxs:
+        for atom in set(reacting_mol.GetAtomWithIdx(atom_idx) for atom_idx in non_symmetric_atom_idxs):
             atom.SetAtomMapNum(self.REACTING_MOL_EAS_MAP_NUM)
             for template in utils.get_templates():
                 self.reaction(deepcopy(reacting_mol), template, atom)

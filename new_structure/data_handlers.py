@@ -221,7 +221,7 @@ class BMRGDataHandler(IDataHandler):
     def load(self):
 
         reacting_mols = list(filter(lambda x: x['connection'] == 'methyl', self._sidechain_loader.load()))
-        reacting_mols.extend(list(filter(lambda x: x['required'], self._monomer_loader.load())))
+        reacting_mols.extend(list(filter(lambda x: x['required'] and x['imported'], self._monomer_loader.load())))
         return reacting_mols, self._reactions
 
     def save(self, data):
