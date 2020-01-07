@@ -281,57 +281,69 @@ class TemplatePeptideGenerator(IGenerator):
 
 class MacrocycleGenerator(IGenerator):
 
-
     @decorators.apply_stereochemistry
     @decorators.methylate
     @decorators.carboxyl_to_amide
     def generate(self, args):
 
-        self.reactant, self.reactions = args
-        reactants = [Chem.Mol(self.reactant['binary'])]
-        rxns = [AllChem.ChemicalReaction(reaction['binary']) for reaction in self.reactions]
-        # rxns = [(AllChem.ChemicalReaction(reaction['binary']), reaction['type']) for reaction in self.reactions]
+        self.macrocycles = {}
+        self.reactant, reaction_combos = args
 
-        for rxn in rxns:
-            self.macrocycles = {}
-            for reactant in reactants:
-                for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
-                    try:
-                        Chem.SanitizeMol(macrocycle)
-                    except ValueError:
-                        # most likely there are 2 sidechains where one contains the other as a substructure which
-                        # causes this exception to be raised. This is expect to occur quite often.
-                        continue
-                    for atom in chain.from_iterable(rxn.GetReactingAtoms()):
-                        atom = macrocycle.GetAtomWithIdx(atom)
-                        if atom.GetIsAromatic():
-                            atom.SetProp('_protected', '1')
-                    self.macrocycles[macrocycle.ToBinary()] = macrocycle
-            # if rxn_type in ('pictet_spangler', 'template_pictet_spangler', 'unmasked_aldehyde_cyclization') and len(list(self.macrocycles.values())) == 0:
-            #     continue
-            reactants = list(self.macrocycles.values())
+        for reaction_combo in reaction_combos:
+            reactants = [Chem.Mol(self.reactant['binary'])]
+            rxns = [(AllChem.ChemicalReaction(reaction['binary']), reaction['type']) for reaction in reaction_combo]
 
-        self.macrocycles = {}  # final results at this point are stored in reactants variable
-        for macrocycle in reactants:
-            binary = macrocycle.ToBinary()
-            Chem.Kekulize(macrocycle)
-            self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = binary
+            successful_rxn = False
+            for rxn, rxn_type in rxns:
+
+                if rxn_type in ('template_pictet_spangler', 'unmasked_aldehyde_cyclization') \
+                        and successful_rxn: # pictet_spangler worked, don't use template_only_reactions
+                    continue
+
+                macrocycles = {}
+                successful_rxn = False
+                for reactant in reactants:
+                    for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
+                        try:
+                            Chem.SanitizeMol(macrocycle)
+                        except ValueError: # most likely there are 2 sidechains where one contains the other as a
+                            continue       # substructure which causes this exception to be raised.
+
+                        for atom in chain.from_iterable(rxn.GetReactingAtoms()):
+                            atom = macrocycle.GetAtomWithIdx(atom)
+                            if atom.GetIsAromatic():
+                                atom.SetProp('_protected', '1')
+                        macrocycles[macrocycle.ToBinary()] = macrocycle
+
+                if rxn_type in ('pictet_spangler', 'template_pictet_spangler', 'unmasked_aldehyde_cyclization') \
+                        and len(macrocycles) == 0: # reaction failed; reuse reactant
+                    continue
+
+                reactants = macrocycles.values()
+                successful_rxn = True
+
+            for binary, macrocycle in macrocycles.items():
+                Chem.Kekulize(macrocycle)
+                self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = (binary, reaction_combo)
 
         return self.format_data()
 
     def format_data(self):
-        rxns = []
-        sc_id, rxn_idx = '', ''
-        for reaction in self.reactions:
-            rxns.append(reaction['_id'])
-            try:
-                rxn_idx += str(reaction['rxn_atom_idx'])
-                sc_id += reaction['sidechain']
-            except KeyError:
-                pass
 
         data = []
-        for i, (kekule, binary) in enumerate(self.macrocycles.items()):
+        for i, (kekule, (binary, reaction_combo)) in enumerate(self.macrocycles.items()):
+
+            # generate part of macrocycle _id and gather the reaction information
+            rxns = []
+            sc_id, rxn_idx = '', ''
+            for reaction in reaction_combo:
+                rxns.append(reaction['_id'])
+                try:
+                    rxn_idx += str(reaction['rxn_atom_idx'])
+                    sc_id += reaction['reacting_mol']
+                except KeyError:
+                    pass
+
             data.append({'_id': self.reactant['_id'] + sc_id + rxn_idx + str(i),
                          'type': 'macrocycle',
                          'binary': binary,

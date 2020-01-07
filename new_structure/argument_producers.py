@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from itertools import product
+from itertools import product, chain
 from random import sample
 
 import config
@@ -44,13 +44,17 @@ class PeptideGeneratorArgProducer(IArgumentProducer):
 
     def __init__(self, data_format=config.DATA_FORMAT):
         if data_format == 'json':
-            monomer_io = project_io.JsonMonomerIO()
+            self.monomer_io = project_io.JsonMonomerIO()
         elif data_format == 'mongo':
-            monomer_io = project_io.MongoMonomerIO()
+            self.monomer_io = project_io.MongoMonomerIO()
 
-        self.monomers = sorted(list(monomer_io.load()), key=lambda x: x['index'])
+        self.loaded = False
 
     def __call__(self, data):
+
+        if not self.loaded:
+            self.monomers = sorted(list(self.monomer_io.load()), key=lambda x: x['index'])
+            self.loaded = True
 
         for monomer_idxs in data:
             monomer_idxs = map(int, monomer_idxs.strip('\n').split(','))
@@ -61,54 +65,55 @@ class MacrocycleGeneratorArgProducer(IArgumentProducer):
 
     def __call__(self, data):
 
-        # hash all reactions based on sidechain
+        # hash all reactions based on reacting_mol
         reactions = defaultdict(list)
         template_only_reactions = defaultdict(list)
         for reaction in data.reactions:
             try:
-                reactions[reaction['sidechain']].append(reaction)
+                reactions[reaction['reacting_mol']].append(reaction)
             except KeyError:  # template only reaction
                 template_only_reactions[reaction['template']].append(reaction)
 
         for template_peptide in data.template_peptides:
-            args = []
+            rxns = []
             sidechain_data = set(monomer['sidechain'] for monomer in template_peptide['peptide']['monomers'] if
                                  monomer['sidechain'] is not None)
-            for sidechain_id in sidechain_data:
-                args.extend(filter(lambda x: x['template'] in ('all', template_peptide['template']),
-                                   reactions[sidechain_id]))
+            monomer_data = set(monomer['_id'] for monomer in template_peptide['peptide']
+                               ['monomers'] if monomer['sidechain'] is None)
+            for mol_id in chain(sidechain_data, monomer_data):
+                rxns.extend(filter(lambda x: x['template'] in ('all', template_peptide['template']),
+                                   reactions[mol_id]))
 
-            # can apply pictet_spangler reaction
-            if template_peptide['template'] != 'temp1':
-                try:
-                    first_monomer = template_peptide['peptide']['monomers'][0]['sidechain']
-                # first monomer has side_chain without an _id (natural amino acid or modified proline)
-                except TypeError:
-                    first_monomer = None
+            first_monomer = template_peptide['peptide']['monomers'][0]['sidechain']
+            is_proline = template_peptide['peptide']['monomers'][0]['is_proline']
+
+            # can apply pictet_spangler reactions or template_only_reactions because
+            #   1. Template 2 and 3 has unmasked aldehyde
+            #   2. First monomer has a sidechain which comes from a set of aromatic heterocycles (either the sidechain
+            #      undergo pictet_spangler or the template can undergo pictet_spangler/aldehyde cyclization)
+            #   3. First monomer doesnt contain any aromatic atoms and is not a proline thus the template will be able
+            #      to undergo the template_only_reactions
+            if template_peptide['template'] != 'temp1' and \
+                    ((first_monomer is not None) or (first_monomer is None and not is_proline)):
 
                 # get pictet_spangler reactions involving only the first monomer or any other type of reaction
-                args = filter(lambda x: ((x['type'] == 'pictet_spangler' and x['sidechain'] == first_monomer)
-                                         or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene')), args)
+                rxns = filter(lambda x: ((x['type'] == 'pictet_spangler' and x['reacting_mol'] == first_monomer)
+                                         or x['type'] in ('friedel_crafts', 'tsuji_trost', 'pyrrolo_indolene')), rxns)
 
-                # sort args based on if they are pictet_spangler or not
+                # sort rxns based on if they are pictet_spangler or not
                 pictet, other = [], []
-                for rxn in args:
+                for rxn in rxns:
                     other.append(rxn) if rxn['type'] != 'pictet_spangler' else pictet.append(rxn)
 
-                first_set = list(product(pictet, other))
-                second_set = list(product(template_only_reactions[template_peptide['template']], other))
-                if first_set and second_set:
-                    for arg in first_set + second_set:
-                        yield template_peptide, arg
-                elif second_set:
-                    for arg in second_set:
-                        yield template_peptide, arg
-                elif first_set:
-                    for arg in first_set:
-                        yield template_peptide, arg
+                if not pictet or first_monomer is None:
+                    rxn_combinations = product(template_only_reactions[template_peptide['template']], other)
                 else:
-                    for arg in other:
-                        yield template_peptide, [arg]
+                    # if pictet_spangler fails because template is not oligomerized to the peptide at the first monomer
+                    # (as may occur with lysine in the peptide) then template_only_reaction will be applied. Otherwise
+                    # pictet_spangler will occur, blocking the template_only_reaction from taking place
+                    rxn_combinations = product(pictet, template_only_reactions[template_peptide['template']], other)
+
+                yield template_peptide, rxn_combinations
+
             else:  # friedel_crafts, tsuji_trost, pyrrolo_indolene
-                for arg in args:
-                    yield template_peptide, [arg]
+                yield template_peptide, [[rxn] for rxn in filter(lambda x: x['type'] != 'pictet_spangler', rxns)]
