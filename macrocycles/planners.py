@@ -1,9 +1,10 @@
+import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from random import sample
 
-import utils
 import project_io
+import utils
 
 
 class IPlanner(ABC):
@@ -24,10 +25,11 @@ class PeptidePublicationPlanner(IPlanner):
 
     def create_plan(self):
 
-        self.validate_num_peptides()
-        self.create_minimum_list()
-        self.create_remaining_list()
-        self.saver.save(self.monomer_combinations)
+        if not os.path.exists(utils.attach_file_num(self.saver.FILEPATH, self.peptide_length)):
+            self.validate_num_peptides()
+            self.create_minimum_list()
+            self.create_remaining_list()
+            self.saver.save(self.monomer_combinations)
 
     def create_minimum_list(self):
 
