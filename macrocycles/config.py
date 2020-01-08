@@ -9,8 +9,8 @@ LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
 TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 
 ################################################ Globals ################################################
-CAPACITY = 500000000
-DATA_FORMAT = 'mongo'
+CAPACITY = 1000000
+DATA_FORMAT = 'json'
 
 ################################################ MongoDB Schema ################################################
 HOST = 'localhost'
