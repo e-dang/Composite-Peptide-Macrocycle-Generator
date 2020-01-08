@@ -32,6 +32,6 @@ if end > num_template_peptides:
     end = num_template_peptides
 
 with suppress_stdout_stderr():
-    print_str = runners.run_macrocycles(peptide_length=args.peptide_len, start=start, end=end)
+    print_str = runners.run_macrocycles(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
 
 print(*print_str)

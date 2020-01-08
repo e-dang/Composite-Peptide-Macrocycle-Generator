@@ -289,7 +289,7 @@ class JsonMacrocycleIO(AbstractJsonIO):
 
     def save(self, data, **kwargs):
 
-        super().to_json(self._FILEPATH, data)
+        super().to_json(utils.attach_file_num(self._FILEPATH, kwargs['job_num'], kwargs['peptide_length']), data)
 
 
 class JsonReactionIO(AbstractJsonIO):

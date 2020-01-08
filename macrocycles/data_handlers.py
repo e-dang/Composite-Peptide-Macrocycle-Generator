@@ -180,6 +180,7 @@ class MCGDataHandler(IDataHandler):
         self.peptide_length = kwargs['peptide_length']
         self.start = kwargs['start']
         self.end = kwargs['end']
+        self.job_num = kwargs['job_num']
 
     def load(self):
         MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
@@ -188,7 +189,7 @@ class MCGDataHandler(IDataHandler):
 
     def save(self, data):
 
-        self._macrocycle_saver.save(data)
+        self._macrocycle_saver.save(data, job_num=self.job_num, peptide_length=self.peptide_length)
 
     def load_template_peptides(self):
 
