@@ -857,10 +857,14 @@ def get_io(json_io, mongo_io):
     """
 
     def io_closure(**kwargs):
+
         if config.DATA_FORMAT == 'json':
             return json_io(**kwargs)
+
         if config.DATA_FORMAT == 'mongo':
             return mongo_io()
+
+        return None
 
     return io_closure
 

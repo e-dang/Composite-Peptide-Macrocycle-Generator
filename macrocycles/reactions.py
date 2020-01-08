@@ -1,15 +1,19 @@
+import exceptions
 from abc import ABC, abstractmethod
-import molecules
+from copy import deepcopy
+from itertools import chain
+
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from rdkit.Chem import Draw
-from itertools import chain
+
+import molecules
 import utils
-from copy import deepcopy
-import exceptions
 
 
 class IReaction(ABC):
+    """
+    Interface for Reaction classes.
+    """
 
     TEMPLATE_OLIGOMERIZATION_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM  # 1
     TEMPLATE_EAS_MAP_NUM = molecules.ITemplateMol.EAS_CARBON_MAP_NUM  # 2
@@ -20,49 +24,88 @@ class IReaction(ABC):
 
     @abstractmethod
     def __call__(self):
-        pass
+        """
+        Abstract method to initiate the validation of the reaction.
+        """
 
     @property
     @abstractmethod
     def name(self):
-        pass
+        """
+        The name of the reaction.
+        """
 
     @property
     @abstractmethod
     def type(self):
-        pass
+        """
+        The classification of the reaction.
+        """
 
     @property
     @abstractmethod
     def applicable_template(self):
-        pass
+        """
+        The type of templates that are applicable to the reaction.
+        """
 
     @abstractmethod
     def validate(self):
-        pass
+        """
+        Abstract method used for determining whether the given molecules can undergo the reaction.
+        """
 
     @abstractmethod
     def create_reaction(self):
-        pass
+        """
+        Abstract method that initiates the creation of the reaction SMARTS string.
+        """
 
     @abstractmethod
     def create_product(self):
-        pass
+        """
+        Abstract method that creates the product of the reaction from its reactants.
+        """
 
     def __bool__(self):
+        """
+        Method for returning the validity of the reaction given the reactants.
+
+        Returns:
+            bool: True if valid.
+        """
+
         return self.valid
 
     @property
     def binary(self):
+        """
+        Property that returns the RDKit Reaction's binary string.
+
+        Returns:
+            binary: The RDKit Reaction as a binary string.
+        """
+
         return self.reaction.ToBinary()
 
     def create_reaction_smarts(self, reactants, product):
+        """
+        Method for creating the reaction SMARTS string from the reactants and products.
+
+        Args:
+            reactants (iterable[RDKit Mol]): The reactants.
+            product (RDKit Mol): The product.
+        """
 
         reactants = [Chem.MolToSmiles(reactant) for reactant in reactants]
         self.smarts = '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product)
         self.reaction = AllChem.ReactionFromSmarts(self.smarts)
 
     def reset(self):
+        """
+        Method for resetting all instance variables back to None.
+        """
+
         self.reacting_atom = None
         self.template = None
         self.product = None
@@ -72,22 +115,44 @@ class IReaction(ABC):
 
 
 class AbstractUniMolecularReaction(IReaction):
+    """
+    Abstract class for uni-molecular reactions, where uni-molecular is used with the typical chemistry definition, i.e.
+    reactions that have only one reactant. However, this will not be the case for bi-molecular reactions...see doc for
+    details.
+    """
 
     CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
     OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
 
     @property
     def type(self):
+
         return 'unimolecular'
 
 
 class AbstractBiMolecularReaction(IReaction):
+    """
+    Abstract class for bi-molecular reactions, where bi-molecular is used to refer to a reaction that takes two
+    "reactants" such as a sidechain and the template. However, in reality these reactions are not actually bi-molecular
+    since the sidechain and template are part of the same molecule. But for purposes of creating reactions here, we
+    denote these reactions as bi-molecular since we must pass two separte RDKit Mols as arguments.
+    """
 
     BACKBONE_OLIGOMERIZATION_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM  # 1
     C_TERM_WILDCARD_MAP_NUM = 52
     N_TERM_WILDCARD_MAP_NUM = 53
 
     def initialize(self, reacting_mol, template, reacting_atom):
+        """
+        Method for assigning instance variables to each argument.
+
+        Args:
+            reacting_mol (RDKit Mol): The reacting molecule that is not the template, i.e. sidechain, monomer, etc...
+            template (str): The kekule SMILES string of the template.
+            reacting_atom (RDKit Atom): The atom on the reacting molecule that will initiate the reaction with the
+                template.
+        """
+
         self.reacting_mol = reacting_mol
         self.template = Chem.MolFromSmiles(template)
         self.reacting_atom = reacting_atom
@@ -97,12 +162,21 @@ class AbstractBiMolecularReaction(IReaction):
         return 'bimolecular'
 
     def reset(self):
+        """
+        Method that extends the functionality of the base class' reset() method by also resetting instance variables,
+        self.reacting_mol, self.is_monomer, and self.is_sidechain. Then calls base class' reset().
+        """
+
         self.reacting_mol = None
         self.is_monomer = False
         self.is_sidechain = False
         super().reset()
 
     def determine_reacting_mol_type(self):
+        """
+        Determines what type of molecule the reacting molecule is, such as sidechain or monomer, and sets the
+        corresponding instance variable flag to True.
+        """
 
         backbones = map(Chem.MolFromSmarts, [backbone.kekule for backbone in utils.get_backbones()])
         for backbone in backbones:
@@ -113,6 +187,13 @@ class AbstractBiMolecularReaction(IReaction):
         self.is_sidechain = True
 
     def tag_sidechain_connection_atom(self, change_to_wildcard=True):
+        """
+        Method for tagging the connection atom of a sidechain (which is always a methyl group with a non C13 carbon).
+        Optionally, this atom may also be changed to a wildcard if the connection is not to be extended into a monomer.
+
+        Args:
+            change_to_wildcard (bool, optional): Whether to change the atom to a wildcard or not. Defaults to True.
+        """
 
         matches = self.reacting_mol.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
         for atom_idx in chain.from_iterable(matches):
@@ -125,6 +206,10 @@ class AbstractBiMolecularReaction(IReaction):
                     utils.atom_to_wildcard(atom)
 
     def tag_monomer_connection_atom(self):
+        """
+        Method for changing the connection atoms of a monomer to wildcards tagged with atom map numbers defined as class
+        constants. The connection points on a monomer are the n- and c- termini.
+        """
 
         n_term_patt1 = Chem.MolFromSmarts('[NH2]')  # regular amino acid backbone type
         n_term_patt2 = Chem.MolFromSmarts('[NH;R]')  # proline backbone type
@@ -142,6 +227,14 @@ class AbstractBiMolecularReaction(IReaction):
         self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, c_term_patt, c_term_replacement)[0]
 
     def create_monomer(self):
+        """
+        Method for creating a monomer from a sidechain with the c-terminus changed to a wildcard. This is useful for
+        reactions that need information about the positioning of monomer within the peptide chain in order to determine
+        whether the reaction is valid or not.
+
+        Returns:
+            RDKit Mol: The monomer.
+        """
 
         # get modified backbone
         backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
@@ -158,66 +251,12 @@ class AbstractBiMolecularReaction(IReaction):
         return utils.connect_mols(self.reacting_mol, backbone, map_nums=map_nums)
 
 
-# class AbstractBMSideChainReaction(AbstractBiMolecularReaction):
-
-#     @property
-#     def type(self):
-#         return super().type + '_sidechain_reaction'
-
-#     def tag_connection_atom(self):
-
-#         matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
-#         for atom_idx in chain.from_iterable(matches):
-#             atom = self.sidechain.GetAtomWithIdx(atom_idx)
-#             if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
-#                 atom.SetIsotope(0)
-#             else:
-#                 atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
-#                 utils.atom_to_wildcard(atom)
-
-
-# class AbstractBMMonomerReaction(AbstractBiMolecularReaction):
-
-#     BACKBONE_OLIGOMERIZATION_MAP_NUM = molecules.IBackBoneMol.OLIGOMERIZATION_MAP_NUM  # 1
-#     BACKBONE_CARBOXYL_MAP_NUM = 5
-#     BACKBONE_NITROGEN_MAP_NUM = 6
-
-#     @abstractmethod
-#     def create_reactant(self):
-#         pass
-
-#     @property
-#     def type(self):
-#         return super().type + '_monomer_reaction'
-
-#     def tag_connection_atom(self):
-
-#         matches = self.sidechain.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
-#         for atom_idx in chain.from_iterable(matches):
-#             atom = self.sidechain.GetAtomWithIdx(atom_idx)
-#             if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
-#                 atom.SetIsotope(0)
-#             else:
-#                 atom.SetAtomMapNum(self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
-
-#     def create_monomer(self):
-
-#         # get modified backbone
-#         backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
-
-#         # tag n-terminus nitrogen for oligomerization
-#         for atom_idx in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
-#             atom = backbone.GetAtomWithIdx(atom_idx)
-#             if atom.GetSymbol() == 'N':
-#                 atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
-#                 break
-
-#         # create monomer
-#         map_nums = (self.BACKBONE_OLIGOMERIZATION_MAP_NUM, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
-#         return utils.connect_mols(self.sidechain, backbone, map_nums=map_nums)
-
-
 class FriedelCrafts(AbstractBiMolecularReaction):
+    """
+    An implementation of the AbstractBiMolecularReaction class that generates reactions between an aromatic carbon with
+    at least one hydrogen on a sidechain molecule, and the methyl group on the propylene substructure of the template
+    molecule. This class does not take into consideration RegioSQM predictions.
+    """
 
     def __call__(self, reacting_mol, template, reacting_atom):
         try:

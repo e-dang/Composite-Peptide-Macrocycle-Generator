@@ -61,7 +61,8 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
         atom1, atom2 = [update_hydrogen_counts(atom, clear_map_nums)
                         for atom in combo.GetAtoms() if atom.GetAtomMapNum() in map_nums]
     except ValueError:
-        raise exceptions.MergeError('There must be exactly 2 map numbers across all molecules.')
+        raise exceptions.MergeError('Could not find 2 atoms with the given map numbers. Check for duplicate map numbers'
+                                    ' or that the map numbers are present on the molecules.')
 
     # create bond, remove hydrogens, and sanitize
     combo.AddBond(atom1.GetIdx(), atom2.GetIdx(), order=Chem.BondType.SINGLE)
@@ -79,10 +80,37 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
 
 
 def find_atom(mol, atom_map_num):
+    """
+    Finds and returns the atom in the given molecule marked with the specified atom map number.
+
+    Args:
+        mol (RDKit Mol): The molecule that contains the desired atom.
+        atom_map_num (int): The atom map number on the desired atom.
+
+    Returns:
+        RDKit Atom: The desired atom.
+    """
 
     for atom in mol.GetAtoms():
         if atom.GetAtomMapNum() == atom_map_num:
             return atom
+
+    return None
+
+
+def atom_to_wildcard(atom):
+    """
+    Changes the atom to a wildcard atom.
+
+    Args:
+        atom (RDKit Atom): The atom to change to a wildcard.
+    """
+
+    atom.SetAtomicNum(0)
+    atom.SetIsotope(0)
+    atom.SetFormalCharge(0)
+    atom.SetIsAromatic(False)
+    atom.SetNumExplicitHs(0)
 
 
 def random_order_cartesian_product(*factors):
@@ -174,21 +202,6 @@ def get_file_num_range(filepath):
         high += 1
 
 
-def atom_to_wildcard(atom):
-    """
-    Changes the atom to a wildcard atom.
-
-    Args:
-        atom (RDKit Atom): The atom to change to a wildcard.
-    """
-
-    atom.SetAtomicNum(0)
-    atom.SetIsotope(0)
-    atom.SetFormalCharge(0)
-    atom.SetIsAromatic(False)
-    atom.SetNumExplicitHs(0)
-
-
 def get_templates():
     """
     Creates and returns a list of all template molecules.
@@ -249,6 +262,17 @@ get_hashed_backbones = get_hashed_molecules(get_backbones)
 
 
 def get_partial_backbone(map_num):
+    """
+    Creates an amino acid backbone structure where the carboxyl group is replaced by a wildcard atom. Useful when trying
+    to match a monomer that has been incorporated into a peptide.
+
+    Args:
+        map_num (int): The map number to give the wildcard atom.
+
+    Returns:
+        RDKit Mol: The partial backbone.
+    """
+
     backbone = molecules.AlphaBackBone().tagged_mol
     carboxyl = Chem.MolFromSmarts('C(=O)O')
     replacement = Chem.MolFromSmarts(f'[*:{map_num}]')
@@ -256,11 +280,27 @@ def get_partial_backbone(map_num):
 
 
 def get_reactions():
+    """
+    Create and return a list of all reactions.
+
+    Returns:
+        list: The reactions.
+    """
+
     return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler(),
             reactions.TemplatePictetSpangler(), reactions.PyrroloIndolene(), reactions.UnmaskedAldehydeCyclization()]
 
 
 def get_reactions_of_type(rxn_type):
+    """
+    Closure for creating a function that returns all reactions of a certain type.
+
+    Args:
+        rxn_type (str): The desired reaction type.
+
+    Returns:
+        func: A function that when called returns an iterable of the desired reactions.
+    """
 
     def reaction_getter():
         return filter(lambda x: rxn_type in x.type, get_reactions())
