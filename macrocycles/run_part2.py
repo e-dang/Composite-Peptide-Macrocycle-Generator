@@ -1,7 +1,7 @@
 import runners
 from argparse import ArgumentParser
 
-NUM_PEPTIDES = 150000
+NUM_PEPTIDES = 3000
 
 parser = ArgumentParser(description='Parse arguments to determine the length of peptides to generate.')
 

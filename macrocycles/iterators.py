@@ -1,7 +1,6 @@
 
-from copy import copy
 from abc import ABC, abstractmethod
-import project_io
+from copy import copy
 
 
 class IRecordIterator(ABC):

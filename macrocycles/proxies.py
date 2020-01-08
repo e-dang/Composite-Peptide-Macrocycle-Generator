@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-import utils
+import project_io
 
 
 class IProxy(ABC):
@@ -23,7 +23,7 @@ class RegioSQMProxy(IProxy):
     def __init__(self):
         self.flag = False
         self.data = {}
-        self.hasher = utils.get_hashed_regiosqm_predictions
+        self.hasher = project_io.get_hashed_regiosqm_predictions
 
 
 class pKaProxy(IProxy):
@@ -31,4 +31,4 @@ class pKaProxy(IProxy):
     def __init__(self):
         self.flag = False
         self.data = {}
-        self.hasher = utils.get_hashed_pka_predictions
+        self.hasher = project_io.get_hashed_pka_predictions

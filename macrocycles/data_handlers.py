@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
 
-import config
 import iterators
 import project_io
 import utils
@@ -14,13 +13,10 @@ class IDataHandler(ABC):
     """
 
     @abstractmethod
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
         """
         Abstract initializer used to instantiate the IO classes for loading and saving the data required and generated
         by the derived DataHandler's coupled Generator class.
-
-        Args:
-            data_format (str): The format of the data to load from and save to. Can either be 'json' or 'mongo'
         """
 
     @abstractmethod
@@ -43,24 +39,18 @@ class SCCMDataHandler(IDataHandler):
     Generator.
     """
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        if data_format == 'json':
-            id_io = project_io.JsonIDIO()
-            self._sidechain_io = project_io.JsonSideChainIO()
-        elif data_format == 'mongo':
-            id_io = project_io.MongoIDIO()
-            self._sidechain_io = project_io.MongoSideChainIO()
-
-        self.id_iterator = iterators.IDIterator(id_io)
+        self.sidechain_io = project_io.get_sidechain_io()
+        self.id_iterator = iterators.IDIterator(project_io.get_id_io())
 
     def load(self):
 
-        return self._sidechain_io.load()
+        return self.sidechain_io.load()
 
     def save(self, data):
 
-        self._sidechain_io.save(data)
+        self.sidechain_io.save(data)
         self.id_iterator.save()
 
 
@@ -70,26 +60,19 @@ class MGDataHandler(IDataHandler):
     Generator.
     """
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        if data_format == 'json':
-            index_io = project_io.JsonIndexIO()
-            self._sidechain_loader = project_io.JsonSideChainIO()
-            self._monomer_saver = project_io.JsonMonomerIO()
-        elif data_format == 'mongo':
-            index_io = project_io.MongoIndexIO()
-            self._sidechain_loader = project_io.MongoSideChainIO()
-            self._monomer_saver = project_io.MongoMonomerIO()
-
-        self.index_iterator = iterators.IndexIterator(index_io)
+        self.sidechain_loader = project_io.get_sidechain_io()
+        self.monomer_saver = project_io.get_monomer_io()
+        self.index_iterator = iterators.IndexIterator(project_io.get_index_io())
 
     def load(self):
 
-        return self._sidechain_loader.load()
+        return self.sidechain_loader.load()
 
     def save(self, data):
 
-        self._monomer_saver.save(data)
+        self.monomer_saver.save(data)
         self.index_iterator.save()
 
 
@@ -99,23 +82,18 @@ class TestPGDataHandler(IDataHandler):
     Generator.
     """
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        if data_format == 'json':
-            self._monomer_loader = project_io.JsonMonomerIO()
-            self._peptide_saver = project_io.JsonPeptideIO()
-        elif data_format == 'mongo':
-            self._monomer_loader = project_io.MongoMonomerIO()
-            self._peptide_saver = project_io.MongoPeptideIO()
-
+        self.monomer_loader = project_io.get_monomer_io()
+        self.peptide_saver = project_io.get_peptide_io(peptide_length=kwargs['peptide_length'])
         self.peptide_length = kwargs['peptide_length']
 
     def load(self):
-        return self._monomer_loader.load(), self.peptide_length
+        return self.monomer_loader.load(), self.peptide_length
 
     def save(self, data):
 
-        self._peptide_saver.save(data)
+        self.peptide_saver.save(data)
 
 
 class PublicationPGDataHandler(IDataHandler):
@@ -124,76 +102,60 @@ class PublicationPGDataHandler(IDataHandler):
     Generator.
     """
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        if data_format == 'json':
-            self._peptide_saver = project_io.JsonPeptideIO()
-        elif data_format == 'mongo':
-            self._peptide_saver = project_io.MongoPeptideIO()
-
-        self.peptide_length = kwargs['peptide_length']
-        self.plan_loader = project_io.PeptidePlannerIO(self.peptide_length)
+        self.peptide_saver = project_io.get_peptide_io(peptide_length=kwargs['peptide_length'])
+        self.plan_loader = project_io.PeptidePlannerIO(kwargs['peptide_length'])
 
     def load(self):
         return self.plan_loader.load()
 
     def save(self, data):
 
-        self._peptide_saver.save(data, peptide_length=self.peptide_length)
+        self.peptide_saver.save(data)
 
 
 class TPGDataHandler(IDataHandler):
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        if data_format == 'json':
-            self._peptide_loader = project_io.JsonPeptideIO()
-            self._template_peptide_saver = project_io.JsonTemplatePeptideIO()
-        elif data_format == 'mongo':
-            self._peptide_loader = project_io.MongoPeptideIO()
-            self._template_peptide_saver = project_io.MongoTemplatePeptideIO()
-
-        self.peptide_length = kwargs['peptide_length']
+        self.peptide_loader = project_io.get_peptide_io(peptide_length=kwargs['peptide_length'])
+        self.template_peptide_saver = project_io.get_template_peptide_io(peptide_length=kwargs['peptide_length'])
 
     def load(self):
 
-        return self._peptide_loader.load(peptide_length=self.peptide_length)
+        return self.peptide_loader.load()
 
     def save(self, data):
 
-        self._template_peptide_saver.save(data, peptide_length=self.peptide_length)
+        self.template_peptide_saver.save(data)
 
 
 class MCGDataHandler(IDataHandler):
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        if data_format == 'json':
-            self._template_peptide_loader = project_io.JsonTemplatePeptideIO()
-            self._reaction_loader = project_io.JsonReactionIO()
-            self._macrocycle_saver = project_io.JsonMacrocycleIO()
-        elif data_format == 'mongo':
-            self._template_peptide_loader = project_io.MongoTemplatePeptideIO()
-            self._reaction_loader = project_io.MongoReactionIO()
-            self._macrocycle_saver = project_io.MongoMacrocycleIO()
-
+        self.template_peptide_loader = project_io.get_template_peptide_io(peptide_length=kwargs['peptide_length'])
+        self.reaction_loader = project_io.get_reaction_io()
+        self.macrocycle_saver = project_io.get_macrocycle_io(peptide_length=kwargs['peptide_length'],
+                                                             job_num=kwargs['job_num'])
         self.peptide_length = kwargs['peptide_length']
         self.start = kwargs['start']
         self.end = kwargs['end']
         self.job_num = kwargs['job_num']
 
     def load(self):
-        MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
 
-        return MacrocycleGeneratorData(self.load_template_peptides(), self._reaction_loader.load())
+        MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
+        return MacrocycleGeneratorData(self.load_template_peptides(), self.reaction_loader.load())
 
     def save(self, data):
 
-        self._macrocycle_saver.save(data, job_num=self.job_num, peptide_length=self.peptide_length)
+        self.macrocycle_saver.save(data)
 
     def load_template_peptides(self):
 
-        for i, template_peptide in enumerate(self._template_peptide_loader.load(peptide_length=self.peptide_length)):
+        for i, template_peptide in enumerate(self.template_peptide_loader.load()):
             if i < self.start:
                 continue
             elif i >= self.end:
@@ -204,44 +166,36 @@ class MCGDataHandler(IDataHandler):
 
 class UMRGDataHandler(IDataHandler):
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        self._templates = utils.get_templates()
-        self._reactions = utils.get_unimolecular_reactions()
-        if data_format == 'json':
-            self._reaction_saver = project_io.JsonReactionIO()
-        elif data_format == 'mongo':
-            self._reaction_saver = project_io.MongoReactionIO()
+        self.templates = utils.get_templates()
+        self.reactions = utils.get_unimolecular_reactions()
+        self.reaction_saver = project_io.get_reaction_io()
 
     def load(self):
 
-        return self._templates, self._reactions
+        return self.templates, self.reactions
 
     def save(self, data):
 
-        self._reaction_saver.save(data)
+        self.reaction_saver.save(data)
 
 
 class BMRGDataHandler(IDataHandler):
 
-    def __init__(self, data_format=config.DATA_FORMAT, **kwargs):
+    def __init__(self, **kwargs):
 
-        self._reactions = utils.get_bimolecular_reactions()
-        if data_format == 'json':
-            self._sidechain_loader = project_io.JsonSideChainIO()
-            self._monomer_loader = project_io.JsonMonomerIO()
-            self._reaction_saver = project_io.JsonReactionIO()
-        elif data_format == 'mongo':
-            self._sidechain_loader = project_io.MongoSideChainIO()
-            self._monomer_loader = project_io.MongoMonomerIO()
-            self._reaction_saver = project_io.MongoReactionIO()
+        self.reactions = utils.get_bimolecular_reactions()
+        self.sidechain_loader = project_io.get_sidechain_io()
+        self.monomer_loader = project_io.get_monomer_io()
+        self.reaction_saver = project_io.get_reaction_io()
 
     def load(self):
 
-        reacting_mols = list(filter(lambda x: x['connection'] == 'methyl', self._sidechain_loader.load()))
-        reacting_mols.extend(list(filter(lambda x: x['required'] and x['imported'], self._monomer_loader.load())))
-        return reacting_mols, self._reactions
+        reacting_mols = list(filter(lambda x: x['connection'] == 'methyl', self.sidechain_loader.load()))
+        reacting_mols.extend(list(filter(lambda x: x['required'] and x['imported'], self.monomer_loader.load())))
+        return reacting_mols, self.reactions
 
     def save(self, data):
 
-        self._reaction_saver.save(data)
+        self.reaction_saver.save(data)

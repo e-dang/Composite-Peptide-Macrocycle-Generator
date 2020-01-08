@@ -10,36 +10,32 @@ import planners
 import project_io
 
 
-def initialize(data_format=config.DATA_FORMAT):
+def initialize():
 
-    if data_format == 'mongo':
+    if config.DATA_FORMAT == 'mongo':
         database = project_io.MongoDataBase()
         database.setup()
 
-    initializers.RecordInitializer(data_format).initialize()
-    importers.DataImporter(data_format).import_molecules()
+    initializers.RecordInitializer().initialize()
+    importers.DataImporter().import_molecules()
     create_regiosqm_smiles_file()
     create_pka_smiles_file()
 
 
-def reset(data_format=config.DATA_FORMAT):
+def reset():
 
-    if data_format == 'mongo':
+    if config.DATA_FORMAT == 'mongo':
         database = project_io.MongoDataBase()
         database.setup()
 
-    initializers.RecordInitializer(data_format).initialize()
-    importers.DataImporter(data_format).import_data()
+    initializers.RecordInitializer().initialize()
+    importers.DataImporter().import_data()
 
 
 def create_regiosqm_smiles_file():
 
-    if config.DATA_FORMAT == 'json':
-        sidechain_io = project_io.JsonSideChainIO()
-        monomer_io = project_io.JsonMonomerIO()
-    elif config.DATA_FORMAT == 'mongo':
-        sidechain_io = project_io.MongoSideChainIO()
-        monomer_io = project_io.MongoMonomerIO()
+    sidechain_io = project_io.get_sidechain_io()
+    monomer_io = project_io.get_monomer_io()
 
     data = list(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
     data.extend(list(filter(lambda x: x['required'], monomer_io.load())))
@@ -48,12 +44,8 @@ def create_regiosqm_smiles_file():
 
 def create_pka_smiles_file():
 
-    if config.DATA_FORMAT == 'json':
-        sidechain_io = project_io.JsonSideChainIO()
-    elif config.DATA_FORMAT == 'mongo':
-        sidechain_io = project_io.MongoSideChainIO()
-
     data = []
+    sidechain_io = project_io.get_sidechain_io()
     for sidechain in filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()):
         atom_map = 1
         mol = Chem.Mol(sidechain['binary'])
@@ -104,12 +96,8 @@ run_bimolecular_reactions = run(factories.BiMolecularReactionGenerationArgs, 'Bi
 run_macrocycles = run(factories.MacrocycleGenerationArgs, 'Macrocycles')
 
 
-def generate_peptide_plan(peptide_length, num_peptides, data_format=config.DATA_FORMAT):
+def generate_peptide_plan(peptide_length, num_peptides):
 
-    if data_format == 'json':
-        monomer_io = project_io.JsonMonomerIO()
-    elif data_format == 'mongo':
-        monomer_io = project_io.MongoMonomerIO()
-
+    monomer_io = project_io.get_monomer_io()
     planner = planners.PeptidePublicationPlanner(monomer_io, peptide_length, num_peptides)
     planner.create_plan()

@@ -6,9 +6,7 @@ import random
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-import config
 import molecules
-import project_io
 import reactions
 
 
@@ -272,41 +270,6 @@ def get_reactions_of_type(rxn_type):
 
 get_bimolecular_reactions = get_reactions_of_type('bimolecular')
 get_unimolecular_reactions = get_reactions_of_type('unimolecular')
-
-
-def get_hashed_predictions(func):
-
-    def hasher():
-        hashed_predictions = {}
-        for prediction in func():
-            hashed_predictions[prediction['reacting_mol']] = prediction['predictions']
-        return hashed_predictions
-
-    return hasher
-
-
-def get_regiosqm_predictions(data_format=config.DATA_FORMAT):
-
-    if data_format == 'json':
-        regio_io = project_io.JsonRegioSQMIO()
-    elif data_format == 'mongo':
-        regio_io = project_io.MongoRegioSQMIO()
-
-    return regio_io.load()
-
-
-def get_pka_predictions(data_format=config.DATA_FORMAT):
-
-    if data_format == 'json':
-        pka_io = project_io.JsonpKaIO()
-    elif data_format == 'mongo':
-        pka_io = project_io.MongopKaIO()
-
-    return pka_io.load()
-
-
-get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_predictions)
-get_hashed_pka_predictions = get_hashed_predictions(get_pka_predictions)
 
 
 class suppress_stdout_stderr(object):

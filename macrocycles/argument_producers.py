@@ -3,7 +3,6 @@ from collections import defaultdict
 from itertools import product, chain
 from random import sample
 
-import config
 import project_io
 
 
@@ -42,12 +41,9 @@ class TestPeptideGeneratorArgProducer(IArgumentProducer):
 
 class PeptideGeneratorArgProducer(IArgumentProducer):
 
-    def __init__(self, data_format=config.DATA_FORMAT):
-        if data_format == 'json':
-            self.monomer_io = project_io.JsonMonomerIO()
-        elif data_format == 'mongo':
-            self.monomer_io = project_io.MongoMonomerIO()
+    def __init__(self):
 
+        self.monomer_io = project_io.get_monomer_io()
         self.loaded = False
 
     def __call__(self, data):

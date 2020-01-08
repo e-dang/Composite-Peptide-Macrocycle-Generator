@@ -193,6 +193,9 @@ class JsonIDIO(AbstractJsonIO):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'ids.json')
 
+    def __init__(self, **kwargs):
+        pass
+
     def load(self):
         with open(self.FILEPATH, 'r') as file:
             return json.load(file)
@@ -205,6 +208,9 @@ class JsonIDIO(AbstractJsonIO):
 class JsonIndexIO(AbstractJsonIO):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'index.json')
+
+    def __init__(self, **kwargs):
+        pass
 
     def load(self):
         with open(self.FILEPATH, 'r') as file:
@@ -560,3 +566,40 @@ class MongopKaIO(AbstractMongoIO):
 
     def __init__(self):
         super().__init__(self.COLLECTION, self.QUERY)
+
+
+def get_io(json_io, mongo_io):
+    def io_closure(**kwargs):
+        if config.DATA_FORMAT == 'json':
+            return json_io(**kwargs)
+        if config.DATA_FORMAT == 'mongo':
+            return mongo_io()
+
+    return io_closure
+
+
+get_id_io = get_io(JsonIDIO, MongoIDIO)
+get_index_io = get_io(JsonIndexIO, MongoIndexIO)
+get_sidechain_io = get_io(JsonSideChainIO, MongoSideChainIO)
+get_monomer_io = get_io(JsonMonomerIO, MongoMonomerIO)
+get_peptide_io = get_io(JsonPeptideIO, MongoPeptideIO)
+get_template_peptide_io = get_io(JsonTemplatePeptideIO, MongoTemplatePeptideIO)
+get_macrocycle_io = get_io(JsonMacrocycleIO, MongoMacrocycleIO)
+get_reaction_io = get_io(JsonReactionIO, MongoReactionIO)
+get_regiosqm_io = get_io(JsonRegioSQMIO, MongoRegioSQMIO)
+get_pka_io = get_io(JsonpKaIO, MongopKaIO)
+
+
+def get_hashed_predictions(predictions):
+
+    def hasher():
+        hashed_predictions = {}
+        for prediction in predictions:
+            hashed_predictions[prediction['reacting_mol']] = prediction['predictions']
+        return hashed_predictions
+
+    return hasher
+
+
+get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_io().load())
+get_hashed_pka_predictions = get_hashed_predictions(get_pka_io().load())

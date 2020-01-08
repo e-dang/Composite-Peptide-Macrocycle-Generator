@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
-import config
+
 import iterators
 import project_io
 
@@ -16,28 +16,12 @@ class IImporter(ABC):
 
 class DataImporter(IImporter):
 
-    def __init__(self, data_format=config.DATA_FORMAT):
-        if data_format == 'json':
-            sidechain_io = project_io.JsonSideChainIO()
-            monomer_io = project_io.JsonMonomerIO()
-            id_io = project_io.JsonIDIO()
-            index_io = project_io.JsonIndexIO()
-            regiosqm_io = project_io.JsonRegioSQMIO()
-            pka_io = project_io.JsonpKaIO()
-        elif data_format == 'mongo':
-            sidechain_io = project_io.MongoSideChainIO()
-            monomer_io = project_io.MongoMonomerIO()
-            id_io = project_io.MongoIDIO()
-            index_io = project_io.MongoIndexIO()
-            regiosqm_io = project_io.MongoRegioSQMIO()
-            pka_io = project_io.MongopKaIO()
+    def __init__(self, **kwargs):
 
-        id_iterator = iterators.IDIterator(id_io)
-        index_iterator = iterators.IndexIterator(index_io)
-        self.molecule_importers = [SideChainImporter(sidechain_io, id_iterator),
-                                   MonomerImporter(monomer_io, id_iterator, index_iterator)]
-        self.prediction_importers = [RegioSQMImporter(regiosqm_io, sidechain_io, monomer_io),
-                                     pKaImporter(pka_io, sidechain_io)]
+        id_iterator = iterators.IDIterator(project_io.get_id_io())
+        index_iterator = iterators.IndexIterator(project_io.get_index_io())
+        self.molecule_importers = [SideChainImporter(id_iterator), MonomerImporter(id_iterator, index_iterator)]
+        self.prediction_importers = [RegioSQMImporter(**kwargs), pKaImporter(**kwargs)]
 
     def import_data(self):
         self.import_molecules()
@@ -54,10 +38,10 @@ class DataImporter(IImporter):
 
 class SideChainImporter(IImporter):
 
-    def __init__(self, sidechain_io, id_iterator):
+    def __init__(self, id_iterator):
 
         self.loader = project_io.ChemDrawSideChainIO()
-        self.saver = sidechain_io
+        self.saver = project_io.get_sidechain_io()
         self.id_iterator = id_iterator
 
     def import_data(self):
@@ -80,10 +64,10 @@ class SideChainImporter(IImporter):
 
 class MonomerImporter(IImporter):
 
-    def __init__(self, monomer_io, id_iterator, index_iterator):
+    def __init__(self, id_iterator, index_iterator):
 
         self.loader = project_io.ChemDrawMonomerIO()
-        self.saver = monomer_io
+        self.saver = project_io.get_monomer_io()
         self.id_iterator = id_iterator
         self.index_iterator = index_iterator
 
@@ -113,13 +97,13 @@ class MonomerImporter(IImporter):
 
 class RegioSQMImporter(IImporter):
 
-    def __init__(self, regiosqm_io, sidechain_io, monomer_io, solvent='nitromethane', cutoff=3):
+    def __init__(self, regiosqm_solvent='nitromethane', cutoff=3, **kwargs):
 
         self.raw_regiosqm_io = project_io.RawRegioSQMIO()
-        self.regiosqm_io = regiosqm_io
-        self.sidechain_io = sidechain_io
-        self.monomer_io = monomer_io
-        self.solvent = solvent
+        self.regiosqm_io = project_io.get_regiosqm_io()
+        self.sidechain_io = project_io.get_sidechain_io()
+        self.monomer_io = project_io.get_monomer_io()
+        self.solvent = regiosqm_solvent
         self.cutoff = cutoff
         self.hashed_mols = {}
 
@@ -163,12 +147,12 @@ class RegioSQMImporter(IImporter):
 
 class pKaImporter(IImporter):
 
-    def __init__(self, pka_io, sidechain_io, solvent='water'):
+    def __init__(self, pka_solvent='water', **kwargs):
 
         self.raw_pka_io = project_io.RawpKaIO()
-        self.pka_io = pka_io
-        self.sidechain_io = sidechain_io
-        self.solvent = solvent
+        self.pka_io = project_io.get_pka_io()
+        self.sidechain_io = project_io.get_sidechain_io()
+        self.solvent = pka_solvent
         self.hashed_sidechains = {}
 
     def hash_sidechains(self):
