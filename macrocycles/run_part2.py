@@ -1,17 +1,19 @@
 import runners
+from argparse import ArgumentParser
 
-NUM_PEPTIDES = 200000
-PEPTIDE_LENGTH_LOW = 3
-PEPTIDE_LENGTH_HIGH = 5
+NUM_PEPTIDES = 150000
+
+parser = ArgumentParser(description='Parse arguments to determine the length of peptides to generate.')
+
+parser.add_argument('--peptide_len', type=int, required=True, help='The length of the peptides to generate.')
+
+args = parser.parse_args()
 
 # create peptide plan
-for i in range(PEPTIDE_LENGTH_LOW, PEPTIDE_LENGTH_HIGH + 1):
-    runners.generate_peptide_plan(i, NUM_PEPTIDES)
+runners.generate_peptide_plan(args.peptide_len, NUM_PEPTIDES)
 
 # create peptides
-for i in range(PEPTIDE_LENGTH_LOW, PEPTIDE_LENGTH_HIGH + 1):
-    runners.run_peptides(peptide_length=i)
+runners.run_peptides(peptide_length=args.peptide_len)
 
 # create template_peptides
-for i in range(PEPTIDE_LENGTH_LOW, PEPTIDE_LENGTH_HIGH + 1):
-    runners.run_template_peptides(peptide_length=i)
+runners.run_template_peptides(peptide_length=args.peptide_len)
