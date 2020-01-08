@@ -7,12 +7,9 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 import config
-import importers
-import initializers
 import molecules
 import project_io
 import reactions
-import planners
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -88,65 +85,6 @@ def find_atom(mol, atom_map_num):
     for atom in mol.GetAtoms():
         if atom.GetAtomMapNum() == atom_map_num:
             return atom
-
-
-def create_regiosqm_smiles_file():
-
-    if config.DATA_FORMAT == 'json':
-        sidechain_io = project_io.JsonSideChainIO()
-        monomer_io = project_io.JsonMonomerIO()
-    elif config.DATA_FORMAT == 'mongo':
-        sidechain_io = project_io.MongoSideChainIO()
-        monomer_io = project_io.MongoMonomerIO()
-
-    data = list(filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()))
-    data.extend(list(filter(lambda x: x['required'], monomer_io.load())))
-    project_io.RawRegioSQMIO().save(data)
-
-
-def create_pka_smiles_file():
-
-    if config.DATA_FORMAT == 'json':
-        sidechain_io = project_io.JsonSideChainIO()
-    elif config.DATA_FORMAT == 'mongo':
-        sidechain_io = project_io.MongoSideChainIO()
-
-    data = []
-    for sidechain in filter(lambda x: x['connection'] == 'methyl', sidechain_io.load()):
-        atom_map = 1
-        mol = Chem.Mol(sidechain['binary'])
-        for atom in mol.GetAtoms():
-            if atom.GetSymbol() in ('N', 'O', 'S') and atom.GetTotalNumHs() > 0:
-                atom.SetAtomMapNum(atom_map)
-                atom_map += 1
-
-        if atom_map > 1:
-            Chem.Kekulize(mol)
-            data.append((sidechain['_id'], Chem.MolToSmiles(mol, kekuleSmiles=True)))
-
-    project_io.RawpKaIO().save(data)
-
-
-def initialize(data_format=config.DATA_FORMAT):
-
-    if data_format == 'mongo':
-        database = project_io.MongoDataBase()
-        database.setup()
-
-    initializers.RecordInitializer(data_format).initialize()
-    importers.DataImporter(data_format).import_molecules()
-    create_regiosqm_smiles_file()
-    create_pka_smiles_file()
-
-
-def reset(data_format=config.DATA_FORMAT):
-
-    if data_format == 'mongo':
-        database = project_io.MongoDataBase()
-        database.setup()
-
-    initializers.RecordInitializer(data_format).initialize()
-    importers.DataImporter(data_format).import_data()
 
 
 def random_order_cartesian_product(*factors):
@@ -364,14 +302,3 @@ def get_pka_predictions(data_format=config.DATA_FORMAT):
 
 get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_predictions)
 get_hashed_pka_predictions = get_hashed_predictions(get_pka_predictions)
-
-
-def generate_peptide_plan(peptide_length, num_peptides, data_format=config.DATA_FORMAT):
-
-    if data_format == 'json':
-        monomer_io = project_io.JsonMonomerIO()
-    elif data_format == 'mongo':
-        monomer_io = project_io.MongoMonomerIO()
-
-    planner = planners.PeptidePublicationPlanner(monomer_io, peptide_length, num_peptides)
-    planner.create_plan()
