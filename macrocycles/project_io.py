@@ -17,13 +17,13 @@ class IOInterface(ABC):
     """
 
     @abstractmethod
-    def load(self, **kwargs):
+    def load(self):
         """
         Abstract method for loading data handled by the specific derived class.
         """
 
     @abstractmethod
-    def save(self, data, **kwargs):
+    def save(self, data):
         """
         Abstract method for saving the provided data in the location maintained by the derived class.
 
@@ -39,11 +39,11 @@ class PeptidePlannerIO(IOInterface):
     def __init__(self, peptide_length):
         self.peptide_length = peptide_length
 
-    def load(self, **kwargs):
+    def load(self):
         with open(utils.attach_file_num(self.FILEPATH, self.peptide_length), 'r') as file:
             return file.readlines()
 
-    def save(self, data, **kwargs):
+    def save(self, data):
 
         with open(utils.attach_file_num(self.FILEPATH, self.peptide_length), 'w') as file:
             for monomer_idxs in data:
@@ -53,32 +53,32 @@ class PeptidePlannerIO(IOInterface):
 
 class RawRegioSQMIO(IOInterface):
 
-    _RESULT_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_results_nm_3.csv')
-    _SMILES_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_mols.smiles')
+    RESULT_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_results_nm_3.csv')
+    SMILES_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_mols.smiles')
 
-    def load(self, **kwargs):
+    def load(self):
 
-        with open(self._RESULT_FILEPATH, 'r') as file:
+        with open(self.RESULT_FILEPATH, 'r') as file:
             return list(csv.reader(file, delimiter=','))
 
-    def save(self, data, **kwargs):
+    def save(self, data):
 
-        with open(self._SMILES_FILEPATH, 'w') as file:
+        with open(self.SMILES_FILEPATH, 'w') as file:
             for mol in data:
                 file.write(mol['_id'] + ' ' + mol['kekule'] + '\n')
 
 
 class RawpKaIO(IOInterface):
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'external', 'pkas.txt')
+    FILEPATH = os.path.join(config.DATA_DIR, 'external', 'pkas.txt')
 
-    def load(self, **kwargs):
-        with open(self._FILEPATH, 'r') as file:
+    def load(self):
+        with open(self.FILEPATH, 'r') as file:
             return list(file.readlines())
 
-    def save(self, data, **kwargs):
+    def save(self, data):
 
-        with open(self._FILEPATH, 'w') as file:
+        with open(self.FILEPATH, 'w') as file:
             for mol_id, kekule in data:
                 file.write(mol_id + '; ' + kekule + '; ' + '\n')
 
@@ -89,11 +89,11 @@ class ChemDrawIO(IOInterface):
 
         self.filepath = filepath
 
-    def load(self, **kwargs):
+    def load(self):
 
         return Chem.SDMolSupplier(self.filepath)
 
-    def save(self, data, **kwargs):
+    def save(self, data):
 
         writer = Chem.SDWriter(self.filepath)
         for mol in data:
@@ -103,18 +103,18 @@ class ChemDrawIO(IOInterface):
 
 class ChemDrawSideChainIO(ChemDrawIO):
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'chemdraw', 'sidechains.sdf')
+    FILEPATH = os.path.join(config.DATA_DIR, 'chemdraw', 'sidechains.sdf')
 
     def __init__(self):
-        super().__init__(self._FILEPATH)
+        super().__init__(self.FILEPATH)
 
 
 class ChemDrawMonomerIO(ChemDrawIO):
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'chemdraw', 'monomers.sdf')
+    FILEPATH = os.path.join(config.DATA_DIR, 'chemdraw', 'monomers.sdf')
 
     def __init__(self):
-        super().__init__(self._FILEPATH)
+        super().__init__(self.FILEPATH)
 
 
 class AbstractJsonIO(IOInterface):
@@ -122,7 +122,7 @@ class AbstractJsonIO(IOInterface):
     Abstract class for IO classes that read and write to json file format.
     """
 
-    def __init__(self, file_num_range=(None, None)):
+    def __init__(self, filepath, file_num_range=(None, None)):
         """
         Intializer that sets instance variables 'low' and 'high' that determine the range of file numbers to load.
 
@@ -134,11 +134,12 @@ class AbstractJsonIO(IOInterface):
         """
 
         try:
+            self.filepath = filepath
             self.low, self.high = file_num_range
         except ValueError:
             raise ValueError('file_num_range must be a tuple containing two integers')
 
-    def from_json(self, filepath):
+    def load(self):
         """
         Loads the data in the json file pointed to by filepath. The file name specified in filepath is treated as a
         base file name, meaning there could be a set of files within the directory with the same base file name
@@ -163,17 +164,17 @@ class AbstractJsonIO(IOInterface):
 
         # determine range based on the provided low and high arguments
         if self.low is None:
-            self.low, self.high = utils.get_file_num_range(filepath)
+            self.low, self.high = utils.get_file_num_range(self.filepath)
         elif self.high is None:
             self.high = self.low + 1
 
         # yield all data from within the specified range
         for file_num in range(self.low, self.high):
-            with open(utils.attach_file_num(filepath, file_num), 'r') as file:
+            with open(utils.attach_file_num(self.filepath, file_num), 'r') as file:
                 for doc in json_util.loads(json_util.dumps(json.load(file))):
                     yield doc
 
-    def to_json(self, filepath, data):
+    def save(self, data):
         """
         Saves the provided data into a json file, where the file name is the base file name specified in the filepath,
         appended with a number before the extension so as to ensure uniques. See from_json() doc string for example.
@@ -184,31 +185,33 @@ class AbstractJsonIO(IOInterface):
             data (iterable[dict]): The data to be saved.
         """
 
-        with open(utils.file_rotator(filepath), 'w') as file:
+        with open(utils.file_rotator(self.filepath), 'w') as file:
             json.dump(json.loads(json_util.dumps(data)), file)
 
 
 class JsonIDIO(AbstractJsonIO):
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'ids.json')
 
-    def load(self, **kwargs):
-        with open(self._FILEPATH, 'r') as file:
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'ids.json')
+
+    def load(self):
+        with open(self.FILEPATH, 'r') as file:
             return json.load(file)
 
-    def save(self, data, **kwargs):
-        with open(self._FILEPATH, 'w', encoding='utf-8') as file:
+    def save(self, data):
+        with open(self.FILEPATH, 'w', encoding='utf-8') as file:
             json.dump(data, file)
 
 
 class JsonIndexIO(AbstractJsonIO):
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'index.json')
 
-    def load(self, **kwargs):
-        with open(self._FILEPATH, 'r') as file:
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'index.json')
+
+    def load(self):
+        with open(self.FILEPATH, 'r') as file:
             return json.load(file)
 
-    def save(self, data, **kwargs):
-        with open(self._FILEPATH, 'w', encoding='utf-8') as file:
+    def save(self, data):
+        with open(self.FILEPATH, 'w', encoding='utf-8') as file:
             json.dump(data, file)
 
 
@@ -217,15 +220,10 @@ class JsonSideChainIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling sidechain data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'sidechains.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'sidechains.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data, **kwargs):
-
-        super().to_json(self._FILEPATH, data)
+    def __init__(self, file_num_range=(None, None)):
+        super().__init__(self.FILEPATH, file_num_range)
 
 
 class JsonMonomerIO(AbstractJsonIO):
@@ -233,15 +231,10 @@ class JsonMonomerIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling monomer data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'monomers.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'monomers.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data, **kwargs):
-
-        super().to_json(self._FILEPATH, data)
+    def __init__(self, file_num_range=(None, None)):
+        super().__init__(self.FILEPATH, file_num_range)
 
 
 class JsonPeptideIO(AbstractJsonIO):
@@ -249,15 +242,10 @@ class JsonPeptideIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling peptide data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'peptides.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'peptides.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']))
-
-    def save(self, data, **kwargs):
-
-        super().to_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']), data)
+    def __init__(self, file_num_range=(None, None), **kwargs):
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
 
 
 class JsonTemplatePeptideIO(AbstractJsonIO):
@@ -265,15 +253,10 @@ class JsonTemplatePeptideIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling template_peptide data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'template_peptides.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'template_peptides.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']))
-
-    def save(self, data, **kwargs):
-
-        super().to_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']), data)
+    def __init__(self, file_num_range=(None, None), **kwargs):
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
 
 
 class JsonMacrocycleIO(AbstractJsonIO):
@@ -281,15 +264,11 @@ class JsonMacrocycleIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling macrocycle data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'macrocycles.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'macrocycles.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data, **kwargs):
-
-        super().to_json(utils.attach_file_num(self._FILEPATH, kwargs['job_num'], kwargs['peptide_length']), data)
+    def __init__(self, file_num_range=(None, None), **kwargs):
+        super().__init__(utils.attach_file_num(self.FILEPATH,
+                                               kwargs['job_num'], kwargs['peptide_length']), file_num_range)
 
 
 class JsonReactionIO(AbstractJsonIO):
@@ -297,15 +276,10 @@ class JsonReactionIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling reaction data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'reactions.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'reactions.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data, **kwargs):
-
-        super().to_json(self._FILEPATH, data)
+    def __init__(self, file_num_range=(None, None)):
+        super().__init__(self.FILEPATH, file_num_range)
 
 
 class JsonRegioSQMIO(AbstractJsonIO):
@@ -313,15 +287,10 @@ class JsonRegioSQMIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling RegioSQM data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'regiosqm.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'regiosqm.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data, **kwargs):
-
-        super().to_json(self._FILEPATH, data)
+    def __init__(self, file_num_range=(None, None)):
+        super().__init__(self.FILEPATH, file_num_range)
 
 
 class JsonpKaIO(AbstractJsonIO):
@@ -329,15 +298,10 @@ class JsonpKaIO(AbstractJsonIO):
     Implmentation of the AbstractJsonIO class for handling pKa data.
     """
 
-    _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'pka.json')
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'pka.json')
 
-    def load(self, **kwargs):
-
-        return super().from_json(self._FILEPATH)
-
-    def save(self, data, **kwargs):
-
-        super().to_json(self._FILEPATH, data)
+    def __init__(self, file_num_range=(None, None)):
+        super().__init__(self.FILEPATH, file_num_range)
 
 
 class MongoDataBase():
@@ -414,7 +378,12 @@ class AbstractMongoIO(IOInterface, MongoDataBase):
     Abstract class for IO classes that read and write to a MongoDataBase.
     """
 
-    def from_mongo(self, collection, query):
+    def __init__(self, collection, query):
+
+        self.collection = collection
+        self.query = query
+
+    def load(self):
         """
         Loads the data specified by the query in the given collection.
 
@@ -426,9 +395,9 @@ class AbstractMongoIO(IOInterface, MongoDataBase):
             list: The requested data.
         """
 
-        return list(self[collection].find(query))
+        return list(self[self.collection].find(self.query))
 
-    def to_mongo(self, collection, data):
+    def save(self, data):
         """
         Saves the data to the specified collection in the MongoDataBase.
 
@@ -438,7 +407,7 @@ class AbstractMongoIO(IOInterface, MongoDataBase):
         """
 
         try:
-            self[collection].insert_many(data, ordered=True)
+            self[self.collection].insert_many(data, ordered=True)
         except errors.BulkWriteError as err:
             print(err.details)
             raise
@@ -449,23 +418,26 @@ class MongoIDIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling id data.
     """
 
-    _COLLECTION = config.COL4
-    _QUERY = {'_id': 'id'}
+    COLLECTION = config.COL4
+    QUERY = {'_id': 'id'}
 
-    def load(self, **kwargs):
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
-        return super().from_mongo(self._COLLECTION, self._QUERY)[0]
+    def load(self):
 
-    def save(self, data, **kwargs):
+        return super().load()[0]
+
+    def save(self, data):
 
         try:
-            super().to_mongo(self._COLLECTION, [data])
+            super().save([data])
         except errors.BulkWriteError:
             self.update(data)
 
     def update(self, data):
 
-        self[self._COLLECTION].find_one_and_replace(self._QUERY, data)
+        self[self.COLLECTION].find_one_and_replace(self.QUERY, data)
 
 
 class MongoIndexIO(AbstractMongoIO):
@@ -473,22 +445,25 @@ class MongoIndexIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling index data.
     """
 
-    _COLLECTION = config.COL4
-    _QUERY = {'_id': 'index'}
+    COLLECTION = config.COL4
+    QUERY = {'_id': 'index'}
 
-    def load(self, **kwargs):
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
-        return super().from_mongo(self._COLLECTION, self._QUERY)[0]
+    def load(self):
 
-    def save(self, data, **kwargs):
+        return super().load()[0]
+
+    def save(self, data):
 
         try:
-            super().to_mongo(self._COLLECTION, [data])
+            super().save([data])
         except errors.BulkWriteError:
             self.update(data)
 
     def update(self, data):
-        self[self._COLLECTION].find_one_and_replace(self._QUERY, data)
+        self[self.COLLECTION].find_one_and_replace(self.QUERY, data)
 
 
 class MongoSideChainIO(AbstractMongoIO):
@@ -496,16 +471,11 @@ class MongoSideChainIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling sidechain data.
     """
 
-    _COLLECTION = config.COL1
-    _QUERY = {'type': 'sidechain'}
+    COLLECTION = config.COL1
+    QUERY = {'type': 'sidechain'}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
 
 class MongoMonomerIO(AbstractMongoIO):
@@ -513,16 +483,11 @@ class MongoMonomerIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling monomer data.
     """
 
-    _COLLECTION = config.COL1
-    _QUERY = {'type': 'monomer'}
+    COLLECTION = config.COL1
+    QUERY = {'type': 'monomer'}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
 
 class MongoPeptideIO(AbstractMongoIO):
@@ -530,16 +495,11 @@ class MongoPeptideIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling peptide data.
     """
 
-    _COLLECTION = config.COL1
-    _QUERY = {'type': 'peptide'}
+    COLLECTION = config.COL1
+    QUERY = {'type': 'peptide'}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
 
 class MongoTemplatePeptideIO(AbstractMongoIO):
@@ -547,16 +507,11 @@ class MongoTemplatePeptideIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling template_peptide data.
     """
 
-    _COLLECTION = config.COL1
-    _QUERY = {'type': 'template_peptide'}
+    COLLECTION = config.COL1
+    QUERY = {'type': 'template_peptide'}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
 
 class MongoMacrocycleIO(AbstractMongoIO):
@@ -564,16 +519,11 @@ class MongoMacrocycleIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling macrocycle data.
     """
 
-    _COLLECTION = config.COL1
-    _QUERY = {'type': 'macrocycle'}
+    COLLECTION = config.COL1
+    QUERY = {'type': 'macrocycle'}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
 
 class MongoReactionIO(AbstractMongoIO):
@@ -581,16 +531,11 @@ class MongoReactionIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling reaction data.
     """
 
-    _COLLECTION = config.COL2
-    _QUERY = {}
+    COLLECTION = config.COL2
+    QUERY = {}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
 
 class MongoRegioSQMIO(AbstractMongoIO):
@@ -598,16 +543,11 @@ class MongoRegioSQMIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling RegioSQM prediction data.
     """
 
-    _COLLECTION = config.COL3
-    _QUERY = {'type': 'regiosqm'}
+    COLLECTION = config.COL3
+    QUERY = {'type': 'regiosqm'}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
 
 
 class MongopKaIO(AbstractMongoIO):
@@ -615,13 +555,8 @@ class MongopKaIO(AbstractMongoIO):
     Implmentation of the AbstractMongoIO class for handling pKa prediction data.
     """
 
-    _COLLECTION = config.COL3
-    _QUERY = {'type': 'pka'}
+    COLLECTION = config.COL3
+    QUERY = {'type': 'pka'}
 
-    def load(self, **kwargs):
-
-        return super().from_mongo(self._COLLECTION, self._QUERY)
-
-    def save(self, data, **kwargs):
-
-        super().to_mongo(self._COLLECTION, data)
+    def __init__(self):
+        super().__init__(self.COLLECTION, self.QUERY)
