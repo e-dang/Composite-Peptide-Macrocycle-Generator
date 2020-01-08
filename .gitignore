@@ -1,6 +1,7 @@
 .vscode
 backup
-data
+data/chemdraw/data
+data/generated
 logs
 __pycache__
 test.py
