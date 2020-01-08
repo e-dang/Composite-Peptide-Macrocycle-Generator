@@ -131,14 +131,15 @@ class PublicationPGDataHandler(IDataHandler):
         elif data_format == 'mongo':
             self._peptide_saver = project_io.MongoPeptideIO()
 
-        self.plan_loader = project_io.PeptidePlannerIO(kwargs['peptide_length'])
+        self.peptide_length = kwargs['peptide_length']
+        self.plan_loader = project_io.PeptidePlannerIO(self.peptide_length)
 
     def load(self):
         return self.plan_loader.load()
 
     def save(self, data):
 
-        self._peptide_saver.save(data)
+        self._peptide_saver.save(data, peptide_length=self.peptide_length)
 
 
 class TPGDataHandler(IDataHandler):
@@ -152,13 +153,15 @@ class TPGDataHandler(IDataHandler):
             self._peptide_loader = project_io.MongoPeptideIO()
             self._template_peptide_saver = project_io.MongoTemplatePeptideIO()
 
+        self.peptide_length = kwargs['peptide_length']
+
     def load(self):
 
-        return self._peptide_loader.load()
+        return self._peptide_loader.load(peptide_length=self.peptide_length)
 
     def save(self, data):
 
-        self._template_peptide_saver.save(data)
+        self._template_peptide_saver.save(data, peptide_length=self.peptide_length)
 
 
 class MCGDataHandler(IDataHandler):
@@ -174,14 +177,28 @@ class MCGDataHandler(IDataHandler):
             self._reaction_loader = project_io.MongoReactionIO()
             self._macrocycle_saver = project_io.MongoMacrocycleIO()
 
-    def load(self):
+        self.peptide_length = kwargs['peptide_length']
+        self.start = kwargs['start']
+        self.end = kwargs['end']
 
+    def load(self):
         MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
-        return MacrocycleGeneratorData(self._template_peptide_loader.load(), self._reaction_loader.load())
+
+        return MacrocycleGeneratorData(self.load_template_peptides(), self._reaction_loader.load())
 
     def save(self, data):
 
         self._macrocycle_saver.save(data)
+
+    def load_template_peptides(self):
+
+        for i, template_peptide in enumerate(self._template_peptide_loader.load(peptide_length=self.peptide_length)):
+            if i < self.start:
+                continue
+            elif i >= self.end:
+                break
+            else:
+                yield template_peptide
 
 
 class UMRGDataHandler(IDataHandler):

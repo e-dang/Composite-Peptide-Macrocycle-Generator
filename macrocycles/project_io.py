@@ -17,13 +17,13 @@ class IOInterface(ABC):
     """
 
     @abstractmethod
-    def load(self):
+    def load(self, **kwargs):
         """
         Abstract method for loading data handled by the specific derived class.
         """
 
     @abstractmethod
-    def save(self, data):
+    def save(self, data, **kwargs):
         """
         Abstract method for saving the provided data in the location maintained by the derived class.
 
@@ -39,11 +39,11 @@ class PeptidePlannerIO(IOInterface):
     def __init__(self, peptide_length):
         self.peptide_length = peptide_length
 
-    def load(self):
+    def load(self, **kwargs):
         with open(utils.attach_file_num(self._FILEPATH, self.peptide_length), 'r') as file:
             return file.readlines()
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         with open(utils.attach_file_num(self._FILEPATH, self.peptide_length), 'w') as file:
             for monomer_idxs in data:
@@ -56,12 +56,12 @@ class RawRegioSQMIO(IOInterface):
     _RESULT_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_results_nm_3.csv')
     _SMILES_FILEPATH = os.path.join(config.DATA_DIR, 'external', 'regiosqm_mols.smiles')
 
-    def load(self):
+    def load(self, **kwargs):
 
         with open(self._RESULT_FILEPATH, 'r') as file:
             return list(csv.reader(file, delimiter=','))
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         with open(self._SMILES_FILEPATH, 'w') as file:
             for mol in data:
@@ -72,11 +72,11 @@ class RawpKaIO(IOInterface):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'external', 'pkas.txt')
 
-    def load(self):
+    def load(self, **kwargs):
         with open(self._FILEPATH, 'r') as file:
             return list(file.readlines())
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         with open(self._FILEPATH, 'w') as file:
             for mol_id, kekule in data:
@@ -89,11 +89,11 @@ class ChemDrawIO(IOInterface):
 
         self.filepath = filepath
 
-    def load(self):
+    def load(self, **kwargs):
 
         return Chem.SDMolSupplier(self.filepath)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         writer = Chem.SDWriter(self.filepath)
         for mol in data:
@@ -191,11 +191,11 @@ class AbstractJsonIO(IOInterface):
 class JsonIDIO(AbstractJsonIO):
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'ids.json')
 
-    def load(self):
+    def load(self, **kwargs):
         with open(self._FILEPATH, 'r') as file:
             return json.load(file)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
         with open(self._FILEPATH, 'w', encoding='utf-8') as file:
             json.dump(data, file)
 
@@ -203,11 +203,11 @@ class JsonIDIO(AbstractJsonIO):
 class JsonIndexIO(AbstractJsonIO):
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'index.json')
 
-    def load(self):
+    def load(self, **kwargs):
         with open(self._FILEPATH, 'r') as file:
             return json.load(file)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
         with open(self._FILEPATH, 'w', encoding='utf-8') as file:
             json.dump(data, file)
 
@@ -219,11 +219,11 @@ class JsonSideChainIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'sidechains.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_json(self._FILEPATH)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_json(self._FILEPATH, data)
 
@@ -235,11 +235,11 @@ class JsonMonomerIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'monomers.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_json(self._FILEPATH)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_json(self._FILEPATH, data)
 
@@ -251,13 +251,13 @@ class JsonPeptideIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'peptides.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
-        return super().from_json(self._FILEPATH)
+        return super().from_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']))
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
-        super().to_json(self._FILEPATH, data)
+        super().to_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']), data)
 
 
 class JsonTemplatePeptideIO(AbstractJsonIO):
@@ -267,13 +267,13 @@ class JsonTemplatePeptideIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'template_peptides.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
-        return super().from_json(self._FILEPATH)
+        return super().from_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']))
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
-        super().to_json(self._FILEPATH, data)
+        super().to_json(utils.attach_file_num(self._FILEPATH, kwargs['peptide_length']), data)
 
 
 class JsonMacrocycleIO(AbstractJsonIO):
@@ -283,11 +283,11 @@ class JsonMacrocycleIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'macrocycles.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_json(self._FILEPATH)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_json(self._FILEPATH, data)
 
@@ -299,11 +299,11 @@ class JsonReactionIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'reactions.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_json(self._FILEPATH)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_json(self._FILEPATH, data)
 
@@ -315,11 +315,11 @@ class JsonRegioSQMIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'regiosqm.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_json(self._FILEPATH)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_json(self._FILEPATH, data)
 
@@ -331,11 +331,11 @@ class JsonpKaIO(AbstractJsonIO):
 
     _FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'pka.json')
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_json(self._FILEPATH)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_json(self._FILEPATH, data)
 
@@ -452,11 +452,11 @@ class MongoIDIO(AbstractMongoIO):
     _COLLECTION = config.COL4
     _QUERY = {'_id': 'id'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)[0]
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         try:
             super().to_mongo(self._COLLECTION, [data])
@@ -476,11 +476,11 @@ class MongoIndexIO(AbstractMongoIO):
     _COLLECTION = config.COL4
     _QUERY = {'_id': 'index'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)[0]
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         try:
             super().to_mongo(self._COLLECTION, [data])
@@ -499,11 +499,11 @@ class MongoSideChainIO(AbstractMongoIO):
     _COLLECTION = config.COL1
     _QUERY = {'type': 'sidechain'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
 
@@ -516,11 +516,11 @@ class MongoMonomerIO(AbstractMongoIO):
     _COLLECTION = config.COL1
     _QUERY = {'type': 'monomer'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
 
@@ -533,11 +533,11 @@ class MongoPeptideIO(AbstractMongoIO):
     _COLLECTION = config.COL1
     _QUERY = {'type': 'peptide'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
 
@@ -550,11 +550,11 @@ class MongoTemplatePeptideIO(AbstractMongoIO):
     _COLLECTION = config.COL1
     _QUERY = {'type': 'template_peptide'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
 
@@ -567,11 +567,11 @@ class MongoMacrocycleIO(AbstractMongoIO):
     _COLLECTION = config.COL1
     _QUERY = {'type': 'macrocycle'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
 
@@ -584,11 +584,11 @@ class MongoReactionIO(AbstractMongoIO):
     _COLLECTION = config.COL2
     _QUERY = {}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
 
@@ -601,11 +601,11 @@ class MongoRegioSQMIO(AbstractMongoIO):
     _COLLECTION = config.COL3
     _QUERY = {'type': 'regiosqm'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
 
@@ -618,10 +618,10 @@ class MongopKaIO(AbstractMongoIO):
     _COLLECTION = config.COL3
     _QUERY = {'type': 'pka'}
 
-    def load(self):
+    def load(self, **kwargs):
 
         return super().from_mongo(self._COLLECTION, self._QUERY)
 
-    def save(self, data):
+    def save(self, data, **kwargs):
 
         super().to_mongo(self._COLLECTION, data)
