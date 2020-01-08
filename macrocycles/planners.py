@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from copy import copy
+from copy import deepcopy
 from random import sample
 
 import utils
@@ -16,7 +16,7 @@ class IPlanner(ABC):
 class PeptidePublicationPlanner(IPlanner):
 
     def __init__(self, monomer_io, peptide_length, num_peptides):
-        self.monomers = monomer_io.load()
+        self.monomers = monomer_io.load() if isinstance(monomer_io, list) else list(monomer_io.load())
         self.saver = project_io.PeptidePlannerIO(peptide_length)
         self.peptide_length = peptide_length
         self.num_peptides = num_peptides
@@ -39,11 +39,13 @@ class PeptidePublicationPlanner(IPlanner):
 
     def create_remaining_list(self):
 
-        monomers = [copy(self.monomers) for _ in range(self.peptide_length)]
+        monomers = [deepcopy(self.monomers) for _ in range(self.peptide_length)]
+        monomer_tuples = utils.random_order_cartesian_product(*monomers)
         while len(self.monomer_combinations) < self.num_peptides:
-            random_sample = utils.random_order_cartesian_product(*monomers)
-            if self.validate_monomers(random_sample):
-                self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
+            for random_sample in monomer_tuples:
+                if self.validate_monomers(random_sample):
+                    self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
+                    break
 
     def get_fillers(self, desired_monomer):
 
