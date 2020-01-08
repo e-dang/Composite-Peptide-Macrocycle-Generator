@@ -5,6 +5,7 @@ from pymongo import ASCENDING
 ################################################ Directories ################################################
 PROJECT_DIR = os.environ['PROJECT_DIR']
 DATA_DIR = os.path.join(PROJECT_DIR, 'data')
+# DATA_DIR = os.path.join('/u/scratch/e/ericdang', 'data')
 LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
 TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 

@@ -2,4 +2,5 @@
 - Add unit tests
 - Add way of tracking which peptides have been made so multinode generation is possible https://stackoverflow.com/questions/48686767/how-to-sample-from-cartesian-product-without-repetition
 - Add doc strings
-- Check that pyrrolo_indolene validate() is correct
+- put top level IO functions for each mol type that determines which source json/mongo to use from config file.
+-Check that template_pictet_spangler results in syn stereochemistry at the time of reaction (versus when stereochem is applied)
