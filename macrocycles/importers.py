@@ -40,7 +40,7 @@ class SideChainImporter(IImporter):
 
     def __init__(self, id_iterator):
 
-        self.loader = project_io.ChemDrawSideChainIO()
+        self.loader = project_io.SDFSideChainIO()
         self.saver = project_io.get_sidechain_io()
         self.id_iterator = id_iterator
 
@@ -66,7 +66,7 @@ class MonomerImporter(IImporter):
 
     def __init__(self, id_iterator, index_iterator):
 
-        self.loader = project_io.ChemDrawMonomerIO()
+        self.loader = project_io.SDFMonomerIO()
         self.saver = project_io.get_monomer_io()
         self.id_iterator = id_iterator
         self.index_iterator = index_iterator
