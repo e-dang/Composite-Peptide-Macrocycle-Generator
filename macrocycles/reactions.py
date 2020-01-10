@@ -126,6 +126,9 @@ class AbstractUniMolecularReaction(IReaction):
 
     @property
     def type(self):
+        """
+        The classification of the reaction.
+        """
 
         return 'unimolecular'
 
@@ -159,6 +162,10 @@ class AbstractBiMolecularReaction(IReaction):
 
     @property
     def type(self):
+        """
+        The classification of the reaction.
+        """
+
         return 'bimolecular'
 
     def reset(self):
@@ -259,6 +266,15 @@ class FriedelCrafts(AbstractBiMolecularReaction):
     """
 
     def __call__(self, reacting_mol, template, reacting_atom):
+        """
+        Method to initialize the reaction with new molecules. Calls reset(), initialize(), and validate().
+
+        Args:
+            reacting_mol (RDKit Mol): The reacting molecule, either sidechain or monomer.
+            template (ITemplateMol): An implementation of ITemplateMol that has the property "friedel_crafts_kekule".
+            reacting_atom (RDKit Atom): The atom on the reacting molecule that will react with the template.
+        """
+
         try:
             self.reset()
             super().initialize(reacting_mol, template.friedel_crafts_kekule, reacting_atom)
@@ -268,13 +284,29 @@ class FriedelCrafts(AbstractBiMolecularReaction):
 
     @property
     def name(self):
+        """
+        The name of the reaction.
+        """
+
         return 'friedel_crafts'
 
     @property
     def applicable_template(self):
+        """
+        The type of templates that are applicable to the reaction.
+        """
+
         return 'all'
 
     def validate(self):
+        """
+        Method to validate that the given reacting molecule and template are compatible for this type of reaction. The
+        requirements are that the reacting atom must be a aromatic carbon with at least one hydrogen, and that the
+        template molecule must have a propylene substructure.
+
+        Raises:
+            exceptions.InvalidMolecule: Raised if the given template doesn't have the propylene substructure.
+        """
 
         # check if reacting atom is valid
         if self.reacting_atom.GetSymbol() != 'C' \
@@ -291,6 +323,16 @@ class FriedelCrafts(AbstractBiMolecularReaction):
         self.valid = True
 
     def create_reaction(self):
+        """
+        Method that intitiates the generation of the product from the reactants and the resulting reaction SMARTS
+        string. User must ensure that the reaction is valid before calling this method otherwise errors are expected to
+        occur.
+
+        Raises:
+            exceptions.UnIdentifiedMolType: Raised if the molecule type was not identified in call to
+                determine_reacting_mol_type()
+        """
+
         self.determine_reacting_mol_type()
         if self.is_sidechain:
             self.tag_sidechain_connection_atom()
@@ -303,13 +345,33 @@ class FriedelCrafts(AbstractBiMolecularReaction):
         self.create_reaction_smarts([self.reacting_mol, self.template], self.product)
 
     def create_product(self):
+        """
+        Method that creates the product from the reactants and stores the result in instance variable self.product.
+        Product generation is determined by atom map numbers placed on the reacting atom of the reacting mol and class
+        constants of the template molecule.
+        """
+
         map_nums = (self.REACTING_MOL_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM)
         self.product = utils.connect_mols(self.reacting_mol, self.template, map_nums=map_nums, clear_map_nums=False)
 
 
 class TsujiTrost(AbstractBiMolecularReaction):
+    """
+    An implementation of the AbstractBiMolecularReaction class that generates reactions between a heteroatom with at
+    least one hydrogen on a sidechain or monomer and the propylene substructure on a template molecule. This class does
+    not take into consideration pKa predictions.
+    """
 
     def __call__(self, reacting_mol, template, reacting_atom):
+        """
+        Method to initialize the reaction with new molecules. Calls reset(), initialize(), and validate().
+
+        Args:
+            reacting_mol (RDKit Mol): The reacting molecule, either sidechain or monomer.
+            template (ITemplateMol): An implementation of ITemplateMol that has the property "tsuji_trost_kekule".
+            reacting_atom (RDKit Atom): The atom on the reacting molecule that will react with the template.
+        """
+
         try:
             self.reset()
             super().initialize(reacting_mol, template.tsuji_trost_kekule, reacting_atom)
@@ -319,13 +381,29 @@ class TsujiTrost(AbstractBiMolecularReaction):
 
     @property
     def name(self):
+        """
+        The name of the reaction.
+        """
+
         return 'tsuji_trost'
 
     @property
     def applicable_template(self):
+        """
+        The type of templates that are applicable to the reaction.
+        """
+
         return 'all'
 
     def validate(self):
+        """
+        Method to validate that the given reacting molecule and template are compatible for this type of reaction. The
+        requirements are that the reacting atom must be a heteroatom with at least one hydrogen, and that the
+        template molecule must have a propylene substructure.
+
+        Raises:
+            exceptions.InvalidMolecule: Raised if the given template doesn't have the propylene substructure.
+        """
 
         # check if reacting atom is valid
         if self.reacting_atom.GetSymbol() not in ['N', 'O', 'S'] \
@@ -341,6 +419,16 @@ class TsujiTrost(AbstractBiMolecularReaction):
         self.valid = True
 
     def create_reaction(self):
+        """
+        Method that intitiates the generation of the product from the reactants and the resulting reaction SMARTS
+        string. User must ensure that the reaction is valid before calling this method otherwise errors are expected to
+        occur.
+
+        Raises:
+            exceptions.UnIdentifiedMolType: Raised if the molecule type was not identified in call to
+                determine_reacting_mol_type()
+        """
+
         self.determine_reacting_mol_type()
         if self.is_sidechain:
             self.tag_sidechain_connection_atom()
@@ -353,17 +441,37 @@ class TsujiTrost(AbstractBiMolecularReaction):
         self.create_reaction_smarts([self.reacting_mol, self.template], self.product)
 
     def create_product(self):
+        """
+        Method that creates the product from the reactants and stores the result in instance variable self.product.
+        Product generation is determined by atom map numbers placed on the reacting atom of the reacting mol and class
+        constants of the template molecule.
+        """
 
         map_nums = [self.REACTING_MOL_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM]
         self.product = utils.connect_mols(self.reacting_mol, self.template, map_nums=map_nums, clear_map_nums=False)
 
 
 class PictetSpangler(AbstractBiMolecularReaction):
+    """
+    Implementation of the AbstractBiMolecularReaction class that generates reactions initiated at an aromatic carbon
+    with at least one hydrogen that is six atoms away from the unmasked aldehyde on the template molecule. Not all
+    templates are compatible with this reaction as they need to have an unmasked aldehyde to work.
+    """
 
     TEMPLATE_CARBON_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_CARBON_ALDEHYDE_MAP_NUM  # 7
     TEMPLATE_OXYGEN_ALDEHYDE_MAP_NUM = molecules.ITemplateMol.PS_OXYGEN_ALDEHYDE_MAP_NUM  # 8
 
     def __call__(self, reacting_mol, template, reacting_atom):
+        """
+        Method to initialize the reaction with new molecules. Sets instance variable self.template_name with the
+        corresponding template name and calls reset(), initialize(), determine_reacting_mol_type(), and validate().
+
+        Args:
+            reacting_mol (RDKit Mol): The reacting molecule, either sidechain or monomer.
+            template (ITemplateMol): An implementation of ITemplateMol that has the property "pictet_spangler_kekule".
+            reacting_atom (RDKit Atom): The atom on the reacting molecule that will react with the template.
+        """
+
         try:
             self.reset()
             super().initialize(reacting_mol, template.pictet_spangler_kekule, reacting_atom)
@@ -375,13 +483,29 @@ class PictetSpangler(AbstractBiMolecularReaction):
 
     @property
     def name(self):
+        """
+        The name of the template.
+        """
+
         return 'pictet_spangler'
 
     @property
     def applicable_template(self):
+        """
+        The type of templates that are applicable to the reaction.
+        """
+
         return self.template_name
 
     def validate(self):
+        """
+        Method to validate that the given reacting molecule and template are compatible for this type of reaction. The
+        requirements are that the reacting atom must be an aromatic carbon with at least one hydrogen, and be six atoms
+        away from the template molecule's unmasked aldehyde.
+
+        Raises:
+            exceptions.InvalidMolecule: Raised if the given template doesn't have the propylene substructure.
+        """
 
         # check reacting atom is aromatic carbon with at least one hydrogen
         if not self.reacting_atom.GetIsAromatic() \
@@ -418,11 +542,23 @@ class PictetSpangler(AbstractBiMolecularReaction):
         self.valid = True
 
     def create_reaction(self):
+        """
+        Method that intitiates the generation of the product from the reactants and the resulting reaction SMARTS
+        string. User must ensure that the reaction is valid before calling this method otherwise errors are expected to
+        occur.
+        """
+
         self.create_reactant()
         self.create_product()
         self.create_reaction_smarts([self.reactant], self.product)
 
     def create_reactant(self):
+        """
+        Method that creates the reactant from the sidechain and template molecules since the reaction requires that
+        these two molecules be in certain positions with respect to each other. If the reacting molecule is a sidechain,
+        it is first converted to a monomer, which is then connected to the template through amide linkage. If the
+        reacting molecule is already a monomer then connection to the template is immediately performed.
+        """
 
         map_nums = (self.TEMPLATE_OLIGOMERIZATION_MAP_NUM, self.BACKBONE_NITROGEN_MAP_NUM)
 
@@ -440,6 +576,11 @@ class PictetSpangler(AbstractBiMolecularReaction):
                                                map_nums=map_nums, clear_map_nums=False)
 
     def create_product(self):
+        """
+        Method that creates the product from the reactant and stores the result in instance variable self.product.
+        Product generation is determined by atom map numbers placed on the reacting atom of the reacting mol and class
+        constants of the template molecule.
+        """
 
         reactant = Chem.RWMol(self.reactant)  # copy of reactant molecule that will be transformed into product
 
@@ -465,10 +606,25 @@ class PictetSpangler(AbstractBiMolecularReaction):
 
 
 class PyrroloIndolene(AbstractBiMolecularReaction):
+    """
+    Implementation of the AbstractBiMolecularReaction class that generates a reaction between the aromatic carbon atom
+    on an indole that has no hydrogens and the template's propylene substructure. This reaction destroys the aromaticity
+    of the indole.
+    """
 
     ADJ_CARBON_MAP_NUM = 7
 
     def __call__(self, sidechain, template, reacting_atom):
+        """
+        Method to initialize the reaction with new molecules. Calls reset(), initialize(), tag_connection_atom(), and
+        validate().
+
+        Args:
+            sidechain (RDKit Mol): The candidate sidechain that would react with the template.
+            template (ITemplateMol): An implementation of ITemplateMol that has the property "friedel_crafts_kekule".
+            reacting_atom (RDKit Atom): The atom on the reacting molecule that will react with the template.
+        """
+
         try:
             self.reset()
             super().initialize(sidechain, template.pyrrolo_indolene_kekule, reacting_atom)
@@ -479,13 +635,30 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
 
     @property
     def name(self):
+        """
+        The name of the reaction.
+        """
+
         return 'pyrrolo_indolene'
 
     @property
     def applicable_template(self):
+        """
+        The type of templates that are applicable to the reaction.
+        """
+
         return 'all'
 
     def validate(self):
+        """
+        Method to validate that the given reacting molecule and template are compatible for this type of reaction. The
+        requirements are that the sidechain must be like the sidechain of tryptophan and the reacting atom is the carbon
+        where that is attached to the methylene joining the indole to the amino acid backbone, and that the template
+        molecule must have a propylene substructure.
+
+        Raises:
+            exceptions.InvalidMolecule: Raised if the given template doesn't have the propylene substructure.
+        """
 
         # check template reaction kekule has propylene substructure
         if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
@@ -519,12 +692,22 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
         self.valid = True
 
     def create_reaction(self):
+        """
+        Method that intitiates the generation of the product from the reactants and the resulting reaction SMARTS
+        string. User must ensure that the reaction is valid before calling this method otherwise errors are expected to
+        occur.
+        """
 
         self.create_reactant()
         self.create_product()
         self.create_reaction_smarts([self.monomer, self.template], self.product)
 
     def create_reactant(self):
+        """
+        Method that creates the reactant from the sidechain and template molecules since the reaction requires that
+        these two molecules be in certain positions with respect to each other. The sidechain is converted to a monomer,
+        which is then connected to the template through amide linkage.
+        """
 
         self.monomer = super().create_monomer()
 
@@ -542,6 +725,11 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
                         neighbor.SetAtomMapNum(self.ADJ_CARBON_MAP_NUM)
 
     def create_product(self):
+        """
+        Method that creates the product from the reactant and stores the result in instance variable self.product.
+        Product generation is determined by atom map numbers placed on the reacting atom of the reacting mol and class
+        constants of the template molecule.
+        """
 
         # copy of monomer that will be changed into product
         monomer = deepcopy(self.monomer)
@@ -568,11 +756,24 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
 
 
 class TemplatePictetSpangler(AbstractUniMolecularReaction):
+    """
+    Implementation of the AbstractUniMolecularReaction class that generates a pictet spangler reaction with a single
+    template and no sidechain/monomer.
+    """
 
     REACTING_ATOM_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_REACTING_ATOM_MAP_NUM  # 9
     NITROGEN_MAP_NUM = molecules.ITemplateMol.TEMPLATE_PS_NITROGEN_MAP_NUM  # 10
 
     def __call__(self, template):
+        """
+        Method to initialize the reaction with a new template molecule. Calls reset(), and validate(). The template
+        molecule must have a property called "template_pictet_spangler_kekule".
+
+        Args:
+            template (ITemplateMol): An implementation of ITemplateMol that has the property
+                "template_pictet_spangler_kekule".
+        """
+
         try:
             self.reset()
             self.template = Chem.MolFromSmiles(template.template_pictet_spangler_kekule)
@@ -583,13 +784,29 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
 
     @property
     def name(self):
+        """
+        The name of the reaction.
+        """
+
         return 'template_pictet_spangler'
 
     @property
     def applicable_template(self):
+        """
+        The type of templates that are applicable to the reaction.
+        """
+
         return self.template_name
 
     def validate(self):
+        """
+        Method to validate that the given template molecule can undergo this type of reaction. The requirements are that
+        the template molecule has a reacting aromatic carbon atom, an aldehyde, and an amide nitrogen that are all
+        correctly atom mapped.
+
+        Raises:
+            exceptions.InvalidMolecule: Raised if the given template doesn't have the properly mapped atoms.
+        """
 
         # check that template mol has all atom map numbers required to make reaction
         c_aldehyde, o_aldehyde, reacting, nitrogen = False, False, False, False
@@ -620,10 +837,20 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
         self.valid = True
 
     def create_reaction(self):
+        """
+        Method that intitiates the generation of the product from the reactant and the resulting reaction SMARTS
+        string. User must ensure that the reaction is valid before calling this method otherwise errors are expected to
+        occur.
+        """
+
         self.create_product()
         self.create_reaction_smarts([self.template], self.product)
 
     def create_product(self):
+        """
+        Method that creates the product from the reactant and stores the result in instance variable self.product.
+        Product generation is determined by atom map numbers placed on the reacting atoms of template molecule.
+        """
 
         # copy of template that turns into product
         template = Chem.RWMol(self.template)
@@ -651,8 +878,21 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
 
 
 class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
+    """
+    Implementation of the AbstractUniMolecularReaction class that generates a cyclization reaction of the unmasked
+    aldehyde on a template molecule.
+    """
 
     def __call__(self, template):
+        """
+        Method to initialize the reaction with a new template molecule. Calls reset(), and validate(). The template
+        molecule must have a property called "pictet_spangler_kekule" (kind of confusing using the same SMILES string
+        as pictet spangler but it contains all the information needed for this reaction).
+
+        Args:
+            template (ITemplateMol): An implementation of ITemplateMol that has the property "pictet_spangler_kekule".
+        """
+
         try:
             self.reset()
             self.template = Chem.MolFromSmiles(template.pictet_spangler_kekule)
@@ -663,13 +903,28 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
 
     @property
     def name(self):
+        """
+        The name of the reaction.
+        """
+
         return 'unmasked_aldehyde_cyclization'
 
     @property
     def applicable_template(self):
+        """
+        The type of templates that are applicable to the reaction.
+        """
+
         return self.template_name
 
     def validate(self):
+        """
+        Method to validate that the given template molecule can undergo this type of reaction. The requirements are that
+        the template molecule has an aldehyde that is correctly atom mapped.
+
+        Raises:
+            exceptions.InvalidMolecule: Raised if the given template doesn't have the properly mapped atoms.
+        """
 
         olig_carbon_flag, ps_carbon_flag, ps_oxygen_flag = False, False, False
         aldehyde = Chem.MolFromSmarts('[CH1]=O')
@@ -699,11 +954,21 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
         self.valid = True
 
     def create_reaction(self):
+        """
+        Method that intitiates the generation of the product from the reactant and the resulting reaction SMARTS
+        string. User must ensure that the reaction is valid before calling this method otherwise errors are expected to
+        occur.
+        """
+
         self.create_reactant()
         self.create_product()
         self.create_reaction_smarts([self.reactant], self.product)
 
     def create_reactant(self):
+        """
+        Method that creates the reactant from the template molecule by adding an amide nitrogen that will be used in
+        the reaction.
+        """
 
         backbone = molecules.AlphaBackBone().tagged_mol
         carboxyl = Chem.MolFromSmarts('CC(=O)O')
@@ -721,6 +986,10 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
         self.reactant = utils.connect_mols(self.template, backbone, map_nums=map_nums, clear_map_nums=False)
 
     def create_product(self):
+        """
+        Method that creates the product from the reactant and stores the result in instance variable self.product.
+        Product generation is determined by atom map numbers placed on the reacting atoms of template molecule.
+        """
 
         # create local copy of reactant to transform into product
         reactant = Chem.RWMol(self.reactant)
