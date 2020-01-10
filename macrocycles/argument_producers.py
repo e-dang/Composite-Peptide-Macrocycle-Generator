@@ -1,52 +1,94 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from itertools import product, chain
-from random import sample
+from itertools import chain, product
 
 import project_io
 
 
 class IArgumentProducer(ABC):
+    """
+    Interface for classes that define a way to take data loaded from a DataHandler and format it such that it can be
+    used by a specific Generator class.
+    """
 
     @abstractmethod
     def __call__(self, data):
-        pass
+        """
+        Abstract method used to format the data into the form expected by the Generator class.
+
+        Args:
+            data (iterable): The data that has been loaded by a DataHandler.
+        """
 
 
 class NullArgProducer(IArgumentProducer):
+    """
+    Implementation of IArgumentProducer that does no formatting to the passed in data. This class is used when the data
+    loaded by the DataHandler is already in the correct format.
+    """
 
     def __call__(self, data):
+        """
+        Method that returns the passed in data without operating on it.
+
+        Args:
+            data (iterable): The data to be returned.
+
+        Returns:
+            iterable: The data.
+        """
 
         return data
 
 
 class CartesianProductArgProducer(IArgumentProducer):
+    """
+    Implementation of IArgumentProducer that returns the cartesian product of the passed in data. This class is used
+    when the DataHandler returns multiple types of documents that need to be paired together and then passed to the
+    Generator.
+    """
 
     def __call__(self, data):
+        """
+        Method that creates the cartesian product of the passed in data. The data should be an iterable of iterables in
+        this case.
+
+        Args:
+            data (iterable[iterable]): Multiple types of documents that need to be paired together and passed to the
+                Generator.
+
+        Returns:
+            iterable: The paired data documents.
+        """
         return product(*data)
 
 
-class TestPeptideGeneratorArgProducer(IArgumentProducer):
-
-    def __call__(self, data):
-        monomers, peptide_length = data
-
-        i = 0
-        while i < 100:
-            monomer_tup = list(filter(lambda x: x['required'], sample(monomers, peptide_length)))
-            if len(monomer_tup) == data.peptide_length:
-                i += 1
-                yield monomer_tup
-
-
 class PeptideGeneratorArgProducer(IArgumentProducer):
+    """
+    Implementation of IArgumentProducer that makes tuples of monomers that are to be formed into a peptide, where the
+    monomers to be placed in the tuple are defined by the monomer indices written out by the PeptidePlanner class.
+    """
 
     def __init__(self):
+        """
+        Initializes instance variables self.monomer_io and self.loaded.
+        """
 
         self.monomer_io = project_io.get_monomer_io()
         self.loaded = False
 
     def __call__(self, data):
+        """
+        Method that creates tuples of monomer documents according the the passed in monomer indices.
+
+        Args:
+            data (iterable[str]): An iterable of strings that contain the monomer indices for a peptide separated by
+                commas.
+
+        Yields:
+            iterable(list[dict]): An iterable of lists containing monomer documents to be formed into peptides by the
+                PeptideGenerator.
+        """
 
         if not self.loaded:
             self.monomers = sorted(list(self.monomer_io.load()), key=lambda x: x['index'])
@@ -58,8 +100,23 @@ class PeptideGeneratorArgProducer(IArgumentProducer):
 
 
 class MacrocycleGeneratorArgProducer(IArgumentProducer):
+    """
+    Implementation of IArgumentProducer that combines template_peptides and reactions together such that the reactions
+    coupled with the template_peptides are those that involve sidechains/monomers in the template_peptide.
+    """
 
     def __call__(self, data):
+        """
+        Method that combines template_peptides with only the applicable reactions for that template_peptide based on
+        its monomer and sidechain composition.
+
+        Args:
+            data (tuple[iterable, iterable]): A tuple containing the iterables of template_peptides and reactions.
+
+        Yields:
+            tuple[dict, iterable[dict]]: A tuple containing the template_peptide document, along with an iterable of
+                applicable reaction documents.
+        """
 
         # hash all reactions based on reacting_mol
         reactions = defaultdict(list)
