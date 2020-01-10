@@ -4,7 +4,7 @@ import os
 import random
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, Draw
 
 import molecules
 import reactions
@@ -111,6 +111,18 @@ def atom_to_wildcard(atom):
     atom.SetFormalCharge(0)
     atom.SetIsAromatic(False)
     atom.SetNumExplicitHs(0)
+
+
+def display_reaction(rxn_smarts):
+    """
+    Function that displays a reaction as an image.
+
+    Args:
+        rxn_smarts (str): The reactions SMARTS string.
+    """
+
+    rxn = AllChem.ReactionFromSmarts(rxn_smarts)
+    Draw.ReactionToImage(rxn).show()
 
 
 def random_order_cartesian_product(*factors):
