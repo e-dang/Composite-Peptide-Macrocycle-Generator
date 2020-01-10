@@ -16,8 +16,10 @@ class IPlanner(ABC):
 
 class PeptidePublicationPlanner(IPlanner):
 
-    def __init__(self, monomer_io, peptide_length, num_peptides):
-        self.monomers = monomer_io.load() if isinstance(monomer_io, list) else list(monomer_io.load())
+    def __init__(self, peptide_length, num_peptides):
+        self.monomers = project_io.get_monomer_io().load()
+        if not isinstance(self.monomers, list):
+            self.monomers = list(self.monomers)
         self.saver = project_io.PeptidePlannerIO(peptide_length)
         self.peptide_length = peptide_length
         self.num_peptides = num_peptides

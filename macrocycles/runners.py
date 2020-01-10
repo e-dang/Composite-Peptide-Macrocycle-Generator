@@ -158,6 +158,5 @@ def generate_peptide_plan(peptide_length, num_peptides):
             * the peptide length.
     """
 
-    monomer_io = project_io.get_monomer_io()
-    planner = planners.PeptidePublicationPlanner(monomer_io, peptide_length, num_peptides)
+    planner = planners.PeptidePublicationPlanner(peptide_length, num_peptides)
     planner.create_plan()
