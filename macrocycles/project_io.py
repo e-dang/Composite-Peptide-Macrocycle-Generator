@@ -882,12 +882,12 @@ get_regiosqm_io = get_io(JsonRegioSQMIO, MongoRegioSQMIO)
 get_pka_io = get_io(JsonpKaIO, MongopKaIO)
 
 
-def get_hashed_predictions(predictions):
+def get_hashed_predictions(prediction_io):
     """
     Closure for creating a function that will hash the provided predictions based on the reacting_mol attribute.
 
     Args:
-        predictions (iterable[dict]): The predictions to hash.
+        predictionIO (IOInterface): The uninstantiated IO class that will load the predictions.
 
     Returns:
         func: A function that can be called in order to recieve the hashed predictions.
@@ -895,12 +895,12 @@ def get_hashed_predictions(predictions):
 
     def hasher():
         hashed_predictions = {}
-        for prediction in predictions:
+        for prediction in prediction_io().load():
             hashed_predictions[prediction['reacting_mol']] = prediction['predictions']
         return hashed_predictions
 
     return hasher
 
 
-get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_io().load())
-get_hashed_pka_predictions = get_hashed_predictions(get_pka_io().load())
+get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_io)
+get_hashed_pka_predictions = get_hashed_predictions(get_pka_io)
