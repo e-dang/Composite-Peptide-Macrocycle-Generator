@@ -281,6 +281,10 @@ class TemplatePeptideGenerator(IGenerator):
 
 class MacrocycleGenerator(IGenerator):
 
+    MIN_MACROCYCLE_RING_SIZE = 10 # if no ring at least this large, reaction failed to close macrocycle
+    MAX_ATOM_DIFFERENCE = 5 # if difference in number of atoms between reactant and product, then part of the macrocycle
+                            # was lost during reaction
+
     @decorators.apply_stereochemistry
     @decorators.methylate
     @decorators.carboxyl_to_amide
@@ -310,6 +314,7 @@ class MacrocycleGenerator(IGenerator):
                         except ValueError: # most likely there are 2 sidechains where one contains the other as a
                             continue       # substructure which causes this exception to be raised.
 
+                        # protect atoms that participated in this reaction from reacting again in subsequent reactions
                         for atom in chain.from_iterable(rxn.GetReactingAtoms()):
                             atom = macrocycle.GetAtomWithIdx(atom)
                             if atom.GetIsAromatic():
@@ -324,13 +329,16 @@ class MacrocycleGenerator(IGenerator):
                 successful_rxn = True
 
             for binary, macrocycle in macrocycles.items():
-                if abs(num_atoms - len(macrocycle.GetAtoms())) > 7: # hack to get rid of error associated with sidechain
-                    continue                                       # CC1=C(SC(C=CC=C2)=C2N3)C3=CC=C1 making alternate attachment point
-                                                                   # to template and having the reaction for CN1C2=C(C=CC=C2)SC3=CC=CC=C31
-                                                                   # be applied, causing the rest of the macrocycle to be chopped off
-                                                                   # TODO: fix this problem....
-                Chem.Kekulize(macrocycle)
-                self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = (binary, reaction_combo)
+
+                # get bonds in macrocyclic ring
+                macro_ring = [ring for ring in macrocycle.GetRingInfo().BondRings()
+                                if len(ring) >= self.MIN_MACROCYCLE_RING_SIZE]
+
+                # add to final set of macrocycles only if number of atoms hasn't changed dramatically and has a
+                # macrocyclic ring
+                if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE and macro_ring:
+                    Chem.Kekulize(macrocycle)
+                    self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = (binary, reaction_combo)
 
         return self.format_data()
 
