@@ -621,7 +621,7 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
 
         Args:
             sidechain (RDKit Mol): The candidate sidechain that would react with the template.
-            template (ITemplateMol): An implementation of ITemplateMol that has the property "friedel_crafts_kekule".
+            template (ITemplateMol): An implementation of ITemplateMol that has the property "pyrrolo_indolene_kekule".
             reacting_atom (RDKit Atom): The atom on the reacting molecule that will react with the template.
         """
 
@@ -662,8 +662,8 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
 
         # check template reaction kekule has propylene substructure
         if not self.template.GetSubstructMatch(Chem.MolFromSmarts('C=CC')):
-            raise exceptions.InvalidMolecule(
-                'The provided template must have a propylene substructure to participate in a pyrrolo-indolene reaction')
+            raise exceptions.InvalidMolecule('The provided template must have a propylene substructure to participate '
+                                             'in a pyrrolo-indolene reaction')
 
         # sidechain must be an indole
         if not self.reacting_mol.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12')):
@@ -886,19 +886,19 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
     def __call__(self, template):
         """
         Method to initialize the reaction with a new template molecule. Calls reset(), and validate(). The template
-        molecule must have a property called "pictet_spangler_kekule" (kind of confusing using the same SMILES string
-        as pictet spangler but it contains all the information needed for this reaction).
+        molecule must have a property called "unmasked_aldehyde_cyclization_kekule".
 
         Args:
-            template (ITemplateMol): An implementation of ITemplateMol that has the property "pictet_spangler_kekule".
+            template (ITemplateMol): An implementation of ITemplateMol that has the property
+                "unmasked_aldehyde_cyclization_kekule".
         """
 
         try:
             self.reset()
-            self.template = Chem.MolFromSmiles(template.pictet_spangler_kekule)
+            self.template = Chem.MolFromSmiles(template.unmasked_aldehyde_cyclization_kekule)
             self.template_name = template.name
             self.validate()
-        except AttributeError:  # doesn't have template_pictet_spangler_kekule attribute
+        except AttributeError:  # doesn't have unmasked_aldehyde_cyclization_kekule attribute
             self.valid = False
 
     @property

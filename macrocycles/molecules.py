@@ -125,6 +125,10 @@ class CinnamoylTemplate2(ITemplateMol):
         return f'[O:{self.PS_OXYGEN_ALDEHYDE_MAP_NUM}]=[CH1:{self.PS_CARBON_ALDEHYDE_MAP_NUM}]C[C@H](C[*:{self.REACTION_WILDCARD1_MAP_NUM}])[CH1:{self.OLIGOMERIZATION_MAP_NUM}]=O'
 
     @property
+    def unmasked_aldehyde_cyclization_kekule(self):
+        return self.pictet_spangler_kekule
+
+    @property
     def oligomerization_kekule(self):
         return f'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:{self.OLIGOMERIZATION_MAP_NUM}]=O)=C1'
 
