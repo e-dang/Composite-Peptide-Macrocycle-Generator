@@ -9,16 +9,16 @@ import config
 
 class IFactory(ABC):
     """
-    Interface for classes that wrap the functionality of Generator and DataHandler classes together such that it
-    passes the data loaded by the DataHandler class to the Generator class, and passes those results back to the
-    DataHandler so it can be saved.
+    Interface for classes that wrap the functionality of Generator, DataHandler, and ArgumentProducer classes together
+    such that it passes the data loaded by the DataHandler class to the ArgumentProducer which then passes data to the
+    Generator class, and passes those results back to the DataHandler so it can be saved.
     """
 
     @abstractmethod
     def run(self, factory_arg):
         """
-        Abstract method for wrapping the functionality of the Generator and DataHandler classes present in
-        factory_arg such that it is executed in a parallel fashion using the multiprossesing module.
+        Abstract method for executing the functionality of the Generator, DataHandler, and ArgumentProducer classes
+        present in the factory_arg such that it is executed in a parallel fashion using the multiprossesing module.
 
         Args:
             factory_arg (FactoryArgument): A subclass of the FactoryArgument interface.
@@ -27,8 +27,8 @@ class IFactory(ABC):
     @abstractmethod
     def run_serial(self, factory_arg):
         """
-        Abstract method for wrapping the functionality of the Generator and DataHandler classes present in the
-        factory_arg such that it is performed in a serial fashion.
+        Abstract method for executing the functionality of the Generator, DataHandler, and ArgumentProducer classes
+        present in the factory_arg such that it is performed in a serial fashion.
 
         Args:
             factory_arg (FactoryArgument): A subclass of the FactoryArgument interface.
@@ -74,7 +74,7 @@ class MolFactory(IFactory):
         Helper method that extracts the Generator and DataHandler classes from the FactoryArgument class.
 
         Args:
-            factory_arg (FactoryArgument): A subclass of the FactoryArgument interface.
+            factory_arg (IFactoryArgument): A subclass of the IFactoryArgument interface.
 
         Raises:
             AttributeError: Raised when the provided argument doesn't contain an attribute of 'generator' and/or
@@ -107,91 +107,142 @@ class MolFactory(IFactory):
 
 class IFactoryArgument(ABC):
     """
-    An interface for classes that wrap Generator and DataHandler classes together to be used by a Factory.
+    An interface for classes that wrap Generator, DataHandler, and ArgumentProducer classes together to be used by a
+    Factory.
     """
 
     @abstractmethod
-    def __init__(self, **kwargs):
+    def __init__(self, data_handler, arg_producer, generator):
         """
-        An intializer method for creating the Generator and DataHandler classes.
+        Intializer method that assigns a Generator, DataHandler, and ArgumentProducer to instance variables.
         """
+
+        self.data_handler = data_handler
+        self.arg_producer = arg_producer
+        self.generator = generator
 
 
 class SCConnectionModificationArgs(IFactoryArgument):
     """
-    An implementation of a FactoryArgument containing the classes required to combine heterocycles and connection
-    molecules into sidechain molecules.
+    An implementation of a IFactoryArgument containing the classes required to create new sidechain molecules from
+    imported sidechains by changing the connection type.
     """
 
     def __init__(self, **kwargs):
+        """
+        Initializer method that creates instances of SCCMDataHandler, NullArgProducer, and SideChainConnectionModifier
+        initialized with SCCMDataHandler's id_iterator.
+        """
 
-        self.handler = data_handlers.SCCMDataHandler(**kwargs)
-        self.generator = generators.SideChainConnectionModifier(self.handler.id_iterator)
-        self.arg_producer = argument_producers.NullArgProducer()
+        data_handler = data_handlers.SCCMDataHandler(**kwargs)
+        super().__init__(data_handler,
+                         argument_producers.NullArgProducer(),
+                         generators.SideChainConnectionModifier(data_handler.id_iterator))
 
 
 class MonomerGenerationArgs(IFactoryArgument):
     """
-    An implementation of a FactoryArgument containing the classes required to combine sidechains and backbone
+    An implementation of IFactoryArgument containing the classes required to combine sidechains and backbone
     molecules into monomers.
     """
 
     def __init__(self, **kwargs):
+        """
+        Initializer method that creates instances of MGDataHandler, NullArgProducer, and MonomerGenerator
+        initialized with MGDataHandler's id_iterator.
+        """
 
-        self.handler = data_handlers.MGDataHandler(**kwargs)
-        self.generator = generators.MonomerGenerator(self.handler.index_iterator)
-        self.arg_producer = argument_producers.NullArgProducer()
+        data_handler = data_handlers.MGDataHandler(**kwargs)
+        super().__init__(data_handler,
+                         argument_producers.NullArgProducer(),
+                         generators.MonomerGenerator(data_handler.index_iterator))
 
 
-class TestPeptideGenerationArgs(IFactoryArgument):
+class PeptideGenerationArgs(IFactoryArgument):
+    """
+    An implementation of IFactoryArgument containing the classes required to combine monomers into peptides.
+    """
 
     def __init__(self, **kwargs):
+        """
+        Initializer method that creates instances of PGDataHandler, PeptideGeneratorArgProducer, and PeptideGenerator.
 
-        self.handler = data_handlers.TestPGDataHandler(**kwargs)
-        self.generator = generators.PeptideGenerator()
-        self.arg_producer = argument_producers.TestPeptideGeneratorArgProducer()
+        Args:
+            peptide_length (int): Keyword argument that defines the length of peptide to generate.
+        """
 
-
-class PublicationPeptideGenerationArgs(IFactoryArgument):
-
-    def __init__(self, **kwargs):
-
-        self.handler = data_handlers.PublicationPGDataHandler(**kwargs)
-        self.generator = generators.PeptideGenerator()
-        self.arg_producer = argument_producers.PeptideGeneratorArgProducer()
+        super().__init__(data_handlers.PGDataHandler(**kwargs),
+                         argument_producers.PeptideGeneratorArgProducer(),
+                         generators.PeptideGenerator())
 
 
 class TemplatePeptideGenerationArgs(IFactoryArgument):
+    """
+    An implementation of IFactoryArgument containing the classes required to combine peptides and templates into
+    template_peptide oligomers.
+    """
 
     def __init__(self, **kwargs):
+        """
+        Initializer method that creates instances of TPGDataHandler, NullArgProducer, and TemplatePeptideGenerator.
 
-        self.handler = data_handlers.TPGDataHandler(**kwargs)
-        self.generator = generators.TemplatePeptideGenerator()
-        self.arg_producer = argument_producers.NullArgProducer()
+        Args:
+            peptide_length (int): The length of the peptides that should be loaded and combined into template_peptides.
+                This keyword argument is only required if DATA_FORMAT is json.
+        """
+
+        super().__init__(data_handlers.TPGDataHandler(**kwargs),
+                         argument_producers.NullArgProducer(),
+                         generators.TemplatePeptideGenerator())
 
 
 class MacrocycleGenerationArgs(IFactoryArgument):
+    """
+    An implementation of IFactoryArgument containing the classes required to create macrocycles from template_peptides
+    and reactions.
+    """
 
     def __init__(self, **kwargs):
+        """
+        Initializer method that creates instances of MCGDataHandler, MacrocycleGeneratorArgProducer, and
+        MacrocycleGenerator.
 
-        self.handler = data_handlers.MCGDataHandler(**kwargs)
-        self.generator = generators.MacrocycleGenerator()
-        self.arg_producer = argument_producers.MacrocycleGeneratorArgProducer()
+        Args:
+            peptide_length (int): The length of the peptides in the template_peptides that should be loaded and
+                transformed into macrocycles. This keyword argument is only required if DATA_FORMAT is json.
+        """
+
+        super().__init__(data_handlers.MCGDataHandler(**kwargs),
+                         argument_producers.MacrocycleGeneratorArgProducer(),
+                         generators.MacrocycleGenerator())
 
 
 class UniMolecularReactionGenerationArgs(IFactoryArgument):
+    """
+    An implementation of IFactoryArgument containing the classes required to create UniMolecularReactions.
+    """
 
     def __init__(self, **kwargs):
+        """
+        Initializer method that creates instances of UMRGDataHandler, CartesianProductArgProducer, and
+        UniMolecularReactionGenerator.
+        """
 
-        self.handler = data_handlers.UMRGDataHandler(**kwargs)
-        self.generator = generators.UniMolecularReactionGenerator()
-        self.arg_producer = argument_producers.CartesianProductArgProducer()
+        super().__init__(data_handlers.UMRGDataHandler(**kwargs),
+                         argument_producers.CartesianProductArgProducer(),
+                         generators.UniMolecularReactionGenerator())
 
 
 class BiMolecularReactionGenerationArgs(IFactoryArgument):
+    """
+    An implementation of IFactoryArgument containing the classes required to create BiMolecularReactions.
+    """
 
     def __init__(self, **kwargs):
-
-        self.handler = data_handlers.BMRGDataHandler(**kwargs)
-        self.generator = generators.BiMolecularReactionGenerator()
-        self.arg_producer = argument_producers.CartesianProductArgProducer()
+        """
+        Initializer method that creates instances of BMRGDataHandler, CartesianProductArgProducer, and
+        BiMolecularReactionGenerator.
+        """
+        super().__init__(data_handlers.BMRGDataHandler(**kwargs),
+                         argument_producers.CartesianProductArgProducer(),
+                         generators.BiMolecularReactionGenerator())
