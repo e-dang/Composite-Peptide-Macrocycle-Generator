@@ -10,6 +10,17 @@ import proxies
 
 
 def apply_stereochemistry(original_func):
+    """
+    Decorator that can be applied to a Generator's generate method in order to apply all permutations of stereochemistry
+    to unmarked chiral centers. THe stereochemistry at chiral centers that already have assigned stereochemistry is
+    preserved.
+
+    Args:
+        original_func (func): The original method to wrap with this decorator.
+
+    Returns:
+        list[dict]: A list of molecule documents with stereochemistry applied.
+    """
 
     stereochem_types = [Chem.ChiralType.CHI_TETRAHEDRAL_CCW, Chem.ChiralType.CHI_TETRAHEDRAL_CW]
 
@@ -45,6 +56,18 @@ def apply_stereochemistry(original_func):
 
 
 def methylate(original_func):
+    """
+    Decorator function that can be applied to a Generator's generate method to apply all permutations of methylation
+    patterns to a molecule at any aromatic nitrogen with one hydrogen atom. The original unmethylated molecule is
+    preserved and also returned in the list of methylated compounds.
+
+    Args:
+        original_func (func): The function to be wrapped with this decorator.
+
+    Returns:
+        list[dict]: A list of molecule documents with the methylation patterns applied, as well as the original
+            molecule.
+    """
 
     candidate_heteroatoms = Chem.MolFromSmarts('[nH1]')  # only methylate heterocycle amines
     methyl = Chem.MolFromSmarts('[CH4:1]')
@@ -87,6 +110,17 @@ def methylate(original_func):
 
 
 def carboxyl_to_amide(original_func):
+    """
+    Decorator function that is used to wrap the MacrocycleGenerator's generate method in order to modify the resulting
+    macrocycles by replacing the C-terminus carboxyl group with an amide. The original macrocycle with a carboxyl group
+    is preserved and returned with the transformed macrocycle.
+
+    Args:
+        original_func (func): The MacrocycleGenerator's generate method.
+
+    Returns:
+        list[dict]: A list of molecule documents containing the transformed and untransformed macrocycles.
+    """
 
     carboxyl = Chem.MolFromSmarts('[OH1]C(=O)')
 
@@ -126,6 +160,17 @@ def carboxyl_to_amide(original_func):
 
 
 def regiosqm_filter(original_func):
+    """
+    Decorator function that is used to wrap the BiMolecularReactionGenerator's generate method in order to filter out
+    reactions that are not predicted to occur by RegioSQM. This filter only applies RegioSQM predictions to Friedel
+    Crafts and Pictet Spangler reactions.
+
+    Args:
+        original_func (func): The BiMolecularReactionGenerator's generate method.
+
+    Returns:
+        list[dict]: A list of valid reaction documents that are predicted to occur by RegioSQM.
+    """
 
     predictions = proxies.RegioSQMProxy()
 
@@ -148,6 +193,17 @@ def regiosqm_filter(original_func):
 
 
 def pka_filter(original_func):
+    """
+    Decorator function that wraps the BiMolecularReactionGenerator's generate method to filter out Tsuji Trost reactions
+    that are unlikely to occur as predicted by the pKa of the heteroatom involved in the reaction. If the pKa of the
+    heteroatom is higher than the cutoff then the reaction is filtered out.
+
+    Args:
+        original_func (func): The BiMOlecularReactionGenerator's generate method.
+
+    Returns:
+        list[dict]: A list of valid reaction documents that are predicted to occur based on pKa values.
+    """
 
     predictions = proxies.pKaProxy()
     cutoff = 13.5
@@ -171,6 +227,16 @@ def pka_filter(original_func):
 
 
 def aldehyde_filter(original_func):
+    """
+    Decorator function used to wrap the MacrocycleGenerator's generate method in order to filter out macrocycles that
+    have an aldehyde present as these functional groups are not likely to be present in drug like compounds.
+
+    Args:
+        original_func (func): The MacrocycleGenerator's generate method.
+
+    Returns:
+        list[dict]: The list of macrocycle documents where the macrocycle doesn't have an aldehyde present.
+    """
 
     aldehyde = Chem.MolFromSmarts('[CH](=O)')
 
