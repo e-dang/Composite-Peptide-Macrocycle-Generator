@@ -168,3 +168,21 @@ def pka_filter(original_func):
         return data
 
     return pka_filter_wrapper
+
+
+def aldehyde_filter(original_func):
+
+    aldehyde = Chem.MolFromSmarts('[CH](=O)')
+
+    @wraps(original_func)
+    def aldehyde_filter_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            mol = Chem.Mol(original_result['binary'])
+            if not mol.HasSubstructMatch(aldehyde):
+                data.append(original_result)
+
+        return data
+
+    return aldehyde_filter_wrapper
