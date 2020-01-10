@@ -591,6 +591,7 @@ class AbstractMongoIO(IOInterface, MongoDataBase):
 
         self.collection = collection
         self.query = query
+        super().__init__()
 
     def load(self):
         """
