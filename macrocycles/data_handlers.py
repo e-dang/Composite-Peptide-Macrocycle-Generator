@@ -85,7 +85,7 @@ class TestPGDataHandler(IDataHandler):
     def __init__(self, **kwargs):
 
         self.monomer_loader = project_io.get_monomer_io()
-        self.peptide_saver = project_io.get_peptide_io(peptide_length=kwargs['peptide_length'])
+        self.peptide_saver = project_io.get_peptide_io(**kwargs)
         self.peptide_length = kwargs['peptide_length']
 
     def load(self):
@@ -104,7 +104,7 @@ class PublicationPGDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
 
-        self.peptide_saver = project_io.get_peptide_io(peptide_length=kwargs['peptide_length'])
+        self.peptide_saver = project_io.get_peptide_io(**kwargs)
         self.plan_loader = project_io.PeptidePlannerIO(kwargs['peptide_length'])
 
     def load(self):
@@ -119,8 +119,8 @@ class TPGDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
 
-        self.peptide_loader = project_io.get_peptide_io(peptide_length=kwargs['peptide_length'])
-        self.template_peptide_saver = project_io.get_template_peptide_io(peptide_length=kwargs['peptide_length'])
+        self.peptide_loader = project_io.get_peptide_io(**kwargs)
+        self.template_peptide_saver = project_io.get_template_peptide_io(**kwargs)
 
     def load(self):
 
@@ -135,14 +135,16 @@ class MCGDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
 
-        self.template_peptide_loader = project_io.get_template_peptide_io(peptide_length=kwargs['peptide_length'])
+        self.template_peptide_loader = project_io.get_template_peptide_io(**kwargs)
         self.reaction_loader = project_io.get_reaction_io()
-        self.macrocycle_saver = project_io.get_macrocycle_io(peptide_length=kwargs['peptide_length'],
-                                                             job_num=kwargs['job_num'])
-        self.peptide_length = kwargs['peptide_length']
-        self.start = kwargs['start']
-        self.end = kwargs['end']
-        self.job_num = kwargs['job_num']
+        self.macrocycle_saver = project_io.get_macrocycle_io(**kwargs)
+
+        try:
+            self.start = kwargs['start']
+            self.end = kwargs['end']
+        except KeyError:
+            self.start = -1
+            self.end = 1000000000
 
     def load(self):
 
