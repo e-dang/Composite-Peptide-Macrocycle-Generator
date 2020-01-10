@@ -628,7 +628,7 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
         try:
             self.reset()
             super().initialize(sidechain, template.pyrrolo_indolene_kekule, reacting_atom)
-            self.tag_connection_atom(change_to_wildcard=False)
+            self.tag_sidechain_connection_atom(change_to_wildcard=False)
             self.validate()
         except AttributeError:  # doesn't have pyrrolo_indolene_kekule attribute
             self.valid = False
@@ -666,7 +666,8 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
                                              'in a pyrrolo-indolene reaction')
 
         # sidechain must be an indole
-        if not self.reacting_mol.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12')):
+        sidechain = Chem.MolFromSmiles(Chem.MolToSmiles(self.reacting_mol))
+        if not sidechain.GetSubstructMatch(Chem.MolFromSmarts('*c1c[nH]c2ccccc12')):
             self.valid = False
             return
 
@@ -748,11 +749,11 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
 
         # merge backbone nitrogen to adjacent carbon
         map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.ADJ_CARBON_MAP_NUM)
-        reactant = utils.connect_mols(monomer, map_nums=map_nums, clear_map_nums=False)
+        reactant = utils.connect_mols(monomer, map_nums=map_nums, clear_map_nums=False, stereo='CCW')
 
         # merge template with monomer
         map_nums = (self.TEMPLATE_EAS_MAP_NUM, self.REACTING_MOL_EAS_MAP_NUM)
-        self.product = utils.connect_mols(reactant, self.template, map_nums=map_nums, clear_map_nums=False)
+        self.product = utils.connect_mols(reactant, self.template, map_nums=map_nums, clear_map_nums=False, stereo='CW')
 
 
 class TemplatePictetSpangler(AbstractUniMolecularReaction):
