@@ -110,7 +110,7 @@ class MonomerGenerator(IGenerator):
 
         # change isotopes of non-candidate attachment points back to normal isotope
         for atom_idx in chain.from_iterable(sidechain.GetSubstructMatches(Chem.MolFromSmarts('[13CH3]'))):
-            sidechain.GetAtomWithIdx(atom_idx).SetIsotope(12)
+            sidechain.GetAtomWithIdx(atom_idx).SetIsotope(0)
 
         # connect monomer and backbone
         for backbone in utils.get_backbones():
