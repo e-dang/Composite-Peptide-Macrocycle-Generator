@@ -288,6 +288,7 @@ class MacrocycleGenerator(IGenerator):
     @decorators.apply_stereochemistry
     @decorators.methylate
     @decorators.carboxyl_to_amide
+    @decorators.aldehyde_filter
     def generate(self, args):
 
         self.macrocycles = {}
