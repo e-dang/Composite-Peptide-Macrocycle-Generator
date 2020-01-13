@@ -30,15 +30,32 @@ class IGenerator(ABC):
 
 class SideChainConnectionModifier(IGenerator):
     """
-    Implementation of an IGenerator that takes a sidechain with a methyl connection and creates a set of sidechains by
+    Implementation of IGenerator that takes a sidechain with a methyl connection and creates a set of sidechains by
     replacing the methyl connection with all other connection types defined in molecules.py. The new sidechains are
     assigned a new id by the id_iterator used to initialize this generator.
     """
 
     def __init__(self, id_iterator):
+        """
+        Initializer that sets an instance of IDIterator to an instance variable.
+
+        Args:
+            id_iterator (IDIterator): The IDIterator that is used to assign the new sidechain molecuels IDs.
+        """
+
         self.id_iterator = id_iterator
 
     def generate(self, args):
+        """
+        Method for creating new sidechain molecules from other sidechains by changing the methyl connection to a
+        different connection type defined in molecules.py.
+
+        Args:
+            args (dict): A sidechain molecule document.
+
+        Returns:
+            list: A list of new sidechain molecule documents.
+        """
 
         self.new_sidechains = {}
         self.parent_sidechain = args
@@ -80,7 +97,7 @@ class SideChainConnectionModifier(IGenerator):
 
 class MonomerGenerator(IGenerator):
     """
-    Implementation of an IGenerator that takes a sidechain and backbone molecule and creates a monomer
+    Implementation of IGenerator that takes a sidechain and backbone molecule and creates a monomer
     by attaching the alkyl portion of the sidechain to the designated position on the backbone molecule.
     """
 
@@ -89,9 +106,29 @@ class MonomerGenerator(IGenerator):
     MAP_NUMS = (BB_MAP_NUM, SC_MAP_NUM)
 
     def __init__(self, index_iterator):
+        """
+        Initializer method that sets an instance of IndexIterator to an instance variable.
+
+        Args:
+            index_iterator (IndexIterator): The IndexIterator used to assign indices to the new monomers.
+        """
+
         self.index_iterator = index_iterator
 
     def generate(self, args):
+        """
+        Method that takes a sidechain and uses it to create new monomer molecules by attaching it to each type of
+        backbone molecule listed in molecules.py.
+
+        Args:
+            args (dict): A sidechain molecule document.
+
+        Raises:
+            exceptions.InvalidMolecule: Raised if the provided sidechain doesn't have a connection point.
+
+        Returns:
+            list: A list of newly created monomer documents.
+        """
 
         self.monomers = {}
         self.sidechain = args
@@ -149,6 +186,10 @@ class MonomerGenerator(IGenerator):
 
 
 class PeptideGenerator(IGenerator):
+    """
+    Implementation of IGenerator that takes a variable number of monomers and connects them in order to create a
+    peptide.
+    """
 
     BACKBONES = utils.get_hashed_backbones()
     MONOMER_NITROGEN_MAP_NUM = 1
@@ -156,7 +197,15 @@ class PeptideGenerator(IGenerator):
     MAP_NUMS = (MONOMER_NITROGEN_MAP_NUM, PEPTIDE_CARBON_MAP_NUM)
 
     def generate(self, args):
+        """
+        Method used to create a peptide from a list of monomers.
 
+        Args:
+            args (iterable[dict]): An iterable of monomer documents that are to be combined to form the peptide.
+
+        Returns:
+            dict: The new peptide document.
+        """
         self.monomers = args
 
         # begin conneting each monomer in monomers
@@ -190,6 +239,13 @@ class PeptideGenerator(IGenerator):
         return self.format_data()
 
     def tag_monomer_n_term(self):
+        """
+        Helper method that identifies the n-terminus nitrogen atom on a monomer and tags it with the atom map number
+        self.MONOMER_NITROGEN_MAP_NUM.
+
+        Returns:
+            RDKit Atom: The n-terminus nitrogen atom.
+        """
 
         for atom_idx in self.monomer.GetSubstructMatch(self.backbone):
             atom = self.monomer.GetAtomWithIdx(atom_idx)
@@ -198,6 +254,14 @@ class PeptideGenerator(IGenerator):
                 return atom
 
     def tag_peptide_c_term(self):
+        """
+        Helper method that identifies the c-terminus carboxyl carbon atom on the peptide and tags it with the atom map
+        number self.PEPTIDE_CARBON_MAP_NUM.
+
+
+        Returns:
+            RDKit Atom: The c-terminus carboxyl carbon atom.
+        """
 
         flag = False
         for pair in self.peptide.GetSubstructMatches(self.backbone_prev):
@@ -223,6 +287,14 @@ class PeptideGenerator(IGenerator):
         return carboxyl_atom, attachment_atom
 
     def format_data(self):
+        """
+        Helper method that fills in a dict object for the new peptide with the necessary data associated with that
+        peptide needed for record keeping.
+
+        Returns:
+            dict: The new peptide document.
+        """
+
         monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'sidechain', 'is_proline')}
                         for monomer in self.monomers]
         pep_id = ''.join([monomer['_id'] for monomer in monomer_data])
@@ -237,6 +309,10 @@ class PeptideGenerator(IGenerator):
 
 
 class TemplatePeptideGenerator(IGenerator):
+    """
+    Implementation of IGenerator that takes a peptide molecule and combines it with each type of template molecule
+    in order to generate template-peptide oligomers.
+    """
 
     # any primary amine or proline n-terminus
     ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*)]')
@@ -245,6 +321,16 @@ class TemplatePeptideGenerator(IGenerator):
     MAP_NUMS = (TEMPLATE_CARBON_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
 
     def generate(self, args):
+        """
+        Method that takes a peptide molecule and combines it with each type of template molecule defined in molecules.py
+        to form new template-peptide oligomers.
+
+        Args:
+            args (dict): The peptide molecule document.
+
+        Returns:
+            list[dict]: A list of newly created template-peptide oligomer documents.
+        """
 
         self.template_peptides = {}
         self.peptide = args
@@ -265,6 +351,13 @@ class TemplatePeptideGenerator(IGenerator):
         return self.format_data()
 
     def format_data(self):
+        """
+        Helper method that fills in a dict object for each new template-peptide oligomer with the necessary data
+        associated with that template-peptide needed for record keeping.
+
+        Returns:
+            list: A list containing the newly created template-peptide documents.
+        """
 
         data = []
         for i, (kekule, (binary, template)) in enumerate(self.template_peptides.items()):
@@ -280,6 +373,10 @@ class TemplatePeptideGenerator(IGenerator):
 
 
 class MacrocycleGenerator(IGenerator):
+    """
+    Implementation of IGenerator that takes a template-peptide molecule and a list of reactions to apply to it in
+    order to generate macrocycles.
+    """
 
     MIN_MACROCYCLE_RING_SIZE = 10 # if no ring at least this large, reaction failed to close macrocycle
     MAX_ATOM_DIFFERENCE = 5 # if difference in number of atoms between reactant and product, then part of the macrocycle
@@ -290,7 +387,18 @@ class MacrocycleGenerator(IGenerator):
     @decorators.carboxyl_to_amide
     @decorators.aldehyde_filter
     def generate(self, args):
+        """
+        Method that takes a template-peptide molecule and a list of all reactions to apply to it in order to create new
+        macrocycles.
 
+        Args:
+            args (tuple[dict, list[list[dict]]]): A tuple containing the template-peptide molecule document and a list
+                of lists of reaction documents, where the inner list is the combinations of reactions that should be
+                applied to the template peptide together.
+
+        Returns:
+            list[dict]: A list of new macrocycle documents.
+        """
         self.macrocycles = {}
         self.reactant, reaction_combos = args
 
@@ -344,6 +452,13 @@ class MacrocycleGenerator(IGenerator):
         return self.format_data()
 
     def format_data(self):
+        """
+        Helper method that fills in a dict object for each new macrocycle with the necessary data associated with that
+        macrocycle needed for record keeping.
+
+        Returns:
+            list: A list containing the newly created macrocycle documents.
+        """
 
         data = []
         for i, (kekule, (binary, reaction_combo)) in enumerate(self.macrocycles.items()):
@@ -378,8 +493,23 @@ class MacrocycleConformerGenerator(IGenerator):
 
 
 class UniMolecularReactionGenerator(IGenerator):
+    """
+    Implementation of IGenerator that takes a molecule and a UniMolecularReaction instance and generate the
+    corresponding reaction document.
+    """
 
     def generate(self, args):
+        """
+        Method that takes a molecule and a UniMolecularReaction defined in reactions.py and generates the reaction
+        document if the reaction in valid with the given molecule.
+
+        Args:
+            args (tuple[dict, UniMolecularReaction]): A tuple containing the molecule document and an instance of a
+                UniMolecularReaction class.
+
+        Returns:
+            list[dict]: A list of new reaction documents.
+        """
 
         self.reacting_mol, self.reaction = args
         self.reaction(self.reacting_mol)
@@ -390,6 +520,13 @@ class UniMolecularReactionGenerator(IGenerator):
         return []
 
     def format_data(self):
+        """
+        Helper method that fills in a dict object for each new reaction with the necessary data associated with that
+        reaction needed for record keeping.
+
+        Returns:
+            list: A list containing the newly created reaction dicts.
+        """
 
         data = [{'_id': self.reacting_mol.name + self.reaction.name[:2],
                  'type': self.reaction.name,
@@ -401,12 +538,29 @@ class UniMolecularReactionGenerator(IGenerator):
 
 
 class BiMolecularReactionGenerator(IGenerator):
+    """
+    Implementation of IGenerator that generates BiMolecularReaction documents from sidechains/monomers and template
+    molecules.
+    """
 
     REACTING_MOL_EAS_MAP_NUM = reactions.IReaction.REACTING_MOL_EAS_MAP_NUM
 
     @decorators.pka_filter
     @decorators.regiosqm_filter
     def generate(self, args):
+        """
+        Method that takes a sidechain/monomer and an instance of a BiMOleculeReaction defined in reactions.py and
+        combines it with a template molecule to generate new reaction documents with the given sidecahin/monomer and
+        template. This method ensures that the same reaction document is not generated twice due to symmetric atoms in
+        the sidechain/monomer.
+
+        Args:
+            args (tuple[dict, BiMolecularReaction]): A tuple containing the sidechain/monomer document and an instance
+                of a BiMolecularReaction class.
+
+        Returns:
+            list[dict]: A list of new reaction documents.
+        """
 
         self.reactions = {}
         self.reacting_mol, self.reaction = args
@@ -442,6 +596,13 @@ class BiMolecularReactionGenerator(IGenerator):
         return self.format_data()
 
     def format_data(self):
+        """
+        Helper method that fills in a dict object for each new reaction with the necessary data associated with that
+        reaction needed for record keeping.
+
+        Returns:
+            list[dict]: A list containing the newly created reaction dicts.
+        """
 
         data = []
         for i, (smarts, (binary, rxn_atom_idx, rxn_type, template)) in enumerate(self.reactions.items()):
