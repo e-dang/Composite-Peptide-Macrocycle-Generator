@@ -42,31 +42,31 @@ class MolFactory(IFactory):
 
     def run(self, factory_arg):
 
-        generator, handler, arg_producer = self.split_args(factory_arg)
+        generator, data_handler, arg_producer = self.split_args(factory_arg)
 
         self.count = 0
         self.result_data = []
         with multiprocessing.Pool() as pool:
-            for result_mols in pool.imap_unordered(generator.generate, arg_producer(handler.load())):
+            for result_mols in pool.imap_unordered(generator.generate, arg_producer(data_handler.load())):
                 for result_mol in result_mols:
                     self.result_data.append(result_mol)
-                    self.checkpoint(handler)
+                    self.checkpoint(data_handler)
 
-        handler.save(self.result_data)
+        data_handler.save(self.result_data)
         self.count += len(self.result_data)
 
     def run_serial(self, factory_arg):
 
-        generator, handler, arg_producer = self.split_args(factory_arg)
+        generator, data_handler, arg_producer = self.split_args(factory_arg)
 
         self.count = 0
         self.result_data = []
-        for arg in arg_producer(handler.load()):
+        for arg in arg_producer(data_handler.load()):
             for result_mol in generator.generate(arg):
                 self.result_data.append(result_mol)
-                self.checkpoint(handler)
+                self.checkpoint(data_handler)
 
-        handler.save(self.result_data)
+        data_handler.save(self.result_data)
         self.count += len(self.result_data)
 
     def split_args(self, factory_arg):
@@ -77,30 +77,31 @@ class MolFactory(IFactory):
             factory_arg (IFactoryArgument): A subclass of the IFactoryArgument interface.
 
         Raises:
-            AttributeError: Raised when the provided argument doesn't contain an attribute of 'generator' and/or
-                'handler'.
+            AttributeError: Raised when the provided argument doesn't contain an attribute of 'generator',
+                'arg_producer', and/or 'data_handler'.
 
         Returns:
             tuple: The Generator and DataHandler
         """
 
         try:
-            return factory_arg.generator, factory_arg.handler, factory_arg.arg_producer
+            return factory_arg.generator, factory_arg.data_handler, factory_arg.arg_producer
         except AttributeError:
             raise AttributeError(
-                'The supplied factory_arg must have instance members \'generator\', \'loader\', and \'saver\'')
+                'The supplied factory_arg must have instance members \'generator\', \'arg_producer\', and '
+                '\'data_handler\'')
 
-    def checkpoint(self, handler):
+    def checkpoint(self, data_handler):
         """
         Helper method that saves the result_data once it reaches a certain capacity and resets result_data to an empty
         list.
 
         Args:
-            handler (IDataHandler): An implementation of IDataHandler.
+            data_handler (IDataHandler): An implementation of IDataHandler.
         """
 
         if len(self.result_data) >= config.CAPACITY:
-            handler.save(self.result_data)
+            data_handler.save(self.result_data)
             self.count += len(self.result_data)
             self.result_data = []
 
