@@ -6,8 +6,6 @@ from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
 
 import macrocycles.exceptions as exceptions
-import macrocycles.molecules as molecules
-import macrocycles.reactions as reactions
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -212,116 +210,6 @@ def get_file_num_range(filepath):
         if not (os.path.exists(new_fp) and os.path.isfile(new_fp)):
             return low, high
         high += 1
-
-
-def get_templates():
-    """
-    Creates and returns a list of all template molecules.
-
-    Returns:
-        list: The template molecules
-    """
-
-    return [molecules.CinnamoylTemplate1(), molecules.CinnamoylTemplate2(), molecules.CinnamoylTemplate3()]
-
-
-def get_connections():
-    """
-    Creates and returns a list of all connection molecules.
-
-    Returns:
-        list: The connection molecules.
-    """
-
-    return [molecules.EthylConnection()]
-
-
-def get_backbones():
-    """
-    Creates and returns a list of all backbone moleucles.
-
-    Returns:
-        list: The backbone molecules.
-    """
-
-    return [molecules.AlphaBackBone(), molecules.Beta2BackBone(), molecules.Beta3BackBone()]
-
-
-def get_hashed_molecules(func):
-    """
-    Closuer that returns a function that when called returns a dict of the molecules returned by func, where the keys
-    are the names of the molecules and the values are the RDKit representation of the molecule.
-
-    Args:
-        func (function): A getter function that returns a list of Molecule objects such as get_templates().
-
-    Returns:
-        function: The function that will return the hashed molecules when called.
-    """
-
-    def hasher():
-        hashed_molecules = {}
-        for molecule in func():
-            hashed_molecules[molecule.name] = molecule.mol
-        return hashed_molecules
-
-    return hasher
-
-
-get_hashed_templates = get_hashed_molecules(get_templates)
-get_hashed_connections = get_hashed_molecules(get_connections)
-get_hashed_backbones = get_hashed_molecules(get_backbones)
-
-
-def get_partial_backbone(map_num):
-    """
-    Creates an amino acid backbone structure where the carboxyl group is replaced by a wildcard atom. Useful when trying
-    to match a monomer that has been incorporated into a peptide.
-
-    Args:
-        map_num (int): The map number to give the wildcard atom.
-
-    Returns:
-        RDKit Mol: The partial backbone.
-    """
-
-    backbone = molecules.AlphaBackBone().tagged_mol
-    carboxyl = Chem.MolFromSmarts('C(=O)O')
-    replacement = Chem.MolFromSmarts(f'[*:{map_num}]')
-    return AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
-
-
-def get_reactions():
-    """
-    Create and return a list of all reactions.
-
-    Returns:
-        list: The reactions.
-    """
-
-    return [reactions.FriedelCrafts(), reactions.TsujiTrost(), reactions.PictetSpangler(),
-            reactions.TemplatePictetSpangler(), reactions.PyrroloIndolene(), reactions.UnmaskedAldehydeCyclization()]
-
-
-def get_reactions_of_type(rxn_type):
-    """
-    Closure for creating a function that returns all reactions of a certain type.
-
-    Args:
-        rxn_type (str): The desired reaction type.
-
-    Returns:
-        func: A function that when called returns an iterable of the desired reactions.
-    """
-
-    def reaction_getter():
-        return filter(lambda x: rxn_type in x.type, get_reactions())
-
-    return reaction_getter
-
-
-get_bimolecular_reactions = get_reactions_of_type('bimolecular')
-get_unimolecular_reactions = get_reactions_of_type('unimolecular')
 
 
 class suppress_stdout_stderr(object):

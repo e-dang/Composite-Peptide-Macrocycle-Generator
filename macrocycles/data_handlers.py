@@ -2,8 +2,9 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 
 import macrocycles.iterators as iterators
+import macrocycles.molecules as molecules
 import macrocycles.project_io as project_io
-import macrocycles.utils as utils
+import macrocycles.reactions as reactions
 
 
 class IDataHandler(ABC):
@@ -267,13 +268,13 @@ class UMRGDataHandler(IDataHandler):
 
     def load(self):
         """
-        Method that calls utils.get_templates(), utils.get_unimolecular_reactions() and returns the data.
+        Method that calls molecules.get_templates(), reactions.get_unimolecular_reactions() and returns the data.
 
         Returns:
             tuple[iterable]: A tuple containing template molecules and unimolecular reactions.
         """
 
-        return utils.get_templates(), utils.get_unimolecular_reactions()
+        return molecules.get_templates(), reactions.get_unimolecular_reactions()
 
     def save(self, data):
         """
@@ -307,7 +308,7 @@ class BMRGDataHandler(IDataHandler):
         """
         Method that calls load() on both the SideChainIO and MonomerIO, filtering out sidechains that dont have a methyl
         connection, and monomers that are not required or not imported. The combined results are then returned as a
-        tuple with the bimolecular reactions returned by utils.get_bimolecular_reactions().
+        tuple with the bimolecular reactions returned by reactions.get_bimolecular_reactions().
 
         Returns:
             tuple[iterable]: A tuple containing sidechain and monomer molecules and bimolecular reactions.
@@ -315,7 +316,7 @@ class BMRGDataHandler(IDataHandler):
 
         reacting_mols = list(filter(lambda x: x['connection'] == 'methyl', self.sidechain_loader.load()))
         reacting_mols.extend(list(filter(lambda x: x['required'] and x['imported'], self.monomer_loader.load())))
-        return reacting_mols, utils.get_bimolecular_reactions()
+        return reacting_mols, reactions.get_bimolecular_reactions()
 
     def save(self, data):
         """

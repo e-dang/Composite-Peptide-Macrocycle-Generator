@@ -185,7 +185,7 @@ class AbstractBiMolecularReaction(IReaction):
         corresponding instance variable flag to True.
         """
 
-        backbones = map(Chem.MolFromSmarts, [backbone.kekule for backbone in utils.get_backbones()])
+        backbones = map(Chem.MolFromSmarts, [backbone.kekule for backbone in molecules.get_backbones()])
         for backbone in backbones:
             if self.reacting_mol.HasSubstructMatch(backbone):
                 self.is_monomer = True
@@ -244,7 +244,10 @@ class AbstractBiMolecularReaction(IReaction):
         """
 
         # get modified backbone
-        backbone = utils.get_partial_backbone(self.BACKBONE_CARBOXYL_MAP_NUM)
+        backbone = molecules.AlphaBackBone().tagged_mol
+        carboxyl = Chem.MolFromSmarts('C(=O)O')
+        replacement = Chem.MolFromSmarts(f'[*:{self.C_TERM_WILDCARD_MAP_NUM}]')
+        backbone = AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
 
         # tag n-terminus nitrogen for oligomerization
         for atom_idx in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
@@ -1017,3 +1020,36 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
         # connect backbone nitrogen to aldehyde carbon
         map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
         self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
+
+
+def get_reactions():
+    """
+    Create and return a list of all reactions.
+
+    Returns:
+        list: The reactions.
+    """
+
+    return [FriedelCrafts(), TsujiTrost(), PictetSpangler(), TemplatePictetSpangler(), PyrroloIndolene(),
+            UnmaskedAldehydeCyclization()]
+
+
+def get_reactions_of_type(rxn_type):
+    """
+    Closure for creating a function that returns all reactions of a certain type.
+
+    Args:
+        rxn_type (str): The desired reaction type.
+
+    Returns:
+        func: A function that when called returns an iterable of the desired reactions.
+    """
+
+    def reaction_getter():
+        return filter(lambda x: rxn_type in x.type, get_reactions())
+
+    return reaction_getter
+
+
+get_bimolecular_reactions = get_reactions_of_type('bimolecular')
+get_unimolecular_reactions = get_reactions_of_type('unimolecular')

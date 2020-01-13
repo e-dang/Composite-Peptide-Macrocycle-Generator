@@ -65,7 +65,7 @@ class SideChainConnectionModifier(IGenerator):
         patt = Chem.MolFromSmarts('[CH3;!13CH3]')
 
         # replace the designated attachment position with each type of connection
-        for connection in utils.get_connections():
+        for connection in molecules.get_connections():
             for sidechain in Chem.ReplaceSubstructs(parent_sidechain, patt, connection.mol):
                 Chem.SanitizeMol(sidechain)
                 binary = sidechain.ToBinary()
@@ -150,7 +150,7 @@ class MonomerGenerator(IGenerator):
             sidechain.GetAtomWithIdx(atom_idx).SetIsotope(0)
 
         # connect monomer and backbone
-        for backbone in utils.get_backbones():
+        for backbone in molecules.get_backbones():
             monomer = utils.connect_mols(deepcopy(sidechain), backbone.tagged_mol, map_nums=self.MAP_NUMS)
             binary = monomer.ToBinary()
             Chem.Kekulize(monomer)
@@ -191,7 +191,7 @@ class PeptideGenerator(IGenerator):
     peptide.
     """
 
-    BACKBONES = utils.get_hashed_backbones()
+    BACKBONES = molecules.get_hashed_backbones()
     MONOMER_NITROGEN_MAP_NUM = 1
     PEPTIDE_CARBON_MAP_NUM = 2
     MAP_NUMS = (MONOMER_NITROGEN_MAP_NUM, PEPTIDE_CARBON_MAP_NUM)
@@ -336,7 +336,7 @@ class TemplatePeptideGenerator(IGenerator):
         self.peptide = args
 
         # for each template and eligible nitrogen in peptide form a connection
-        for template in utils.get_templates():
+        for template in molecules.get_templates():
             peptide = Chem.Mol(self.peptide['binary'])
             for atom_idx in chain.from_iterable(peptide.GetSubstructMatches(self.ELIGIBLE_NITROGENS)):
                 atom = peptide.GetAtomWithIdx(atom_idx)
@@ -576,7 +576,7 @@ class BiMolecularReactionGenerator(IGenerator):
         non_symmetric_atom_idxs = set(pair[0] for pair in reduced_pairs)
 
         # remove backbone atoms from non-symmetric atoms (this does nothing if reacting_mol is a sidechain)
-        backbones = utils.get_hashed_backbones()
+        backbones = molecules.get_hashed_backbones()
         for backbone in backbones.values():
             atom_idxs = set(chain.from_iterable(reacting_mol.GetSubstructMatches(backbone)))
             non_symmetric_atom_idxs = non_symmetric_atom_idxs - atom_idxs
@@ -584,7 +584,7 @@ class BiMolecularReactionGenerator(IGenerator):
         # create reactions
         for atom in set(reacting_mol.GetAtomWithIdx(atom_idx) for atom_idx in non_symmetric_atom_idxs):
             atom.SetAtomMapNum(self.REACTING_MOL_EAS_MAP_NUM)
-            for template in utils.get_templates():
+            for template in molecules.get_templates():
                 self.reaction(deepcopy(reacting_mol), template, atom)
                 if self.reaction:
                     self.reaction.create_reaction()
