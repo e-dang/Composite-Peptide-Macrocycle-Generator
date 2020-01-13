@@ -11,12 +11,12 @@ TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 
 ################################################ Globals ################################################
 CAPACITY = 1000000
-DATA_FORMAT = 'json'
+DATA_FORMAT = 'mongo'
 
 ################################################ MongoDB Schema ################################################
 HOST = 'localhost'
 PORT = 27017
-DATABASE = 'tests'
+DATABASE = 'test'
 
 COL1 = 'molecules'
 COL2 = 'reactions'
