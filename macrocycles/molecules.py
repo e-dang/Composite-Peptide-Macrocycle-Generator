@@ -1,5 +1,6 @@
-from rdkit import Chem
 from abc import ABC, abstractmethod
+
+from rdkit import Chem
 
 
 class IMolecule(ABC):

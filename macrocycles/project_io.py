@@ -7,8 +7,8 @@ from bson import json_util
 from pymongo import MongoClient, errors
 from rdkit import Chem
 
-import config
-import utils
+import macrocycles.config as config
+import macrocycles.utils as utils
 
 
 class IOInterface(ABC):

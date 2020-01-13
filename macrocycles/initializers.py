@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-import project_io
+import macrocycles.project_io as project_io
 
 
 class IDataInitializer(ABC):

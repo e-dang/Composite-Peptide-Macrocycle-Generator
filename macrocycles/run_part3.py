@@ -1,8 +1,8 @@
 import math
 from argparse import ArgumentParser
 
-import runners
-from utils import suppress_stdout_stderr
+import macrocycles.runners as runners
+from macrocycles.utils import suppress_stdout_stderr
 
 parser = ArgumentParser(description='Parses arguments to determine what chunk of template_peptides to work on.')
 parser.add_argument('--peptide_len', type=int, required=True, help='The length of peptide to work on.')

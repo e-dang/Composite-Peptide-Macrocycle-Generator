@@ -1,10 +1,10 @@
 import multiprocessing
 from abc import ABC, abstractmethod
 
-import data_handlers
-import generators
-import argument_producers
-import config
+import macrocycles.argument_producers as argument_producers
+import macrocycles.config as config
+import macrocycles.data_handlers as data_handlers
+import macrocycles.generators as generators
 
 
 class IFactory(ABC):

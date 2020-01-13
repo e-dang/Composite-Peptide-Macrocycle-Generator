@@ -1,12 +1,12 @@
 
-from functools import wraps
 from copy import deepcopy
-from itertools import product, chain, combinations
+from functools import wraps
+from itertools import chain, combinations, product
 
 from rdkit import Chem
 
-import utils
-import proxies
+import macrocycles.proxies as proxies
+import macrocycles.utils as utils
 
 
 def apply_stereochemistry(original_func):

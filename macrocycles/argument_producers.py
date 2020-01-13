@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from itertools import chain, product
 
-import project_io
+import macrocycles.project_io as project_io
 
 
 class IArgumentProducer(ABC):

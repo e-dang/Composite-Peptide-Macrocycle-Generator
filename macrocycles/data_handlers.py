@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
 
-import iterators
-import project_io
-import utils
+import macrocycles.iterators as iterators
+import macrocycles.project_io as project_io
+import macrocycles.utils as utils
 
 
 class IDataHandler(ABC):

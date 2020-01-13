@@ -1,5 +1,6 @@
-import runners
 from argparse import ArgumentParser
+
+import macrocycles.runners as runners
 
 NUM_PEPTIDES = 3000
 

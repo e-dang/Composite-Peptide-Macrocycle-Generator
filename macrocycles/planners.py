@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from random import sample
 
-import project_io
-import utils
+import macrocycles.project_io as project_io
+import macrocycles.utils as utils
 
 
 class IPlanner(ABC):

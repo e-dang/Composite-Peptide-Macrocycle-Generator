@@ -1,4 +1,3 @@
-import exceptions
 import functools
 import os
 import random
@@ -6,8 +5,9 @@ import random
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
 
-import molecules
-import reactions
+import macrocycles.exceptions as exceptions
+import macrocycles.molecules as molecules
+import macrocycles.reactions as reactions
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):

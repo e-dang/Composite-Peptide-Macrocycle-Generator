@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-import iterators
-import project_io
+import macrocycles.iterators as iterators
+import macrocycles.project_io as project_io
 
 
 class IImporter(ABC):

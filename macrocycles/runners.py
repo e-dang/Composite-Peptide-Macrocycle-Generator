@@ -2,12 +2,12 @@ from time import time
 
 from rdkit import Chem
 
-import config
-import factories
-import importers
-import initializers
-import planners
-import project_io
+import macrocycles.config as config
+import macrocycles.factories as factories
+import macrocycles.importers as importers
+import macrocycles.initializers as initializers
+import macrocycles.planners as planners
+import macrocycles.project_io as project_io
 
 
 def initialize():
@@ -137,7 +137,7 @@ def run(factory_arg, name):
 
 run_sidechains = run_serial(factories.SCConnectionModificationArgs, 'Sidechains')
 run_monomers = run_serial(factories.MonomerGenerationArgs, 'Monomers')
-run_peptides = run(factories.PublicationPeptideGenerationArgs, 'Peptides')
+run_peptides = run(factories.PeptideGenerationArgs, 'Peptides')
 run_template_peptides = run(factories.TemplatePeptideGenerationArgs, 'Template Peptides')
 run_unimolecular_reactions = run(factories.UniMolecularReactionGenerationArgs, 'UniMolecular Reactions')
 run_bimolecular_reactions = run(factories.BiMolecularReactionGenerationArgs, 'BiMolecular Reactions')

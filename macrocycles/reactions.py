@@ -1,4 +1,3 @@
-import exceptions
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from itertools import chain
@@ -6,8 +5,9 @@ from itertools import chain
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-import molecules
-import utils
+import macrocycles.exceptions as exceptions
+import macrocycles.molecules as molecules
+import macrocycles.utils as utils
 
 
 class IReaction(ABC):
