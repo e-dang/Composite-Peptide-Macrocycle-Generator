@@ -47,6 +47,9 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
     if len(mols) < 1 or len(mols) > 2:
         raise exceptions.MergeError('Can only merge 1 or 2 molecules at a time.')
 
+    if len(map_nums) != 2:
+        raise exceptions.MergeError('Can only specify 2 distinct map numbers at a time.')
+
     # find atoms that will form a bond together and update hydrogen counts
     combo, *mols = mols
     for mol in mols:
@@ -179,6 +182,9 @@ def attach_file_num(filepath, *file_nums):
     Returns:
         str: The augmented filepath.
     """
+
+    if filepath.count('.') != 1:
+        raise exceptions.InvalidFilePath('The given filepath needs to have exactly one \'.\' character.')
 
     new_fp, ext = filepath.split('.')
 

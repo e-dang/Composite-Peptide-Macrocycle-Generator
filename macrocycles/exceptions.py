@@ -22,3 +22,9 @@ class UnIdentifiedMolType(Exception):
     Raised when trying to determine whether the reacting molecule in a BiMolecularReaction is a sidechain or monomer
     fails.
     """
+
+
+class InvalidFilePath(Exception):
+    """
+    Raised when a filepath is determined to be invalid.
+    """
