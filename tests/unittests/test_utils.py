@@ -198,6 +198,43 @@ def test_atom_to_wildcard(smiles):
         assert atom.GetNumExplicitHs() == 0
 
 
+@pytest.mark.parametrize('factors,expected_values', [
+    ([(1, 2), (3, 4)], [[1, 3], [1, 4], [2, 3], [2, 4]])
+], ids=['two iterables'])
+def test_random_order_cartesian_product_correct_product(factors, expected_values):
+    """
+    Test for utils.random_order_cartesian_product(). Tests that the given cartesian product contains all the expected
+    elements.
+
+    Args:
+        factors (iterable[iterables]): The iterables used to form the cartesian product.
+        expected_values (iterable[iterable]): The expected cartesian product.
+    """
+
+    product = utils.random_order_cartesian_product(*factors)
+    for element in product:
+        assert element in expected_values
+
+
+@pytest.mark.parametrize('factors,expected_number_values', [
+    ([(1, 2, 3, 4, 5), (1, 2, 3, 4, 5), (1, 2, 3, 4, 5)], 125),
+    ([range(10), range(10)], 100)
+], ids=['length 125', 'length 100'])
+def test_random_order_cartesian_product_length_only(factors, expected_number_values):
+    """
+    Test for utils.random_order_cartesian_product(), only verifying that the size of the returned product is the
+    expected size of the cartesian product.
+
+    Args:
+        factors (iterable[iterable]): The iterables used to form the cartesian product.
+        expected_number_values (int): The expected size of the cartesian product.
+    """
+
+    product = list(utils.random_order_cartesian_product(*factors))
+
+    assert len(product) == expected_number_values
+
+
 @pytest.mark.parametrize('filepath,file_nums,expected_value', [
     ('data.txt', (1,), 'data_1.txt'),
     ('data.json', (1,), 'data_1.json'),
