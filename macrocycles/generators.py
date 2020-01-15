@@ -408,7 +408,8 @@ class MacrocycleGenerator(IGenerator):
             rxns = [(AllChem.ChemicalReaction(reaction['binary']), reaction['type']) for reaction in reaction_combo]
 
             successful_rxn = False
-            for rxn, rxn_type in rxns:
+            successful_rxns = []
+            for i, (rxn, rxn_type) in enumerate(rxns):
 
                 if rxn_type in ('template_pictet_spangler', 'unmasked_aldehyde_cyclization') \
                         and successful_rxn: # pictet_spangler worked, don't use template_only_reactions
@@ -436,6 +437,7 @@ class MacrocycleGenerator(IGenerator):
 
                 reactants = macrocycles.values()
                 successful_rxn = True
+                successful_rxns.append(reaction_combo[i])
 
             for binary, macrocycle in macrocycles.items():
 
@@ -447,7 +449,7 @@ class MacrocycleGenerator(IGenerator):
                 # macrocyclic ring
                 if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE and macro_ring:
                     Chem.Kekulize(macrocycle)
-                    self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = (binary, reaction_combo)
+                    self.macrocycles[Chem.MolToSmiles(macrocycle, kekuleSmiles=True)] = (binary, successful_rxns)
 
         return self.format_data()
 
