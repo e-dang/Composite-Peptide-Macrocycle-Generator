@@ -4,6 +4,7 @@ from functools import wraps
 from itertools import chain, combinations, product
 
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 import macrocycles.proxies as proxies
 import macrocycles.utils as utils
@@ -252,3 +253,39 @@ def aldehyde_filter(original_func):
         return data
 
     return aldehyde_filter_wrapper
+
+
+def molecular_weight_filter(original_func):
+
+    max_molecular_weight = 1000
+
+    @wraps(original_func)
+    def molecular_weight_filter_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            mol = Chem.Mol(original_result['binary'])
+            if AllChem.CalcExactMolWt(mol) <= max_molecular_weight:
+                data.append(original_result)
+
+        return data
+
+    return molecular_weight_filter_wrapper
+
+
+def rotatable_bond_filter(original_func):
+
+    max_num_rotatable_bonds = 10
+
+    @wraps(original_func)
+    def rotatable_bond_filter_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            mol = Chem.Mol(original_result['binary'])
+            if AllChem.CalcNumRotatableBonds(mol) <= max_num_rotatable_bonds:
+                data.append(original_result)
+
+        return data
+
+    return rotatable_bond_filter_wrapper
