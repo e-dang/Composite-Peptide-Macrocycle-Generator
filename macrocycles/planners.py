@@ -61,7 +61,10 @@ class PeptidePublicationPlanner(IPlanner):
 
     def validate_monomers(self, monomers):
 
-        if len(list(filter(lambda x: x['required'], monomers))) > 0:
+        if self.peptide_length < 5 and 3 > len(list(filter(lambda x: x['required'], monomers))) > 0:
+            return True
+
+        if self.peptide_length == 5 and 4 > len(list(filter(lambda x: x['required'], monomers))) > 0:
             return True
 
         return False
