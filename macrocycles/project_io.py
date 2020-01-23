@@ -2,6 +2,7 @@ import csv
 import json
 import os
 from abc import ABC, abstractmethod
+from collections import defaultdict
 
 from bson import json_util
 from pymongo import MongoClient, errors
@@ -904,3 +905,33 @@ def get_hashed_predictions(prediction_io):
 
 get_hashed_regiosqm_predictions = get_hashed_predictions(get_regiosqm_io)
 get_hashed_pka_predictions = get_hashed_predictions(get_pka_io)
+
+
+def get_filtered_monomer_set():
+    sdf_io = StructureDataFileIO(os.path.join(config.DATA_DIR, 'chemdraw', 'conservative_sidechains.sdf'))
+    sidechains = get_sidechain_io().load()
+    hashed_sidechains = hash_molecules(sidechains, 'shared_id', key='kekule')
+    monomers = get_monomer_io().load()
+
+    shared_ids = []
+    for molecule in sdf_io.load():
+        mol = Chem.MolFromSmiles(Chem.MolToSmiles(molecule))
+        Chem.Kekulize(mol)
+        shared_ids.append(hashed_sidechains[Chem.MolToSmiles(mol, kekuleSmiles=True)]['shared_id'])
+
+    filtered_monomers = []
+    for monomer in monomers:
+        if monomer['sidechain'] in shared_ids or monomer['imported']:
+            filtered_monomers.append(monomer)
+
+    return filtered_monomers
+
+
+def hash_molecules(mols, *args, key='_id'):
+    hashed_mols = defaultdict(dict)
+    for mol in mols:
+        for k, v in mol.items():
+            if k in args:
+                hashed_mols[mol[key]].update({k: v})
+
+    return hashed_mols
