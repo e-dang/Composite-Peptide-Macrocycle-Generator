@@ -1,4 +1,5 @@
 
+import random
 from copy import deepcopy
 from functools import wraps
 from itertools import chain, combinations, product
@@ -289,3 +290,42 @@ def rotatable_bond_filter(original_func):
         return data
 
     return rotatable_bond_filter_wrapper
+
+
+def attach_c_term_cap(original_func):
+
+    c_term_caps = proxies.SideChainCapProxy()
+    carboxyl = Chem.MolFromSmarts('[OH1]C(=O)')
+    map_nums = (1, 3)
+
+    def c_term_cap_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            mol = Chem.Mol(original_result['binary'])
+            data.append(original_result)
+
+            for i, match in enumerate(mol.GetSubstructMatches(carboxyl)):
+                for atom_idx in match:
+                    atom = mol.GetAtomWithIdx(atom_idx)
+                    if atom.GetSymbol() == 'O' and atom.GetTotalNumHs() == 1:
+                        oxygen_idx = atom.GetIdx()
+                    elif atom.GetSymbol() == 'C':
+                        atom.SetAtomMapNum(1)
+
+                mol = Chem.RWMol(mol)
+                mol.RemoveAtom(oxygen_idx)
+                rand_cap = random.randint(0, len(c_term_caps) - 1)
+                mol = utils.connect_mols(mol, c_term_caps[rand_cap], map_nums=map_nums)
+
+                binary = mol.Binary()
+                doc = deepcopy(original_result)
+                doc['_id'] += str(i) + 'c'
+                doc['binary'] = binary
+                doc['kekule'] = Chem.MolToSmiles(mol, kekuleSmiles=True)
+                doc['modifications'] += 'c'
+                data.append(doc)
+
+        return data
+
+    return c_term_cap_wrapper
