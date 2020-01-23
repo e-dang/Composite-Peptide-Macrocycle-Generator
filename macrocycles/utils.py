@@ -37,9 +37,7 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
         if clear_map_nums:
             atom.SetAtomMapNum(0)
 
-        if atom.GetSymbol() in ['N', 'O', 'S']:
-            atom.SetNumExplicitHs(0)
-        elif atom.GetSymbol() == 'C' and atom.GetNumExplicitHs() != 0:
+        if atom.GetNumExplicitHs() != 0:
             atom.SetNumExplicitHs(atom.GetTotalNumHs() - 1)
 
         return atom

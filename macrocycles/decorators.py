@@ -5,7 +5,7 @@ from functools import wraps
 from itertools import chain, combinations, product
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, Draw
 
 import macrocycles.proxies as proxies
 import macrocycles.utils as utils
@@ -298,14 +298,16 @@ def attach_c_term_cap(original_func):
     carboxyl = Chem.MolFromSmarts('[OH1]C(=O)')
     map_nums = (1, 3)
 
+    @wraps(original_func)
     def c_term_cap_wrapper(*args, **kwargs):
 
         data = []
         for original_result in original_func(*args, **kwargs):
-            mol = Chem.Mol(original_result['binary'])
+            macrocycle = Chem.Mol(original_result['binary'])
             data.append(original_result)
 
-            for i, match in enumerate(mol.GetSubstructMatches(carboxyl)):
+            for i, match in enumerate(macrocycle.GetSubstructMatches(carboxyl)):
+                mol = deepcopy(macrocycle)
                 for atom_idx in match:
                     atom = mol.GetAtomWithIdx(atom_idx)
                     if atom.GetSymbol() == 'O' and atom.GetTotalNumHs() == 1:
@@ -318,7 +320,7 @@ def attach_c_term_cap(original_func):
                 rand_cap = random.randint(0, len(c_term_caps) - 1)
                 mol = utils.connect_mols(mol, c_term_caps[rand_cap], map_nums=map_nums)
 
-                binary = mol.Binary()
+                binary = mol.ToBinary()
                 doc = deepcopy(original_result)
                 doc['_id'] += str(i) + 'c'
                 doc['binary'] = binary
