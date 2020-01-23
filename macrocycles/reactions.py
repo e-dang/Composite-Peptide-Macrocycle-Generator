@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import namedtuple
 from copy import deepcopy
 from itertools import chain
 
@@ -77,29 +78,27 @@ class IReaction(ABC):
 
         return self.valid
 
-    @property
-    def binary(self):
-        """
-        Property that returns the RDKit Reaction's binary string.
+    def __iter__(self):
+        return iter(self.reaction_data)
 
-        Returns:
-            binary: The RDKit Reaction as a binary string.
-        """
+    def __next__(self):
+        return next(self.reaction_data)
 
-        return self.reaction.ToBinary()
-
-    def create_reaction_smarts(self, reactants, product):
+    def create_reaction_smarts(self, reactants):
         """
         Method for creating the reaction SMARTS string from the reactants and products.
 
         Args:
             reactants (iterable[RDKit Mol]): The reactants.
-            product (RDKit Mol): The product.
         """
 
+        NewReaction = namedtuple('NewReaction', 'smarts binary name applicable_template')
         reactants = [Chem.MolToSmiles(reactant) for reactant in reactants]
-        self.smarts = '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product)
-        self.reaction = AllChem.ReactionFromSmarts(self.smarts)
+        for product in self.products:
+            smarts = '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product)
+            reaction = AllChem.ReactionFromSmarts(smarts)
+            binary = reaction.ToBinary()
+            self.reaction_data.append(NewReaction(smarts, binary, self.name, self.applicable_template))
 
     def reset(self):
         """
@@ -108,10 +107,9 @@ class IReaction(ABC):
 
         self.reacting_atom = None
         self.template = None
-        self.product = None
-        self.reaction = None
-        self.smarts = None
         self.valid = None
+        self.products = []
+        self.reaction_data = []
 
 
 class AbstractUniMolecularReaction(IReaction):
@@ -284,6 +282,11 @@ class FriedelCrafts(AbstractBiMolecularReaction):
             self.validate()
         except AttributeError:  # template doesn't have a friedel_crafts_kekule
             self.valid = False
+        else:
+            if self:
+                self.create_reaction()
+
+        return iter(self)
 
     @property
     def name(self):
@@ -345,7 +348,7 @@ class FriedelCrafts(AbstractBiMolecularReaction):
             raise exceptions.UnIdentifiedMolType('Unable to determine whether the reacting molecule '
                                                  f'{Chem.MolToSmiles(self.reacting_mol)} is a sidechain or a monomer')
         self.create_product()
-        self.create_reaction_smarts([self.reacting_mol, self.template], self.product)
+        self.create_reaction_smarts([self.reacting_mol, self.template])
 
     def create_product(self):
         """
@@ -355,7 +358,8 @@ class FriedelCrafts(AbstractBiMolecularReaction):
         """
 
         map_nums = (self.REACTING_MOL_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM)
-        self.product = utils.connect_mols(self.reacting_mol, self.template, map_nums=map_nums, clear_map_nums=False)
+        self.products.append(utils.connect_mols(self.reacting_mol, self.template,
+                                                map_nums=map_nums, clear_map_nums=False))
 
 
 class TsujiTrost(AbstractBiMolecularReaction):
@@ -381,6 +385,11 @@ class TsujiTrost(AbstractBiMolecularReaction):
             self.validate()
         except AttributeError:  # doesn't have tsuji_trost_kekule attribute
             self.valid = False
+        else:
+            if self:
+                self.create_reaction()
+
+        return iter(self)
 
     @property
     def name(self):
@@ -441,7 +450,7 @@ class TsujiTrost(AbstractBiMolecularReaction):
             raise exceptions.UnIdentifiedMolType('Unable to determine whether the reacting molecule '
                                                  f'{Chem.MolToSmiles(self.reacting_mol)} is a sidechain or a monomer')
         self.create_product()
-        self.create_reaction_smarts([self.reacting_mol, self.template], self.product)
+        self.create_reaction_smarts([self.reacting_mol, self.template])
 
     def create_product(self):
         """
@@ -451,7 +460,8 @@ class TsujiTrost(AbstractBiMolecularReaction):
         """
 
         map_nums = [self.REACTING_MOL_EAS_MAP_NUM, self.TEMPLATE_EAS_MAP_NUM]
-        self.product = utils.connect_mols(self.reacting_mol, self.template, map_nums=map_nums, clear_map_nums=False)
+        self.products.append(utils.connect_mols(self.reacting_mol, self.template,
+                                                map_nums=map_nums, clear_map_nums=False))
 
 
 class PictetSpangler(AbstractBiMolecularReaction):
@@ -483,6 +493,11 @@ class PictetSpangler(AbstractBiMolecularReaction):
             self.validate()
         except AttributeError:  # doesn't have pictet_spangler_kekule attribute
             self.valid = False
+        else:
+            if self:
+                self.create_reaction()
+
+        return iter(self)
 
     @property
     def name(self):
@@ -553,7 +568,7 @@ class PictetSpangler(AbstractBiMolecularReaction):
 
         self.create_reactant()
         self.create_product()
-        self.create_reaction_smarts([self.reactant], self.product)
+        self.create_reaction_smarts([self.reactant])
 
     def create_reactant(self):
         """
@@ -605,7 +620,7 @@ class PictetSpangler(AbstractBiMolecularReaction):
 
         # create bond between peptide nitrogen and unmasked aldehyde carbon
         map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.TEMPLATE_CARBON_ALDEHYDE_MAP_NUM)
-        self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
+        self.products.append(utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False))
 
 
 class PyrroloIndolene(AbstractBiMolecularReaction):
@@ -635,6 +650,11 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
             self.validate()
         except AttributeError:  # doesn't have pyrrolo_indolene_kekule attribute
             self.valid = False
+        else:
+            if self:
+                self.create_reaction()
+
+        return iter(self)
 
     @property
     def name(self):
@@ -704,7 +724,7 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
 
         self.create_reactant()
         self.create_product()
-        self.create_reaction_smarts([self.monomer, self.template], self.product)
+        self.create_reaction_smarts([self.monomer, self.template])
 
     def create_reactant(self):
         """
@@ -750,13 +770,15 @@ class PyrroloIndolene(AbstractBiMolecularReaction):
         eas_atom.SetNumExplicitHs(eas_atom.GetTotalNumHs() + 1)
         adj_atom.SetNumExplicitHs(adj_atom.GetTotalNumHs() + 1)
 
-        # merge backbone nitrogen to adjacent carbon
-        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.ADJ_CARBON_MAP_NUM)
-        reactant = utils.connect_mols(monomer, map_nums=map_nums, clear_map_nums=False, stereo='CCW')
+        for stereo1, stereo2 in [('CCW', 'CCW'), ('CW', 'CW')]:
+            # merge backbone nitrogen to adjacent carbon
+            map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.ADJ_CARBON_MAP_NUM)
+            reactant = utils.connect_mols(monomer, map_nums=map_nums, clear_map_nums=False, stereo=stereo1)
 
-        # merge template with monomer
-        map_nums = (self.TEMPLATE_EAS_MAP_NUM, self.REACTING_MOL_EAS_MAP_NUM)
-        self.product = utils.connect_mols(reactant, self.template, map_nums=map_nums, clear_map_nums=False, stereo='CW')
+            # merge template with monomer
+            map_nums = (self.TEMPLATE_EAS_MAP_NUM, self.REACTING_MOL_EAS_MAP_NUM)
+            self.products.append(utils.connect_mols(reactant, self.template,
+                                                    map_nums=map_nums, clear_map_nums=False, stereo=stereo2))
 
 
 class TemplatePictetSpangler(AbstractUniMolecularReaction):
@@ -785,6 +807,11 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
             self.validate()
         except AttributeError:  # doesn't have template_pictet_spangler_kekule attribute
             self.valid = False
+        else:
+            if self:
+                self.create_reaction()
+
+        return iter(self)
 
     @property
     def name(self):
@@ -848,7 +875,7 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
         """
 
         self.create_product()
-        self.create_reaction_smarts([self.template], self.product)
+        self.create_reaction_smarts([self.template])
 
     def create_product(self):
         """
@@ -878,7 +905,7 @@ class TemplatePictetSpangler(AbstractUniMolecularReaction):
 
         # create bond between reacting atom and the aldehyde carbon
         map_nums = (self.CARBON_ALDEHYDE_MAP_NUM, self.REACTING_ATOM_MAP_NUM)
-        self.product = utils.connect_mols(template, map_nums=map_nums, stereo='CCW', clear_map_nums=False)
+        self.products.append(utils.connect_mols(template, map_nums=map_nums, stereo='CCW', clear_map_nums=False))
 
 
 class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
@@ -904,6 +931,11 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
             self.validate()
         except AttributeError:  # doesn't have unmasked_aldehyde_cyclization_kekule attribute
             self.valid = False
+        else:
+            if self:
+                self.create_reaction()
+
+        return iter(self)
 
     @property
     def name(self):
@@ -966,7 +998,7 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
 
         self.create_reactant()
         self.create_product()
-        self.create_reaction_smarts([self.reactant], self.product)
+        self.create_reaction_smarts([self.reactant])
 
     def create_reactant(self):
         """
@@ -1019,7 +1051,7 @@ class UnmaskedAldehydeCyclization(AbstractUniMolecularReaction):
 
         # connect backbone nitrogen to aldehyde carbon
         map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.CARBON_ALDEHYDE_MAP_NUM)
-        self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
+        self.products.append(utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False))
 
 
 def get_reactions():

@@ -514,12 +514,11 @@ class UniMolecularReactionGenerator(IGenerator):
         """
 
         self.reacting_mol, self.reaction = args
-        self.reaction(self.reacting_mol)
-        if self.reaction:
-            self.reaction.create_reaction()
-            return self.format_data()
+        self.reactions = {}
+        for smarts, binary, rxn_name, applicable_templates in self.reaction(self.reacting_mol):
+            self.reactions[smarts] = (binary, rxn_name, applicable_templates)
 
-        return []
+        return self.format_data()
 
     def format_data(self):
         """
@@ -530,11 +529,13 @@ class UniMolecularReactionGenerator(IGenerator):
             list: A list containing the newly created reaction dicts.
         """
 
-        data = [{'_id': self.reacting_mol.name + self.reaction.name[:2],
-                 'type': self.reaction.name,
-                 'binary': self.reaction.binary,
-                 'smarts': self.reaction.smarts,
-                 'template': self.reacting_mol.name}]
+        data = []
+        for smarts, (binary, rxn_name, _) in self.reactions.items():
+            data.append({'_id': self.reacting_mol.name + rxn_name[:2],
+                        'type': rxn_name,
+                        'binary': binary,
+                        'smarts': smarts,
+                        'template': self.reacting_mol.name})
 
         return data
 
@@ -587,11 +588,8 @@ class BiMolecularReactionGenerator(IGenerator):
         for atom in set(reacting_mol.GetAtomWithIdx(atom_idx) for atom_idx in non_symmetric_atom_idxs):
             atom.SetAtomMapNum(self.REACTING_MOL_EAS_MAP_NUM)
             for template in molecules.get_templates():
-                self.reaction(deepcopy(reacting_mol), template, atom)
-                if self.reaction:
-                    self.reaction.create_reaction()
-                    self.reactions[self.reaction.smarts] = (self.reaction.binary, atom.GetIdx(),
-                                                            self.reaction.name, self.reaction.applicable_template)
+                for smarts, binary, rxn_name, applicable_templates in self.reaction(deepcopy(reacting_mol), template, atom):
+                    self.reactions[smarts] = (binary, atom.GetIdx(), rxn_name, applicable_templates)
 
             atom.SetAtomMapNum(0)
 
