@@ -314,8 +314,8 @@ class TemplatePeptideGenerator(IGenerator):
     in order to generate template-peptide oligomers.
     """
 
-    # any primary amine or proline n-terminus
-    ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*)]')
+    # any primary amine or proline n-terminus, but no guanidine
+    ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*);!$([NH2]C(=[NH])[NH]*)]')
     TEMPLATE_CARBON_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
     PEPTIDE_NITROGEN_MAP_NUM = 2
     MAP_NUMS = (TEMPLATE_CARBON_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
