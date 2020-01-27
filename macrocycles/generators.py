@@ -179,6 +179,7 @@ class MonomerGenerator(IGenerator):
                          'required': required,
                          'backbone': backbone,
                          'sidechain': self.sidechain['shared_id'],
+                         'connection': self.sidechain['connection'],
                          'is_proline': bool(AllChem.CalcNumAliphaticRings(monomer)) and monomer.HasSubstructMatch(patt),
                          'imported': False})
 
@@ -195,6 +196,11 @@ class PeptideGenerator(IGenerator):
     MONOMER_NITROGEN_MAP_NUM = 1
     PEPTIDE_CARBON_MAP_NUM = 2
     MAP_NUMS = (MONOMER_NITROGEN_MAP_NUM, PEPTIDE_CARBON_MAP_NUM)
+    DECARBOXYLATE = AllChem.ReactionFromSmarts('[*:1]NC([*:2])C(=O)[OH]>>[*:1]NC([*:2])')
+
+    def __init__(self, peptide_length):
+
+        self.peptide_length = peptide_length
 
     def generate(self, args):
         """
@@ -235,6 +241,12 @@ class PeptideGenerator(IGenerator):
             pep_old_attach.SetAtomMapNum(0)
             monomer_old_attach.SetAtomMapNum(0)
             self.backbone_prev = self.backbone
+
+        # c-term cap is present
+        if len(self.monomers) != self.peptide_length:
+            self.decarboxylate_c_term()
+        else:
+            self.c_cap = False
 
         return self.format_data()
 
@@ -286,6 +298,19 @@ class PeptideGenerator(IGenerator):
 
         return carboxyl_atom, attachment_atom
 
+    def decarboxylate_c_term(self):
+
+        products = set()
+        for product in chain.from_iterable(self.DECARBOXYLATE.RunReactants((self.peptide,))):
+            Chem.SanitizeMol(product)
+            products.add(Chem.MolToSmiles(product))
+
+        if len(products) != 1:
+            raise RuntimeWarning('Number of peptides after decarobxylation lead to multiple products!')
+
+        self.peptide = Chem.MolFromSmiles(products.pop())
+        self.c_cap = True
+
     def format_data(self):
         """
         Helper method that fills in a dict object for the new peptide with the necessary data associated with that
@@ -305,6 +330,7 @@ class PeptideGenerator(IGenerator):
                  'type': 'peptide',
                  'binary': binary,
                  'kekule': Chem.MolToSmiles(self.peptide, kekuleSmiles=True),
+                 'has_c_cap': self.c_cap,
                  'monomers': monomer_data}]
 
 

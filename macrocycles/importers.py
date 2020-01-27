@@ -88,6 +88,7 @@ class MonomerImporter(IImporter):
                          'required': bool(AllChem.CalcNumAromaticRings(monomer)),
                          'backbone': 'alpha',
                          'sidechain': None,
+                         'connection': None,
                          'is_proline': is_proline,
                          'imported': True})
 

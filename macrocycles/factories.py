@@ -174,7 +174,7 @@ class PeptideGenerationArgs(IFactoryArgument):
 
         super().__init__(data_handlers.PGDataHandler(**kwargs),
                          argument_producers.PeptideGeneratorArgProducer(),
-                         generators.PeptideGenerator())
+                         generators.PeptideGenerator(kwargs['peptide_length']))
 
 
 class TemplatePeptideGenerationArgs(IFactoryArgument):

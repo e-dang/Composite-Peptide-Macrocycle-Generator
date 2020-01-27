@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from random import sample
+from random import choice, choices
 
 import macrocycles.project_io as project_io
 import macrocycles.utils as utils
@@ -20,6 +20,7 @@ class PeptidePublicationPlanner(IPlanner):
         self.monomers = project_io.get_filtered_monomer_set()
         if not isinstance(self.monomers, list):
             self.monomers = list(self.monomers)
+        self.c_cap_monomers = self.get_c_cap_monomers()
         self.saver = project_io.PeptidePlannerIO(peptide_length)
         self.peptide_length = peptide_length
         self.num_peptides = num_peptides
@@ -37,9 +38,9 @@ class PeptidePublicationPlanner(IPlanner):
 
         for position in range(self.peptide_length):
             for desired_monomer in self.monomers:
-                fillers = self.get_fillers(desired_monomer)
-                self.monomer_combinations.add(
-                    tuple(fillers[0:position] + [desired_monomer['index']] + fillers[position:]))
+                for fillers in self.get_fillers(desired_monomer):
+                    self.monomer_combinations.add(
+                        tuple(fillers[0:position] + [desired_monomer['index']] + fillers[position:]))
 
     def create_remaining_list(self):
 
@@ -54,10 +55,18 @@ class PeptidePublicationPlanner(IPlanner):
     def get_fillers(self, desired_monomer):
 
         while True:
-            monomers = list(sample(self.monomers, self.peptide_length - 1))
+            monomers = list(choices(self.monomers, k=self.peptide_length - 1))
             monomers.append(desired_monomer)
             if self.validate_monomers(monomers):
-                return [monomer['index'] for monomer in monomers[:-1]]
+                yield [monomer['index'] for monomer in monomers[:-1]]
+                if self.c_cap_eligible(monomers):
+                    c_cap = choice(self.c_cap_monomers)
+                    yield [monomer['index'] for monomer in monomers[:-1]] + [c_cap['index']]
+                break
+
+    def get_c_cap_monomers(self):
+
+        return list(filter(lambda x: x['backbone'] == 'alpha' and x['connection'] == 'methyl' and x['required'], self.monomers))
 
     def validate_monomers(self, monomers):
 
@@ -65,6 +74,16 @@ class PeptidePublicationPlanner(IPlanner):
             return True
 
         if self.peptide_length == 5 and 4 > len(list(filter(lambda x: x['required'], monomers))) > 0:
+            return True
+
+        return False
+
+    def c_cap_eligible(self, monomers):
+
+        if self.peptide_length < 5 and 2 > len(list(filter(lambda x: x['required'], monomers))):
+            return True
+
+        if self.peptide_length == 5 and 3 > len(list(filter(lambda x: x['required'], monomers))):
             return True
 
         return False
