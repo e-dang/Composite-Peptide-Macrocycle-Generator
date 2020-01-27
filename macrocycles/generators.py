@@ -323,6 +323,8 @@ class PeptideGenerator(IGenerator):
         monomer_data = [{key: value for key, value in monomer.items() if key in ('_id', 'sidechain', 'is_proline')}
                         for monomer in self.monomers]
         pep_id = ''.join([monomer['_id'] for monomer in monomer_data])
+        if self.c_cap:
+            pep_id += 'c'
 
         binary = self.peptide.ToBinary()
         Chem.Kekulize(self.peptide)
@@ -330,7 +332,7 @@ class PeptideGenerator(IGenerator):
                  'type': 'peptide',
                  'binary': binary,
                  'kekule': Chem.MolToSmiles(self.peptide, kekuleSmiles=True),
-                 'has_c_cap': self.c_cap,
+                 'has_cap': self.c_cap,
                  'monomers': monomer_data}]
 
 
@@ -393,7 +395,8 @@ class TemplatePeptideGenerator(IGenerator):
                          'kekule': kekule,
                          'template': template,
                          'peptide': {'_id': self.peptide['_id'],
-                                     'monomers': self.peptide['monomers']}})
+                                     'monomers': self.peptide['monomers'],
+                                     'has_cap': self.peptide['has_cap']}})
 
         return data
 
@@ -511,6 +514,7 @@ class MacrocycleGenerator(IGenerator):
                          'modifications': '',
                          'template': self.reactant['template'],
                          'template_peptide': self.reactant['_id'],
+                         'has_cap': self.reactant['peptide']['has_cap'],
                          'reactions': rxns})
         return data
 
