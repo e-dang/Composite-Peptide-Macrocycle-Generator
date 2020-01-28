@@ -5,7 +5,7 @@ from functools import wraps
 from itertools import chain, combinations, product
 
 from rdkit import Chem
-from rdkit.Chem import AllChem, Draw
+from rdkit.Chem import AllChem
 
 import macrocycles.proxies as proxies
 import macrocycles.utils as utils
@@ -71,7 +71,7 @@ def methylate(original_func):
             molecule.
     """
 
-    candidate_heteroatoms = Chem.MolFromSmarts('[nH1]')  # only methylate heterocycle amines
+    candidate_heteroatoms = Chem.MolFromSmarts('[nH1,NH1]')  # only methylate heterocycle amines
     methyl = Chem.MolFromSmarts('[CH4:1]')
     map_nums = (1, 2)
 
@@ -306,6 +306,24 @@ def rotatable_bond_filter(original_func):
         return data
 
     return rotatable_bond_filter_wrapper
+
+
+def tpsa_filter(original_func):
+
+    max_tpsa = 200
+
+    @wraps(original_func)
+    def tpsa_filter_wrapper(*args, **kwargs):
+
+        data = []
+        for original_result in original_func(*args, **kwargs):
+            mol = Chem.Mol(original_result['binary'])
+            if AllChem.CalcTPSA(mol, includeSandP=True) <= max_tpsa:
+                data.append(original_result)
+
+        return data
+
+    return tpsa_filter_wrapper
 
 
 def attach_c_term_cap(original_func):
