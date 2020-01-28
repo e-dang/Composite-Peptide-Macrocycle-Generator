@@ -73,6 +73,7 @@ def methylate(original_func):
 
     candidate_heteroatoms = Chem.MolFromSmarts('[nH1]')  # only methylate heterocycle amines
     methyl = Chem.MolFromSmarts('[CH4:1]')
+    map_nums = (1, 2)
 
     @wraps(original_func)
     def methlyate_wrapper(*args, **kwargs):
@@ -83,28 +84,43 @@ def methylate(original_func):
 
             # find all combinations of candidate methylation sites
             matches = Chem.Mol(original_result['binary']).GetSubstructMatches(candidate_heteroatoms)
-            for i in range(1, len(matches) + 1):
-                for atom_tuple in combinations(matches, r=i):
+            for atom_idx in chain.from_iterable(matches):
+                mol = Chem.Mol(original_result['binary'])
+                mol.GetAtomWithIdx(atom_idx).SetAtomMapNum(2)
+                mol = utils.connect_mols(mol, methyl, map_nums=map_nums)
 
-                    # apply methylation
-                    macrocycle = Chem.Mol(original_result['binary'])
-                    atom_maps = []
-                    for atom_map, atom_idx in enumerate(chain.from_iterable(atom_tuple), start=2):
-                        macrocycle.GetAtomWithIdx(atom_idx).SetAtomMapNum(atom_map)
-                        atom_maps.append(atom_map)
-                    for atom in macrocycle.GetAtoms():
-                        if atom.GetAtomMapNum() in atom_maps:
-                            macrocycle = utils.connect_mols(macrocycle, methyl, map_nums=[1, atom.GetAtomMapNum()])
+                # format data
+                binary = mol.ToBinary()
+                Chem.Kekulize(mol)
+                doc = deepcopy(original_result)
+                doc['_id'] += 'm' + str(atom_idx)
+                doc['binary'] = binary
+                doc['kekule'] = Chem.MolToSmiles(mol, kekuleSmiles=True)
+                doc['modifications'] += 'm'
+                data.append(doc)
 
-                    # format data
-                    binary = macrocycle.ToBinary()
-                    Chem.Kekulize(macrocycle)
-                    doc = deepcopy(original_result)
-                    doc['_id'] += 'm' + 'm'.join(map(str, chain.from_iterable(atom_tuple)))
-                    doc['binary'] = binary
-                    doc['kekule'] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
-                    doc['modifications'] += 'm' * i
-                    data.append(doc)
+            # for i in range(1, len(matches) + 1):
+            #     for atom_tuple in combinations(matches, r=i):
+
+            #         # apply methylation
+            #         macrocycle = Chem.Mol(original_result['binary'])
+            #         atom_maps = []
+            #         for atom_map, atom_idx in enumerate(chain.from_iterable(atom_tuple), start=2):
+            #             macrocycle.GetAtomWithIdx(atom_idx).SetAtomMapNum(atom_map)
+            #             atom_maps.append(atom_map)
+            #         for atom in macrocycle.GetAtoms():
+            #             if atom.GetAtomMapNum() in atom_maps:
+            #                 macrocycle = utils.connect_mols(macrocycle, methyl, map_nums=[1, atom.GetAtomMapNum()])
+
+            #         # format data
+            #         binary = macrocycle.ToBinary()
+            #         Chem.Kekulize(macrocycle)
+            #         doc = deepcopy(original_result)
+            #         doc['_id'] += 'm' + 'm'.join(map(str, chain.from_iterable(atom_tuple)))
+            #         doc['binary'] = binary
+            #         doc['kekule'] = Chem.MolToSmiles(macrocycle, kekuleSmiles=True)
+            #         doc['modifications'] += 'm' * i
+            #         data.append(doc)
 
         return data
 

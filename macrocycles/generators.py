@@ -414,7 +414,6 @@ class MacrocycleGenerator(IGenerator):
     @decorators.apply_stereochemistry
     @decorators.methylate
     @decorators.carboxyl_to_amide
-    @decorators.attach_c_term_cap
     @decorators.aldehyde_filter
     def generate(self, args):
         """
