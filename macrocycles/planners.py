@@ -70,7 +70,7 @@ class PeptidePublicationPlanner(IPlanner):
 
     def validate_monomers(self, monomers):
 
-        if self.peptide_length < 5 and 3 > len(list(filter(lambda x: x['required'], monomers))) > 0:
+        if self.peptide_length < 5 and 3 > len(list(filter(lambda x: x['required'], monomers))):
             return True
 
         if self.peptide_length == 5 and 4 > len(list(filter(lambda x: x['required'], monomers))) > 0:
@@ -81,9 +81,6 @@ class PeptidePublicationPlanner(IPlanner):
     def c_cap_eligible(self, monomers):
 
         if self.peptide_length < 5 and 2 > len(list(filter(lambda x: x['required'], monomers))):
-            return True
-
-        if self.peptide_length == 5 and 3 > len(list(filter(lambda x: x['required'], monomers))):
             return True
 
         return False
