@@ -412,6 +412,9 @@ class MacrocycleGenerator(IGenerator):
                             # was lost during reaction
 
     @decorators.apply_stereochemistry
+    @decorators.tpsa_filter
+    @decorators.rotatable_bond_filter
+    @decorators.molecular_weight_filter
     @decorators.methylate
     @decorators.carboxyl_to_amide
     @decorators.aldehyde_filter
