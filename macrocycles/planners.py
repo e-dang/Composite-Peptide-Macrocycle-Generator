@@ -31,6 +31,7 @@ class PeptidePublicationPlanner(IPlanner):
         if not os.path.exists(utils.attach_file_num(self.saver.FILEPATH, self.peptide_length)):
             self.validate_num_peptides()
             self.create_minimum_list()
+            # self.create_bulk_remaining_list()
             self.create_remaining_list()
             self.saver.save(self.monomer_combinations)
 
@@ -43,14 +44,36 @@ class PeptidePublicationPlanner(IPlanner):
                         tuple(fillers[0:position] + [desired_monomer['index']] + fillers[position:]))
 
     def create_remaining_list(self):
-
         monomers = [deepcopy(self.monomers) for _ in range(self.peptide_length)]
-        monomer_tuples = utils.random_order_cartesian_product(*monomers)
-        while len(self.monomer_combinations) < self.num_peptides:
-            for random_sample in monomer_tuples:
-                if self.validate_monomers(random_sample):
-                    self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
+        while True:
+            for random_sample in utils.random_sample_cartesian_product(*monomers, sample_size=self.num_peptides * 5):
+                if len(self.monomer_combinations) > self.num_peptides:
                     break
+                if self.validate_monomers(random_sample):
+                    if len(self.monomer_combinations) % 1000 == 0:
+                        print(len(self.monomer_combinations))
+                    self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
+                    if self.c_cap_eligible(random_sample):
+                        random_sample += [choice(self.c_cap_monomers)]
+                        self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
+            else:
+                continue
+            break
+
+    # def create_remaining_list(self):
+
+    #     monomers = [deepcopy(self.monomers) for _ in range(self.peptide_length)]
+    #     monomer_tuples = utils.random_order_cartesian_product(*monomers)
+    #     while len(self.monomer_combinations) < self.num_peptides:
+    #         if len(self.monomer_combinations) % 1000 == 0:
+    #             print(len(self.monomer_combinations))
+    #         for random_sample in monomer_tuples:
+    #             if self.validate_monomers(random_sample):
+    #                 self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
+    #                 if self.c_cap_eligible(random_sample):
+    #                     random_sample += [choice(self.c_cap_monomers)]
+    #                     self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
+    #                 break
 
     def get_fillers(self, desired_monomer):
 

@@ -149,6 +149,26 @@ def random_order_cartesian_product(*factors):
         yield items
 
 
+def random_sample_cartesian_product(*factors, sample_size=0):
+    """
+    Randomly samples the cartesian product of the factors without repeats. The explicit sample size makes the execution
+    faster than the random_order_cartesian_product variant.
+
+    Code from https://stackoverflow.com/questions/48686767/how-to-sample-from-cartesian-product-without-repetition
+
+    Yields:
+        list: A list of containing a random sample from the cartesian produce of the factors.
+    """
+
+    amount = functools.reduce(lambda prod, factor: prod * len(factor), factors, 1)
+    for max_index in random.sample(range(amount), sample_size):
+        items = []
+        for factor in factors:
+            items.append(factor[max_index % len(factor)])
+            max_index //= len(factor)
+        yield items
+
+
 def file_rotator(filepath):
     """
     Function that takes a filepath and attaches a underscore and a number before its extension to ensure uniqueness of
