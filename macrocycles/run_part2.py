@@ -10,7 +10,7 @@ parser.add_argument('--num_peptides', type=int, required=True, help='The number 
 args = parser.parse_args()
 
 # create peptide plan
-runners.generate_peptide_plan(args.peptide_len, args.num_peptides)
+runners.generate_peptide_plan(args.peptide_len, args.num_peptides - 1)
 
 # create peptides
 runners.run_peptides(peptide_length=args.peptide_len)
