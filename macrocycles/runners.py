@@ -142,6 +142,7 @@ run_template_peptides = run(factories.TemplatePeptideGenerationArgs, 'Template P
 run_unimolecular_reactions = run(factories.UniMolecularReactionGenerationArgs, 'UniMolecular Reactions')
 run_bimolecular_reactions = run(factories.BiMolecularReactionGenerationArgs, 'BiMolecular Reactions')
 run_macrocycles = run(factories.MacrocycleGenerationArgs, 'Macrocycles')
+run_conformers = run_serial(factories.ConformerGenerationArgs, 'Conformers')
 
 
 def generate_peptide_plan(peptide_length, num_peptides):

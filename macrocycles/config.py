@@ -22,7 +22,7 @@ MAX_ROTATABLE_BONDS = 10
 MAX_TPSA = 200
 
 ############################################ ConformerGenerator Parameters #############################################
-REPEATS_PER_CUT = 5
+REPEATS_PER_CUT = 1
 NUM_CONFS_GENETIC = 50
 NUM_CONFS_ROTAMER_SEARCH = 5
 FORCE_FIELD = 'MMFF94s'

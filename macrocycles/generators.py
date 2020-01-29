@@ -1,10 +1,14 @@
+import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from itertools import chain
 
+from confbusterplusplus.confbusterplusplus import ConformerGenerator
+from confbusterplusplus.runner import Runner
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+import macrocycles.config as config
 import macrocycles.decorators as decorators
 import macrocycles.exceptions as exceptions
 import macrocycles.molecules as molecules
@@ -521,10 +525,33 @@ class MacrocycleGenerator(IGenerator):
         return data
 
 
-class MacrocycleConformerGenerator(IGenerator):
+class MacrocycleConformerGenerator(IGenerator, Runner):
+
+    def __init__(self):
+        self.args = config.CONFORMER_ARGS
+        self.params = {}
+        self._parse_parameters()
 
     def generate(self, args):
-        pass
+
+        self.macrocycle = args
+        macrocycle = Chem.Mol(self.macrocycle['binary'])
+        conformer_generator = ConformerGenerator(**self.params)
+        conformer_generator.MOL_FILE = os.path.join(config.TMP_DIR, 'conf_macrocycle.sdf')
+        conformer_generator.GENETIC_FILE = os.path.join(config.TMP_DIR, 'genetic_results.sdf')
+        self.result = conformer_generator.generate(macrocycle)
+
+        return self.format_data()
+
+    def format_data(self):
+
+        self.macrocycle.update({'binary': self.result.conformer.ToBinary(),
+                                'energies': self.result.energies,
+                                'rmsd': self.result.rms,
+                                'ring_rmsd': self.result.ring_rms,
+                                'has_confs': True})
+
+        return [self.macrocycle]
 
 
 class UniMolecularReactionGenerator(IGenerator):

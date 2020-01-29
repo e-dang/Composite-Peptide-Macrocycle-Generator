@@ -796,6 +796,10 @@ class MongoMacrocycleIO(AbstractMongoIO):
 
         super().__init__(self.COLLECTION, self.QUERY)
 
+    def update(self, data):
+        for doc in data:
+            self[self.COLLECTION].find_one_and_replace({'_id': doc['_id']}, doc)
+
 
 class MongoReactionIO(AbstractMongoIO):
     """
