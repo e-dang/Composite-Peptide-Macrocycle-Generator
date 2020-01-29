@@ -9,6 +9,7 @@ from rdkit.Chem import AllChem
 
 import macrocycles.proxies as proxies
 import macrocycles.utils as utils
+import macrocycles.config as config
 
 
 def apply_stereochemistry(original_func):
@@ -224,7 +225,7 @@ def pka_filter(original_func):
     """
 
     predictions = proxies.pKaProxy()
-    cutoff = 13.5
+    cutoff = config.PKA_CUTOFF
 
     @wraps(original_func)
     def pka_filter_wrapper(*args, **kwargs):
@@ -274,7 +275,7 @@ def aldehyde_filter(original_func):
 
 def molecular_weight_filter(original_func):
 
-    max_molecular_weight = 1000
+    max_molecular_weight = config.MAX_MW
 
     @wraps(original_func)
     def molecular_weight_filter_wrapper(*args, **kwargs):
@@ -292,7 +293,7 @@ def molecular_weight_filter(original_func):
 
 def rotatable_bond_filter(original_func):
 
-    max_num_rotatable_bonds = 10
+    max_num_rotatable_bonds = config.MAX_ROTATABLE_BONDS
 
     @wraps(original_func)
     def rotatable_bond_filter_wrapper(*args, **kwargs):
@@ -310,7 +311,7 @@ def rotatable_bond_filter(original_func):
 
 def tpsa_filter(original_func):
 
-    max_tpsa = 200
+    max_tpsa = config.MAX_TPSA
 
     @wraps(original_func)
     def tpsa_filter_wrapper(*args, **kwargs):
