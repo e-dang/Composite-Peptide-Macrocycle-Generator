@@ -3,6 +3,10 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from random import choice, choices
 
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+import macrocycles.config as config
 import macrocycles.project_io as project_io
 import macrocycles.utils as utils
 
@@ -15,6 +19,8 @@ class IPlanner(ABC):
 
 
 class PeptidePublicationPlanner(IPlanner):
+
+    MAX_MW = config.MAX_MW - 258  # 258 is average of template MW
 
     def __init__(self, peptide_length, num_peptides):
         self.monomers = project_io.get_filtered_monomer_set()
@@ -31,7 +37,6 @@ class PeptidePublicationPlanner(IPlanner):
         if not os.path.exists(utils.attach_file_num(self.saver.FILEPATH, self.peptide_length)):
             self.validate_num_peptides()
             self.create_minimum_list()
-            # self.create_bulk_remaining_list()
             self.create_remaining_list()
             self.saver.save(self.monomer_combinations)
 
@@ -92,6 +97,10 @@ class PeptidePublicationPlanner(IPlanner):
         return list(filter(lambda x: x['backbone'] == 'alpha' and x['connection'] == 'methyl' and x['required'], self.monomers))
 
     def validate_monomers(self, monomers):
+
+        mw = sum(map(AllChem.CalcExactMolWt, map(lambda x: Chem.Mol(x['binary']), monomers)))
+        if mw > PeptidePublicationPlanner.MAX_MW:
+            return False
 
         if self.peptide_length < 5 and 3 > len(list(filter(lambda x: x['required'], monomers))):
             return True

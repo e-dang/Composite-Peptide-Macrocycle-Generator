@@ -17,7 +17,7 @@ DATA_FORMAT = 'mongo'
 
 ################################################ Filter Constants ################################################
 PKA_CUTOFF = 13.5
-MAX_MW = 1000
+MAX_MW = 1200
 MAX_ROTATABLE_BONDS = 10
 MAX_TPSA = 200
 
