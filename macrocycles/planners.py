@@ -55,8 +55,8 @@ class PeptidePublicationPlanner(IPlanner):
                 if len(self.monomer_combinations) > self.num_peptides:
                     break
                 if self.validate_monomers(random_sample):
-                    if len(self.monomer_combinations) % 1000 == 0:
-                        print(len(self.monomer_combinations))
+                    # if len(self.monomer_combinations) % 1000 == 0:
+                    #     print(len(self.monomer_combinations))
                     self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
                     if self.c_cap_eligible(random_sample):
                         random_sample += [choice(self.c_cap_monomers)]
