@@ -258,14 +258,26 @@ class ConformerGeneratorDataHandler(IDataHandler):
     def __init__(self, **kwargs):
 
         self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
-        # self.conformer_saver = project_io.get_conformer_io(**kwargs)
+        self.conformer_saver = project_io.get_conformer_io(**kwargs)
 
-    def load(self):
-        return self.macrocycle_loader.load()
+        try:
+            self.start = kwargs['start']
+            self.end = kwargs['end']
+        except KeyError:
+            self.start = -1
+            self.end = 1000000000
 
     def save(self, data):
-        # pass
-        self.macrocycle_loader.update(data)
+        self.conformer_saver.save(data)
+
+    def load(self):
+        for i, macrocycle in enumerate(self.macrocycle_loader):
+            if i < self.start:
+                continue
+            elif i >= self.end:
+                break
+            else:
+                yield macrocycle
 
 
 class UMRGDataHandler(IDataHandler):

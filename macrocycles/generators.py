@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from itertools import chain
 
-# from confbusterplusplus.confbusterplusplus import ConformerGenerator
-# from confbusterplusplus.runner import Runner
+from confbusterplusplus.confbusterplusplus import ConformerGenerator
+from confbusterplusplus.runner import Runner
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
@@ -524,35 +524,33 @@ class MacrocycleGenerator(IGenerator):
                          'reactions': rxns})
         return data
 
-class MacrocycleConformerGenerator(IGenerator):
-    pass
-# class MacrocycleConformerGenerator(IGenerator, Runner):
+class MacrocycleConformerGenerator(IGenerator, Runner):
 
-#     def __init__(self):
-#         self.args = config.CONFORMER_ARGS
-#         self.params = {}
-#         self._parse_parameters()
+    def __init__(self):
+        self.args = config.CONFORMER_ARGS
+        self.params = {}
+        self._parse_parameters()
 
-#     def generate(self, args):
+    def generate(self, args):
 
-#         self.macrocycle = args
-#         macrocycle = Chem.Mol(self.macrocycle['binary'])
-#         conformer_generator = ConformerGenerator(**self.params)
-#         conformer_generator.MOL_FILE = os.path.join(config.TMP_DIR, 'conf_macrocycle.sdf')
-#         conformer_generator.GENETIC_FILE = os.path.join(config.TMP_DIR, 'genetic_results.sdf')
-#         self.result = conformer_generator.generate(macrocycle)
+        self.macrocycle = args
+        macrocycle = Chem.MolFromSmiles(self.macrocycle['kekule'])
+        conformer_generator = ConformerGenerator(**self.params)
+        conformer_generator.MOL_FILE = os.path.join(config.TMP_DIR, 'conf_macrocycle.sdf')
+        conformer_generator.GENETIC_FILE = os.path.join(config.TMP_DIR, 'genetic_results.sdf')
+        self.result = conformer_generator.generate(macrocycle)
 
-#         return self.format_data()
+        return self.format_data()
 
-#     def format_data(self):
+    def format_data(self):
 
-#         self.macrocycle.update({'binary': self.result.conformer.ToBinary(),
-#                                 'energies': self.result.energies,
-#                                 'rmsd': self.result.rms,
-#                                 'ring_rmsd': self.result.ring_rms,
-#                                 'has_confs': True})
+        self.macrocycle.update({'binary': self.result.conformer.ToBinary(),
+                                'energies': self.result.energies,
+                                'rmsd': self.result.rms,
+                                'ring_rmsd': self.result.ring_rms,
+                                'has_confs': True})
 
-#         return [self.macrocycle]
+        return [self.macrocycle]
 
 
 class UniMolecularReactionGenerator(IGenerator):
