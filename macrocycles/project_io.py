@@ -1,8 +1,10 @@
 import csv
+import glob
 import json
 import os
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from itertools import chain
 
 from bson import json_util
 from pymongo import MongoClient, errors
@@ -10,6 +12,109 @@ from rdkit import Chem
 
 import macrocycles.config as config
 import macrocycles.utils as utils
+
+
+class FileReader:
+    def setup(self, filepath, sort_order, *args, delimiter='_', glob='*'):
+        self.globber = FileGlober()
+        self.sorter = FileSorter()
+        filepaths, unique_file_props = self.globber(self.add_glob(
+            utils.attach_file_num(filepath, *args), glob), sort_order, delimiter)
+        if len(filepaths):
+            self.filepaths = self.sorter(filepaths, unique_file_props, sort_order)
+        self.data = []
+
+    def __iter__(self):
+        self.data_count = 0
+        self.read_data(self.filepaths[0])
+        self.fp_count = 1
+        return self
+
+    def __next__(self):
+        if self.data_count < len(self.data):
+            self.data_count += 1
+            return self.data[self.data_count - 1]
+        elif self.data_count == len(self.data) and self.fp_count < len(self.filepaths):
+            self.read_data(self.filepaths[self.fp_count])
+            self.fp_count += 1
+            self.data_count = 1
+            return self.data[self.data_count - 1]
+        else:
+            raise StopIteration
+
+    def add_glob(self, filepath, glob):
+        path, filename = os.path.split(filepath)
+        base_filename, ext = os.path.splitext(filename)
+        return os.path.join(path, base_filename + glob + ext)
+
+    def read_data(self, filepath):
+        pass
+
+
+class JsonFileReader(FileReader):
+    def __init__(self, filepath, sort_order, delimiter='_', glob='*'):
+        super().__init__(filepath, sort_order, delimiter, glob)
+
+    def read_data(self, filepath):
+        with open(filepath, 'r') as file:
+            self.data = list(json_util.loads(json_util.dumps(json.load(file))))
+
+
+class FileGlober:
+    def __call__(self, glob_filepath, properties, delimiter):
+        filepaths = glob.glob(glob_filepath)
+        unique_file_props = defaultdict(set)
+        file_props = []
+
+        for filepath in filepaths:
+            base_filename, *prop_vals = self.parse_filepath(filepath, delimiter)
+            self.validate_properties(properties, prop_vals)
+
+            file_prop = {}
+            for prop, prop_val in zip(properties, prop_vals):
+                file_prop[prop] = int(prop_val)
+                unique_file_props[prop].add(int(prop_val))
+
+            file_props.append(file_prop)
+
+        return list(zip(filepaths, file_props)), unique_file_props
+
+    def parse_filepath(self, filepath, delimiter):
+        _, file = os.path.split(filepath)
+        filename, _ = os.path.splitext(file)
+        return filename.split(delimiter)
+
+    def validate_properties(self, given_props, found_props):
+        if len(given_props) != len(found_props):
+            raise RuntimeError(
+                'The number of specified properties on the base filename does not match the number of properties found')
+
+
+class FileSorter:
+    def __call__(self, filepaths, unique_file_props, sort_order):
+        file_lists = self.split_list_on_property(filepaths, unique_file_props, sort_order[0])
+
+        sorted_lists = []
+        if len(sort_order[1:]) >= 1:
+            for file_list, sort_key_val in file_lists:
+                sorted_lists.append((self(file_list, unique_file_props, sort_order[1:]), sort_key_val))
+        else:
+            for file_list, sort_key_val in file_lists:
+                ls = [filepath for filepath, file_prop in file_list]
+                sorted_lists.append((ls, sort_key_val))
+
+        sorted_lists.sort(key=lambda x: x[1])
+        sorted_lists, _ = zip(*sorted_lists)
+        return list(chain.from_iterable(sorted_lists))
+
+    def split_list_on_property(self, filepaths, unique_file_props, sort_key):
+        file_lists = []
+        for unique_val in unique_file_props[sort_key]:
+            file_list = list(filter(lambda x: x[1][sort_key] == unique_val, filepaths))
+            if len(file_list):
+                file_lists.append((file_list, unique_val))
+
+        return file_lists
 
 
 class IOInterface(ABC):
@@ -426,7 +531,7 @@ class JsonTemplatePeptideIO(AbstractJsonIO):
         super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
 
 
-class JsonMacrocycleIO(AbstractJsonIO):
+class JsonMacrocycleIO(AbstractJsonIO, JsonFileReader):
     """
     Implmentation of the AbstractJsonIO class for handling macrocycle data.
     """
@@ -445,8 +550,20 @@ class JsonMacrocycleIO(AbstractJsonIO):
             job_num (int): The job number assigned to the current process (if not ran in job array then set to 1).
         """
 
-        super().__init__(utils.attach_file_num(self.FILEPATH,
-                                               kwargs['job_num'], kwargs['peptide_length']), file_num_range)
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length'], kwargs['job_num']),
+                         file_num_range)
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+
+
+class JsonConformerIO(AbstractJsonIO, JsonFileReader):
+
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'conformers.json')
+
+    def __init__(self, file_num_range=(None, None), **kwargs):
+
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length'], kwargs['job_num']),
+                         file_num_range)
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
 
 
 class JsonReactionIO(AbstractJsonIO):
@@ -801,6 +918,10 @@ class MongoMacrocycleIO(AbstractMongoIO):
             self[self.COLLECTION].find_one_and_replace({'_id': doc['_id']}, doc)
 
 
+class MongoConformerIO(AbstractMongoIO):
+    pass
+
+
 class MongoReactionIO(AbstractMongoIO):
     """
     Implmentation of the AbstractMongoIO class for handling reaction data.
@@ -882,6 +1003,7 @@ get_monomer_io = get_io(JsonMonomerIO, MongoMonomerIO)
 get_peptide_io = get_io(JsonPeptideIO, MongoPeptideIO)
 get_template_peptide_io = get_io(JsonTemplatePeptideIO, MongoTemplatePeptideIO)
 get_macrocycle_io = get_io(JsonMacrocycleIO, MongoMacrocycleIO)
+get_conformer_io = get_io(JsonConformerIO, MongoConformerIO)
 get_reaction_io = get_io(JsonReactionIO, MongoReactionIO)
 get_regiosqm_io = get_io(JsonRegioSQMIO, MongoRegioSQMIO)
 get_pka_io = get_io(JsonpKaIO, MongopKaIO)
