@@ -25,7 +25,7 @@ parser.add_argument('--num', type=int, default=1, help='The job number assigned 
                     'should this process work on.')
 parser.add_argument('--macrocycle_output', type=int, help='The path to the stdout file during '
                     'macrocycle generation.')
-parser.add_argument('--num_macrocycles', type=int, help='THe number of macrocycles generated in last '
+parser.add_argument('--num_macrocycles', type=int, help='The number of macrocycles generated in last '
                     'round.')
 
 args = parser.parse_args()
@@ -36,7 +36,7 @@ if args.num_macrocycles:
 elif args.macrocycle_output:
     num_macrocycles = get_num_macrocycles(args.macrocycle_output)
 else:
-    parser.error('Must specify either option --tp_output or --num_tp_hybrids.')
+    parser.error('Must specify either option --macrocycle_output or --num_macrocycles.')
 
 # calculate the chunk to work on
 chunk_size = math.ceil(num_macrocycles / args.num_jobs)
