@@ -10,10 +10,13 @@ DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 # DATA_DIR = os.path.join('/u/scratch/e/ericdang', 'data')
 LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
 TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
+#TMP_DIR = os.environ['TMPDIR']
 
-################################################ Globals ################################################
+################################################ Miscellaneous ################################################
 CAPACITY = 1000000
-DATA_FORMAT = 'mongo'
+DATA_FORMAT = 'json'
+NUM_PROCS = None
+TASKS_PER_CHILD = 2
 
 ################################################ Filter Constants ################################################
 PKA_CUTOFF = 13.5

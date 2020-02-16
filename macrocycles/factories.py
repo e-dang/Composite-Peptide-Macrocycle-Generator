@@ -46,7 +46,7 @@ class MolFactory(IFactory):
 
         self.count = 0
         self.result_data = []
-        with multiprocessing.Pool() as pool:
+        with multiprocessing.Pool(config.NUM_PROCS, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
             for result_mols in pool.imap_unordered(generator.generate, arg_producer(data_handler.load())):
                 for result_mol in result_mols:
                     self.result_data.append(result_mol)
