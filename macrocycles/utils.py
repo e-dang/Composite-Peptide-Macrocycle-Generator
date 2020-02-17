@@ -207,7 +207,8 @@ def attach_file_num(filepath, *file_nums):
     new_fp, ext = filepath.split('.')
 
     for file_num in file_nums:
-        new_fp += '_' + str(file_num)
+        if file_num is not None:
+            new_fp += '_' + str(file_num)
 
     new_fp += '.' + ext
 
