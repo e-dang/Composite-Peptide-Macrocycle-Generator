@@ -16,7 +16,7 @@ TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 CAPACITY = 1000000
 DATA_FORMAT = 'json'
 NUM_PROCS = None
-TASKS_PER_CHILD = 2
+TASKS_PER_CHILD = None
 
 ################################################ Filter Constants ################################################
 PKA_CUTOFF = 13.5
