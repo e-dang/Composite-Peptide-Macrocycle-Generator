@@ -626,6 +626,33 @@ class JsonpKaIO(AbstractJsonIO):
         super().__init__(self.FILEPATH, file_num_range)
 
 
+class JsonMWDescriptorIO(AbstractJsonIO):
+
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'mw.json')
+
+    def __init__(self, file_num_range=(None, None)):
+
+        super().__init__(self.FILEPATH, file_num_range)
+
+
+class JsonRBDescriptorIO(AbstractJsonIO):
+
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'rb.json')
+
+    def __init__(self, file_num_range=(None, None)):
+
+        super().__init__(self.FILEPATH, file_num_range)
+
+
+class JsonTPSADescriptorIO(AbstractJsonIO):
+
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'tpsa.json')
+
+    def __init__(self, file_num_range=(None, None)):
+
+        super().__init__(self.FILEPATH, file_num_range)
+
+
 class MongoDataBase():
     """
     Class for setting up connection and accessing the MongoDataBase as well as intializing it.
