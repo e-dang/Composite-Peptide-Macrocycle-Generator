@@ -81,7 +81,7 @@ def create_pka_smiles_file():
     project_io.RawpKaIO().save(data)
 
 
-def run_serial(factory_arg, name):
+def run_serial(factory_arg, factory, name):
     """
     Closure for creating a function that passes the given factory argument to a factory to be ran in a serial fashion
     and printing out associated data about the run such as total run time and number of data points generated. The
@@ -96,7 +96,6 @@ def run_serial(factory_arg, name):
     """
 
     def closure(**kwargs):
-        factory = factories.MolFactory()
         start = time()
         factory.run_serial(factory_arg(**kwargs))
         print_str = f'{name}:', 'Time:', time() - start, 'Num Data:', factory.count
@@ -106,7 +105,7 @@ def run_serial(factory_arg, name):
     return closure
 
 
-def run(factory_arg, name):
+def run(factory_arg, factory, name):
     """
     Closure for creating a function that passes the given factory argument to a factory to be ran in a parallel fashion
     and printing out associated data about the run such as total run time and number of data points generated. The
@@ -121,7 +120,6 @@ def run(factory_arg, name):
     """
 
     def closure(**kwargs):
-        factory = factories.MolFactory()
         start = time()
         factory.run(factory_arg(**kwargs))
         try:
@@ -135,14 +133,19 @@ def run(factory_arg, name):
     return closure
 
 
-run_sidechains = run_serial(factories.SCConnectionModificationArgs, 'Sidechains')
-run_monomers = run_serial(factories.MonomerGenerationArgs, 'Monomers')
-run_peptides = run(factories.PeptideGenerationArgs, 'Peptides')
-run_template_peptides = run(factories.TemplatePeptideGenerationArgs, 'Template Peptides')
-run_unimolecular_reactions = run(factories.UniMolecularReactionGenerationArgs, 'UniMolecular Reactions')
-run_bimolecular_reactions = run(factories.BiMolecularReactionGenerationArgs, 'BiMolecular Reactions')
-run_macrocycles = run(factories.MacrocycleGenerationArgs, 'Macrocycles')
-run_conformers = run(factories.ConformerGenerationArgs, 'Conformers')
+run_sidechains = run_serial(factories.SCConnectionModificationArgs, factories.MolFactory(), 'Sidechains')
+run_monomers = run_serial(factories.MonomerGenerationArgs, factories.MolFactory(), 'Monomers')
+run_peptides = run(factories.PeptideGenerationArgs, factories.MolFactory(), 'Peptides')
+run_template_peptides = run(factories.TemplatePeptideGenerationArgs, factories.MolFactory(), 'Template Peptides')
+run_unimolecular_reactions = run(factories.UniMolecularReactionGenerationArgs,
+                                 factories.MolFactory(), 'UniMolecular Reactions')
+run_bimolecular_reactions = run(factories.BiMolecularReactionGenerationArgs,
+                                factories.MolFactory(), 'BiMolecular Reactions')
+run_macrocycles = run(factories.MacrocycleGenerationArgs, factories.MolFactory(), 'Macrocycles')
+run_conformers = run(factories.ConformerGenerationArgs, factories.MolFactory(), 'Conformers')
+run_mw_descriptor = run(factories.MWDescriptorArgs, factories.DescriptorFactory(), 'Molecular Weight')
+run_rb_descriptor = run(factories.RBDescriptorArgs, factories.DescriptorFactory(), 'Rotatable Bonds')
+run_tpsa_descriptor = run(factories.TPSADescriptorArgs, factories.DescriptorFactory(), 'TPSA')
 
 
 def generate_peptide_plan(peptide_length, num_peptides):
