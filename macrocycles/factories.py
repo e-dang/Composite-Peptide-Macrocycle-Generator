@@ -1,6 +1,11 @@
 import multiprocessing
 from abc import ABC, abstractmethod
+from functools import partial
 
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+import macrocycles.descriptors as descriptors
 import macrocycles.argument_producers as argument_producers
 import macrocycles.config as config
 import macrocycles.data_handlers as data_handlers
@@ -104,6 +109,38 @@ class MolFactory(IFactory):
             data_handler.save(self.result_data)
             self.count += len(self.result_data)
             self.result_data = []
+
+
+class DescriptorFactory(IFactory):
+
+    def run(self, factory_arg):
+
+        descriptor, data_handler = self.split_args(factory_arg)
+
+        self.count = 0
+        self.result_data = []
+        with multiprocessing.Pool(config.NUM_PROCS, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
+            for value in pool.imap_unordered(descriptor, data_handler.load()):
+                self.result_data.append(value)
+
+        data_handler.save([{descriptor.NAME: self.result_data}])
+        self.count += len(self.result_data)
+
+    def run_serial(self, factory_arg):
+
+        descriptor, data_handler = self.split_args(factory_arg)
+
+        self.count = 0
+        self.result_data = []
+        for mol in data_handler.load():
+            self.result_data.append(descriptor(mol))
+
+        data_handler.save([{descriptor.NAME: self.result_data}])
+        self.count += len(self.result_data)
+
+    def split_args(self, factory_arg):
+
+        return factory_arg.descriptor, factory_arg.data_handler
 
 
 class IFactoryArgument(ABC):
@@ -256,3 +293,27 @@ class BiMolecularReactionGenerationArgs(IFactoryArgument):
         super().__init__(data_handlers.BMRGDataHandler(**kwargs),
                          argument_producers.CartesianProductArgProducer(),
                          generators.BiMolecularReactionGenerator())
+
+
+class MWDescriptorArgs:
+
+    def __init__(self, **kwargs):
+
+        self.descriptor = descriptors.MolWeightDescriptor()
+        self.data_handler = data_handlers.MWDescriptorDataHandler(**kwargs)
+
+
+class RBDescriptorArgs:
+
+    def __init__(self, **kwargs):
+
+        self.descriptor = descriptors.RotatableBondsDescriptor()
+        self.data_handler = data_handlers.RBDescriptorDataHandler(**kwargs)
+
+
+class TPSADescriptorArgs:
+
+    def __init__(self, **kwargs):
+
+        self.descriptor = descriptors.TPSADescriptor()
+        self.data_handler = data_handlers.TPSADescriptorDataHandler(**kwargs)
