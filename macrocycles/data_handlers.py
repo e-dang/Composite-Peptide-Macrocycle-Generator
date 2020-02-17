@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from collections import namedtuple
 
+from rdkit import Chem
+
 import macrocycles.iterators as iterators
 import macrocycles.molecules as molecules
 import macrocycles.project_io as project_io
@@ -355,3 +357,45 @@ class BMRGDataHandler(IDataHandler):
         """
 
         self.reaction_saver.save(data)
+
+
+class MWDescriptorDataHandler(IDataHandler):
+
+    def __init__(self, **kwargs):
+        self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
+        self.mw_descriptor_saver = project_io.JsonMWDescriptorIO()
+
+    def load(self):
+        for doc in self.macrocycle_loader:
+            yield Chem.Mol(doc['binary'])
+
+    def save(self, data):
+        self.mw_descriptor_saver.save(data)
+
+
+class RBDescriptorDataHandler(IDataHandler):
+
+    def __init__(self, **kwargs):
+        self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
+        self.rb_descriptor_saver = project_io.JsonRBDescriptorIO()
+
+    def load(self):
+        for doc in self.macrocycle_loader:
+            yield Chem.Mol(doc['binary'])
+
+    def save(self, data):
+        self.rb_descriptor_saver.save(data)
+
+
+class TPSADescriptorDataHandler(IDataHandler):
+
+    def __init__(self, **kwargs):
+        self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
+        self.tpsa_descriptor_saver = project_io.JsonTPSADescriptorIO()
+
+    def load(self):
+        for doc in self.macrocycle_loader:
+            yield Chem.Mol(doc['binary'])
+
+    def save(self, data):
+        self.tpsa_descriptor_saver.save(data)
