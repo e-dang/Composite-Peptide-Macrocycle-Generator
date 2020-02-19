@@ -34,11 +34,14 @@ class FileReader:
         if self.data_count < len(self.data):
             self.data_count += 1
             return self.data[self.data_count - 1]
-        elif self.data_count == len(self.data) and self.fp_count < len(self.filepaths):
+        elif (self.data_count == len(self.data) or len(self.data) == 0) and self.fp_count < len(self.filepaths):
             self.read_data(self.filepaths[self.fp_count])
             self.fp_count += 1
             self.data_count = 1
-            return self.data[self.data_count - 1]
+            if len(self.data) > 0:
+                return self.data[self.data_count - 1]
+            else:
+                return next(self)
         else:
             raise StopIteration
 
