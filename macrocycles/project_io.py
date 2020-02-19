@@ -18,6 +18,7 @@ class FileReader:
     def setup(self, filepath, sort_order, *args, delimiter='_', glob='*'):
         self.globber = FileGlober()
         self.sorter = FileSorter()
+        self.filepaths = []
         filepaths, unique_file_props = self.globber(self.add_glob(
             utils.attach_file_num(filepath, *args), glob), sort_order, delimiter)
         if len(filepaths):
@@ -25,9 +26,10 @@ class FileReader:
         self.data = []
 
     def __iter__(self):
-        self.data_count = 0
-        self.read_data(self.filepaths[0])
-        self.fp_count = 1
+        if len(self.filepaths):
+            self.data_count = 0
+            self.read_data(self.filepaths[0])
+            self.fp_count = 1
         return self
 
     def __next__(self):
