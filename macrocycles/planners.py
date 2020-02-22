@@ -65,21 +65,6 @@ class PeptidePublicationPlanner(IPlanner):
                 continue
             break
 
-    # def create_remaining_list(self):
-
-    #     monomers = [deepcopy(self.monomers) for _ in range(self.peptide_length)]
-    #     monomer_tuples = utils.random_order_cartesian_product(*monomers)
-    #     while len(self.monomer_combinations) < self.num_peptides:
-    #         if len(self.monomer_combinations) % 1000 == 0:
-    #             print(len(self.monomer_combinations))
-    #         for random_sample in monomer_tuples:
-    #             if self.validate_monomers(random_sample):
-    #                 self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
-    #                 if self.c_cap_eligible(random_sample):
-    #                     random_sample += [choice(self.c_cap_monomers)]
-    #                     self.monomer_combinations.add(tuple(monomer['index'] for monomer in random_sample))
-    #                 break
-
     def get_fillers(self, desired_monomer):
 
         while True:
