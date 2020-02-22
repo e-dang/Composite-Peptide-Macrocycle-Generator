@@ -264,6 +264,15 @@ class ConformerGenerationArgs(IFactoryArgument):
                          generators.MacrocycleConformerGenerator())
 
 
+class EbejerConformerGenerationArgs(IFactoryArgument):
+
+    def __init__(self, **kwargs):
+
+        super().__init__(data_handlers.ConformerGeneratorDataHandler(**kwargs),
+                         argument_producers.NullArgProducer(),
+                         generators.EbejerConformerGenerator())
+
+
 class UniMolecularReactionGenerationArgs(IFactoryArgument):
     """
     An implementation of IFactoryArgument containing the classes required to create UniMolecularReactions.
