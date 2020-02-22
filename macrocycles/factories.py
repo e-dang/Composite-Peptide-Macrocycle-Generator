@@ -260,7 +260,7 @@ class ConformerGenerationArgs(IFactoryArgument):
     def __init__(self, **kwargs):
 
         super().__init__(data_handlers.ConformerGeneratorDataHandler(**kwargs),
-                         argument_producers.NullArgProducer(),
+                         argument_producers.ConformerGeneratorArgProducer(**kwargs),
                          generators.MacrocycleConformerGenerator())
 
 

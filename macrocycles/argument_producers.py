@@ -170,3 +170,43 @@ class MacrocycleGeneratorArgProducer(IArgumentProducer):
 
             else:  # friedel_crafts, tsuji_trost, pyrrolo_indolene
                 yield template_peptide, [[rxn] for rxn in filter(lambda x: x['type'] != 'pictet_spangler', rxns)]
+
+
+class ConformerGeneratorArgProducer(IArgumentProducer):
+    """
+    Implementation of IArgumentProducer that makes tuples of monomers that are to be formed into a peptide, where the
+    monomers to be placed in the tuple are defined by the monomer indices written out by the PeptidePlanner class.
+    """
+
+    def __init__(self, **kwargs):
+        """
+        Initializes instance variables self.monomer_io and self.loaded.
+        """
+
+        self.macrocycle_io = project_io.get_macrocycle_io(**kwargs)
+
+    def __call__(self, data):
+        """
+        Method that creates tuples of monomer documents according the the passed in monomer indices.
+
+        Args:
+            data (iterable[str]): An iterable of strings that contain the monomer indices for a peptide separated by
+                commas.
+
+        Yields:
+            iterable(list[dict]): An iterable of lists containing monomer documents to be formed into peptides by the
+                PeptideGenerator.
+        """
+
+        try:
+            macrocycle_idx = self.get_next_idx(data)
+            for i, macrocycle in enumerate(self.macrocycle_io):
+                if i == macrocycle_idx:
+                    yield macrocycle
+                    macrocycle_idx = self.get_next_idx(data)
+        except IndexError:
+            pass
+
+    def get_next_idx(self, data):
+
+        return int(data.popleft().strip('\n'))

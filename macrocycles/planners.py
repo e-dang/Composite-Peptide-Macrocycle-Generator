@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from random import choice, choices
+from random import choice, choices, sample
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -107,3 +107,28 @@ class PeptidePublicationPlanner(IPlanner):
         if self.num_peptides < len(self.monomers) * self.peptide_length:
             raise ValueError('The requested number of peptides needs to be at least as large as the number of monomers'
                              ' times the peptide length')
+
+
+class ConformerPublicationPlanner(IPlanner):
+
+    def __init__(self, peptide_length, num_conformers):
+        self.macrocycle_loader = project_io.get_macrocycle_io(peptide_length=peptide_length, job_num=None)
+        self.saver = project_io.ConformerPlannerIO(peptide_length)
+        self.peptide_length = peptide_length
+        self.num_conformers = num_conformers
+
+    def create_plan(self):
+
+        if not os.path.exists(utils.attach_file_num(self.saver.FILEPATH, self.peptide_length)):
+            count = self.count_macrocycles()
+            macrocycle_idxs = list(sample(range(count), self.num_conformers))
+            macrocycle_idxs.sort()
+            self.saver.save(macrocycle_idxs)
+
+    def count_macrocycles(self):
+
+        # memory friendly way of counting
+        for i, _ in enumerate(self.macrocycle_loader):
+            pass
+
+        return i

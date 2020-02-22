@@ -3,7 +3,7 @@ import glob
 import json
 import os
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from collections import defaultdict, deque
 from itertools import chain
 
 from bson import json_util
@@ -183,6 +183,24 @@ class PeptidePlannerIO(IOInterface):
             for monomer_idxs in data:
                 monomer_idxs = str(monomer_idxs).strip('(').strip(')').replace(' ', '')
                 file.write(monomer_idxs + '\n')
+
+
+class ConformerPlannerIO(IOInterface):
+
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'conformer_plan.txt')
+
+    def __init__(self, peptide_length):
+        self.peptide_length = peptide_length
+
+    def load(self):
+        with open(utils.attach_file_num(self.FILEPATH, self.peptide_length), 'r') as file:
+            return deque(file.readlines())
+
+    def save(self, data):
+
+        with open(utils.attach_file_num(self.FILEPATH, self.peptide_length), 'w') as file:
+            for macrocycle_idx in data:
+                file.write(str(macrocycle_idx) + '\n')
 
 
 class RawRegioSQMIO(IOInterface):
