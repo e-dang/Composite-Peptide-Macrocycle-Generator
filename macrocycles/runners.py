@@ -165,3 +165,9 @@ def generate_peptide_plan(peptide_length, num_peptides):
 
     planner = planners.PeptidePublicationPlanner(peptide_length, num_peptides)
     planner.create_plan()
+
+
+def generate_conformer_plan(peptide_length, num_conformers):
+
+    planner = planners.ConformerPublicationPlanner(peptide_length, num_conformers)
+    planner.create_plan()
