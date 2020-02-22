@@ -11,4 +11,4 @@ module load python/anaconda3
 
 source activate rdkit
 
-python ../macrocycles/run_part5.py --peptide_len 3 --num_jobs 1500 --num $SGE_TASK_ID --num_macrocycles 333333 > ../output/part5_3_${SGE_TASK_ID}.txt
+python ../macrocycles/run_part5.py --peptide_len 3 --num_jobs 1500 --num $SGE_TASK_ID > ../output/part5_3_${SGE_TASK_ID}.txt
