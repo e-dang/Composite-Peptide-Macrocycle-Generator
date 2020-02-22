@@ -1,8 +1,10 @@
 import os
 from abc import ABC, abstractmethod
+from collections import deque
 from copy import deepcopy
 from itertools import chain
 
+import numpy as np
 from confbusterplusplus.confbusterplusplus import ConformerGenerator
 from confbusterplusplus.runner import Runner
 from rdkit import Chem
@@ -411,9 +413,9 @@ class MacrocycleGenerator(IGenerator):
     order to generate macrocycles.
     """
 
-    MIN_MACROCYCLE_RING_SIZE = 10 # if no ring at least this large, reaction failed to close macrocycle
-    MAX_ATOM_DIFFERENCE = 5 # if difference in number of atoms between reactant and product, then part of the macrocycle
-                            # was lost during reaction
+    MIN_MACROCYCLE_RING_SIZE = 10  # if no ring at least this large, reaction failed to close macrocycle
+    MAX_ATOM_DIFFERENCE = 5  # if difference in number of atoms between reactant and product, then part of the macrocycle
+    # was lost during reaction
 
     @decorators.apply_stereochemistry
     @decorators.tpsa_filter
@@ -448,7 +450,7 @@ class MacrocycleGenerator(IGenerator):
             for i, (rxn, rxn_type) in enumerate(rxns):
 
                 if rxn_type in ('template_pictet_spangler', 'unmasked_aldehyde_cyclization') \
-                        and successful_rxn: # pictet_spangler worked, don't use template_only_reactions
+                        and successful_rxn:  # pictet_spangler worked, don't use template_only_reactions
                     continue
 
                 macrocycles = {}
@@ -457,7 +459,7 @@ class MacrocycleGenerator(IGenerator):
                     for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
                         try:
                             Chem.SanitizeMol(macrocycle)
-                        except ValueError: # most likely there are 2 sidechains where one contains the other as a
+                        except ValueError:  # most likely there are 2 sidechains where one contains the other as a
                             continue       # substructure which causes this exception to be raised.
 
                         # protect atoms that participated in this reaction from reacting again in subsequent reactions
@@ -468,7 +470,7 @@ class MacrocycleGenerator(IGenerator):
                         macrocycles[macrocycle.ToBinary()] = macrocycle
 
                 if rxn_type in ('pictet_spangler', 'template_pictet_spangler', 'unmasked_aldehyde_cyclization') \
-                        and len(macrocycles) == 0: # reaction failed; reuse reactant
+                        and len(macrocycles) == 0:  # reaction failed; reuse reactant
                     continue
 
                 reactants = macrocycles.values()
@@ -479,7 +481,7 @@ class MacrocycleGenerator(IGenerator):
 
                 # get bonds in macrocyclic ring
                 macro_ring = [ring for ring in macrocycle.GetRingInfo().BondRings()
-                                if len(ring) >= self.MIN_MACROCYCLE_RING_SIZE]
+                              if len(ring) >= self.MIN_MACROCYCLE_RING_SIZE]
 
                 # add to final set of macrocycles only if number of atoms hasn't changed dramatically and has a
                 # macrocyclic ring
@@ -524,6 +526,7 @@ class MacrocycleGenerator(IGenerator):
                          'reactions': rxns})
         return data
 
+
 class MacrocycleConformerGenerator(IGenerator, Runner):
 
     def __init__(self):
@@ -550,6 +553,101 @@ class MacrocycleConformerGenerator(IGenerator, Runner):
                                 'ring_rmsd': self.result.ring_rms,
                                 'has_confs': True})
 
+        return [self.macrocycle]
+
+
+class EbejerConformerGenerator(IGenerator):
+    MIN_MACRO_RING_SIZE = 10
+
+    def generate(self, args):
+        self.macrocycle = args
+        # print(self.macrocycle['kekule'])
+        smiles = input(self.macrocycle['kekule'])
+        macrocycle = Chem.AddHs(Chem.MolFromSmiles(smiles))
+        # conf_ids = AllChem.EmbedMultipleConfs(macrocycle, numConfs=config.NUM_CONFS, numThreads=config.NUM_THREADS)
+        conf_ids = AllChem.EmbedMultipleConfs(macrocycle, numConfs=config.NUM_CONFS, params=AllChem.ETKDGv2())
+        self.result = self.optimize_conformers(macrocycle, conf_ids)
+        return self.format_data()
+
+    def optimize_conformers(self, macrocycle, conf_ids):
+
+        # mol_props = AllChem.MMFFGetMoleculeProperties(macrocycle)
+        # mol_props.SetMMFFVariant(config.FORCE_FIELD)
+        # mol_props.SetMMFFDielectricConstant(config.DIELECTRIC)
+        # force_fields = list(map(lambda x: AllChem.MMFFGetMoleculeForceField(
+        #     macrocycle, mol_props, confId=x, ignoreInterfragInteractions=False), range(macrocycle.GetNumConformers())))
+
+        convergence, energy = zip(*AllChem.MMFFOptimizeMoleculeConfs(macrocycle, mmffVariant=config.FORCE_FIELD,
+                                                                     maxIters=config.MAX_ITERS,
+                                                                     numThreads=config.NUM_THREADS,
+                                                                     ignoreInterfragInteractions=False))
+        # convergence = list(convergence)
+        # energy = list(energy)
+        # for non_converged_id in np.flatnonzero(convergence):
+        #     while not convergence[non_converged_id]:
+        #         convergence[non_converged_id] = force_fields[non_converged_id].Minimize(50)
+        #         energy[non_converged_id] = force_fields[non_converged_id].CalcEnergy()
+
+        # energies = map(lambda x: x.CalcEnergy(), force_fields)
+        # sorted_confs = deque(sorted(zip(energies, conf_ids), key=lambda x: x[0]))
+        sorted_confs = list(sorted(zip(energy, conf_ids), key=lambda x: x[0]))
+        lowest_energy = sorted_confs[0][0]
+        keep = []
+        for tup in sorted_confs:
+            if tup[0] <= lowest_energy + 5:
+                keep.append(tup)
+        _, ids = zip(*keep)
+        count = 0
+        for conf in list(macrocycle.GetConformers()):
+            if conf.GetId() not in ids:
+                macrocycle.RemoveConformer(conf.GetId())
+            else:
+                conf.SetId(count)
+                count += 1
+
+        # sorted_confs = self.ebejer_algorithm(macrocycle, sorted_confs)
+        # energies, conf_ids = zip(*sorted_confs)
+        energies, conf_ids = zip(*keep)
+
+        rmsd, ring_rmsd = [], []
+        AllChem.AlignMolConformers(macrocycle, maxIters=config.MAX_ITERS, RMSlist=rmsd)
+        AllChem.AlignMolConformers(macrocycle, maxIters=config.MAX_ITERS,
+                                   atomIds=self.get_ring_atoms(macrocycle), RMSlist=ring_rmsd)
+
+        return macrocycle, energies, rmsd, ring_rmsd
+
+    def ebejer_algorithm(self, macrocycle, confs):
+
+        # store lowest energy conformer and remove from list of conformers
+        keep = deque()
+        keep.append(confs.popleft())
+
+        while confs:
+            conf = confs[0]
+            for keep_conf in keep:
+                rms = AllChem.AlignMol(macrocycle, macrocycle,
+                                       prbCid=conf[1], refCid=keep_conf[1], maxIters=config.MAX_ITERS)
+                if rms < config.D_MIN:
+                    confs.popleft()
+                    break
+            else:
+                keep.append(confs.popleft())
+
+        return keep
+
+    def get_ring_atoms(self, macrocycle):
+        ring_atoms = [ring for ring in macrocycle.GetRingInfo().AtomRings() if
+                      len(ring) >= self.MIN_MACRO_RING_SIZE]
+        return list(set().union(*ring_atoms))
+
+    def format_data(self):
+
+        self.macrocycle.update({'binary': self.result[0].ToBinary(),
+                                'energies': self.result[1],
+                                'rmsd': self.result[2],
+                                'ring_rmsd': self.result[3],
+                                'has_confs': True,
+                                'ebejer': True})
         return [self.macrocycle]
 
 
@@ -591,10 +689,10 @@ class UniMolecularReactionGenerator(IGenerator):
         data = []
         for smarts, (binary, rxn_name, _) in self.reactions.items():
             data.append({'_id': self.reacting_mol.name + rxn_name[:2],
-                        'type': rxn_name,
-                        'binary': binary,
-                        'smarts': smarts,
-                        'template': self.reacting_mol.name})
+                         'type': rxn_name,
+                         'binary': binary,
+                         'smarts': smarts,
+                         'template': self.reacting_mol.name})
 
         return data
 
@@ -626,13 +724,13 @@ class BiMolecularReactionGenerator(IGenerator):
 
         self.reactions = {}
         self.reacting_mol, self.reaction = args
-        reacting_mol = Chem.MolFromSmiles(self.reacting_mol['kekule']) # need to do this since filter predictions are
-                                                                       # based on atom indices and binary doesn't
-                                                                       # maintain the same order
+        reacting_mol = Chem.MolFromSmiles(self.reacting_mol['kekule'])  # need to do this since filter predictions are
+        # based on atom indices and binary doesn't
+        # maintain the same order
 
         # get non-symmetric atoms
         unique_pairs = map(set, zip(*reacting_mol.GetSubstructMatches(reacting_mol, uniquify=False)))
-        Chem.Kekulize(reacting_mol) # have to kekulize after substruct match...
+        Chem.Kekulize(reacting_mol)  # have to kekulize after substruct match...
         sorted_unique_pairs = map(sorted, map(list, unique_pairs))
         reduced_pairs = set(tuple(pair) for pair in sorted_unique_pairs)
         non_symmetric_atom_idxs = set(pair[0] for pair in reduced_pairs)
@@ -666,7 +764,7 @@ class BiMolecularReactionGenerator(IGenerator):
         data = []
         for i, (smarts, (binary, rxn_atom_idx, rxn_type, template)) in enumerate(self.reactions.items()):
             reacting_mol_id = self.reacting_mol['shared_id'] if self.reacting_mol['type'] == 'sidechain' \
-                                else self.reacting_mol['_id']
+                else self.reacting_mol['_id']
             data.append({'_id': self.reacting_mol['_id'] + str(i) + rxn_type[:2],
                          'type': rxn_type,
                          'binary': binary,

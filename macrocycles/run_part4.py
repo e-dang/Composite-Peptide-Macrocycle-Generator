@@ -27,6 +27,7 @@ parser.add_argument('--macrocycle_output', type=int, help='The path to the stdou
                     'macrocycle generation.')
 parser.add_argument('--num_macrocycles', type=int, help='The number of macrocycles generated in last '
                     'round.')
+parser.add_argument('--ebejer', action='store_true', help='Determines whether to use Ebejer method or not.')
 
 args = parser.parse_args()
 
@@ -45,4 +46,7 @@ end = chunk_size * args.num
 if end > num_macrocycles:
     end = num_macrocycles
 
-runners.run_conformers(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+if args.ebejer:
+    runners.run_ebejer(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+else:
+    runners.run_conformers(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)

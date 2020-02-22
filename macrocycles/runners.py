@@ -143,6 +143,7 @@ run_bimolecular_reactions = run(factories.BiMolecularReactionGenerationArgs,
                                 factories.MolFactory(), 'BiMolecular Reactions')
 run_macrocycles = run(factories.MacrocycleGenerationArgs, factories.MolFactory(), 'Macrocycles')
 run_conformers = run(factories.ConformerGenerationArgs, factories.MolFactory(), 'Conformers')
+run_ebejer = run(factories.EbejerConformerGenerationArgs, factories.MolFactory(), 'Ebejer Confs')
 run_mw_descriptor = run(factories.MWDescriptorArgs, factories.DescriptorFactory(), 'Molecular Weight')
 run_rb_descriptor = run(factories.RBDescriptorArgs, factories.DescriptorFactory(), 'Rotatable Bonds')
 run_tpsa_descriptor = run(factories.TPSADescriptorArgs, factories.DescriptorFactory(), 'TPSA')
