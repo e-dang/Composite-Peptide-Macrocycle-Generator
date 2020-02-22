@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections import namedtuple
+from collections import namedtuple, deque
 
 from rdkit import Chem
 
@@ -263,25 +263,27 @@ class ConformerGeneratorDataHandler(IDataHandler):
         self.plan_loader = project_io.ConformerPlannerIO(kwargs['peptide_length'])
         self.conformer_saver = project_io.get_conformer_io(**kwargs)
 
-        # try:
-        #     self.start = kwargs['start']
-        #     self.end = kwargs['end']
-        # except KeyError:
-        #     self.start = -1
-        #     self.end = 1000000000
+        try:
+            self.start = kwargs['start']
+            self.end = kwargs['end']
+        except KeyError:
+            self.start = -1
+            self.end = 1000000000
 
     def save(self, data):
         self.conformer_saver.save(data)
 
     def load(self):
-        return self.plan_loader.load()
-        # for i, macrocycle in enumerate(self.macrocycle_loader):
-        #     if i < self.start:
-        #         continue
-        #     elif i >= self.end:
-        #         break
-        #     else:
-        #         yield macrocycle
+        return deque(self.load_macrocycles())
+
+    def load_macrocycles(self):
+        for i, macrocycle in enumerate(self.plan_loader.load()):
+            if i < self.start:
+                continue
+            elif i >= self.end:
+                break
+            else:
+                yield macrocycle
 
 
 class UMRGDataHandler(IDataHandler):

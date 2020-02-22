@@ -3,7 +3,7 @@ import glob
 import json
 import os
 from abc import ABC, abstractmethod
-from collections import defaultdict, deque
+from collections import defaultdict
 from itertools import chain
 
 from bson import json_util
@@ -194,7 +194,7 @@ class ConformerPlannerIO(IOInterface):
 
     def load(self):
         with open(utils.attach_file_num(self.FILEPATH, self.peptide_length), 'r') as file:
-            return deque(file.readlines())
+            return file.readlines()
 
     def save(self, data):
 
