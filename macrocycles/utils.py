@@ -1,11 +1,14 @@
+import csv
 import functools
 import os
 import random
 
+import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
 
 import macrocycles.exceptions as exceptions
+from scipy.spatial import ConvexHull
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -265,3 +268,43 @@ class suppress_stdout_stderr(object):
         # Close all file descriptors
         for fd in self.null_fds + self.save_fds:
             os.close(fd)
+
+
+def pca_convex_hull(filepath, output):
+    import matplotlib.pyplot as plt
+
+    points = {}
+    with open(filepath, 'r') as file:
+        csv_reader = csv.reader(file)
+        for i, line in enumerate(csv_reader):
+            # if i > 30:
+            #     break
+            if i != 0:
+                points[tuple(map(float, line[1:3]))] = (line[0], line[-1])
+
+    set_data = set(point for point in points.keys())
+    array_data = set_to_array(set_data)
+
+    hull_points = set()
+    # plt.plot(array_data[:, 0], array_data[:, 1], 'o')
+
+    while len(hull_points) < 10000:
+        print(len(hull_points))
+        hull = ConvexHull(array_data)
+        for simplex in hull.simplices:
+            for point in zip(array_data[simplex, 0], array_data[simplex, 1]):
+                hull_points.add(tuple(point))
+            # plt.plot(array_data[simplex, 0], array_data[simplex, 1], 'k-')
+
+        set_data = set_data - hull_points
+        array_data = set_to_array(set_data)
+
+    with open(output, 'w') as file:
+        for point in hull_points:
+            file.write(points[point][0] + ',' + points[point][1] + '\n')
+
+    # plt.show()
+
+
+def set_to_array(set_data):
+    return np.array([np.array(list(point)) for point in set_data])
