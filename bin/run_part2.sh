@@ -2,7 +2,7 @@
 #$ -cwd
 #$ -o ../output/part2.txt
 #$ -j y
-#$ -l h_data=1000M,h_rt=10:00:00
+#$ -l h_data=2000M,h_rt=18:00:00,h_vmem=16000M,highp
 #$ -pe shared 8
 #$ -t 3-5:1
 

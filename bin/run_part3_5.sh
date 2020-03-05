@@ -1,8 +1,9 @@
 #!/bin/bash
 #$ -cwd
+#$ -N p3_4
 #$ -o ../output/part3_5.txt
 #$ -j y
-#$ -l h_data=750M,h_rt=05:00:00
+#$ -l h_data=1500M,h_rt=02:00:00,h_vmem=12000
 #$ -pe shared 8
 #$ -t 1-500:1
 

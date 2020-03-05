@@ -2,7 +2,7 @@
 #$ -cwd
 #$ -o ../output/part1.txt
 #$ -j y
-#$ -l h_data=1000M,h_rt=00:10:00
+#$ -l h_data=1000M,h_rt=00:10:00,h_vmem=1000M
 
 . /u/local/Modules/default/init/modules.sh
 module load python/anaconda3
