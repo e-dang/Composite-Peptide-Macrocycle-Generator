@@ -111,8 +111,12 @@ class PeptidePublicationPlanner(IPlanner):
 
 class ConformerPublicationPlanner(IPlanner):
 
-    def __init__(self, peptide_length, num_conformers):
-        self.macrocycle_loader = project_io.get_macrocycle_io(peptide_length=peptide_length, job_num=None)
+    def __init__(self, peptide_length, num_conformers, num_macrocycles):
+        if num_macrocycles is None:
+            self.macrocycle_loader = project_io.get_macrocycle_io(peptide_length=peptide_length, job_num=None)
+        else:
+            self.macrocycle_loader = None
+            self.num_macrocycles = num_macrocycles
         self.saver = project_io.ConformerPlannerIO(peptide_length)
         self.peptide_length = peptide_length
         self.num_conformers = num_conformers
@@ -127,7 +131,10 @@ class ConformerPublicationPlanner(IPlanner):
 
     def count_macrocycles(self):
 
-        # memory friendly way of counting
+        # total number of macrocycles was given to us
+        if self.macrocycle_loader is None:
+            return self.num_macrocycles
+
         for i, _ in enumerate(self.macrocycle_loader):
             pass
 
