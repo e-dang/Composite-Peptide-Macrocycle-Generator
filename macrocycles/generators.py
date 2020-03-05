@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 from copy import deepcopy
 from itertools import chain
+from time import time
 
 import numpy as np
 from confbusterplusplus.confbusterplusplus import ConformerGenerator
@@ -541,13 +542,16 @@ class MacrocycleConformerGenerator(IGenerator, Runner):
         conformer_generator = ConformerGenerator(**self.params)
         conformer_generator.MOL_FILE = os.path.join(config.TMP_DIR, 'conf_macrocycle.sdf')
         conformer_generator.GENETIC_FILE = os.path.join(config.TMP_DIR, 'genetic_results.sdf')
+        start = time()
         self.result = conformer_generator.generate(macrocycle)
+        self.time = time() - start
 
         return self.format_data()
 
     def format_data(self):
 
         self.macrocycle.update({'binary': self.result.conformer.ToBinary(),
+                                'time': self.time,
                                 'energies': self.result.energies,
                                 'rmsd': self.result.rms,
                                 'ring_rmsd': self.result.ring_rms,
@@ -562,6 +566,7 @@ class EbejerConformerGenerator(IGenerator):
     def generate(self, args):
         self.macrocycle = args
         macrocycle = Chem.AddHs(Chem.MolFromSmiles(self.macrocycle['kekule']))
+        start = time()
         while macrocycle.GetNumConformers() == 0:
             conf_ids = self.embed_mol(macrocycle)
             energies_ids = self.optimize_conformers(macrocycle, conf_ids)
@@ -572,6 +577,7 @@ class EbejerConformerGenerator(IGenerator):
             self.remap_confs(macrocycle, energies, ids)
             rmsd, ring_rmsd = self.align_mols(macrocycle)
         self.result = (macrocycle, energies, rmsd, ring_rmsd)
+        self.time = time() - start()
         return self.format_data()
 
     def remap_confs(self, macrocycle, energies, old_ids):
@@ -729,6 +735,7 @@ class EbejerConformerGenerator(IGenerator):
     def format_data(self):
 
         self.macrocycle.update({'binary': self.result[0].ToBinary(),
+                                'time': self.time,
                                 'energies': self.result[1],
                                 'rmsd': self.result[2],
                                 'ring_rmsd': self.result[3],
