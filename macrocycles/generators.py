@@ -577,7 +577,7 @@ class EbejerConformerGenerator(IGenerator):
             self.remap_confs(macrocycle, energies, ids)
             rmsd, ring_rmsd = self.align_mols(macrocycle)
         self.result = (macrocycle, energies, rmsd, ring_rmsd)
-        self.time = time() - start()
+        self.time = time() - start
         return self.format_data()
 
     def remap_confs(self, macrocycle, energies, old_ids):
@@ -590,14 +590,9 @@ class EbejerConformerGenerator(IGenerator):
         for i, old_id in enumerate(old_ids):
             macrocycle.GetConformer(mapping[old_id]).SetId(i)
 
-    def remap_energies(self, energies, mapping, old_ids):
-        energy_ids = []
-        for energy, old_id in zip(energies, old_ids):
-            energy_ids.append((energy, mapping[old_id]))
-
     def embed_mol(self, macrocycle):
         self.smiles = Chem.MolToSmiles(Chem.RemoveHs(macrocycle))
-        self.double_bonds = self._get_double_bonds(Chem.RemoveHs(macrocycle))
+        self.double_bonds = self.get_double_bonds(Chem.RemoveHs(macrocycle))
         while macrocycle.GetNumConformers() == 0:
             conf_ids = list(AllChem.EmbedMultipleConfs(macrocycle, numConfs=config.NUM_CONFS, params=AllChem.ETKDGv2()))
             for conf_id in conf_ids:
@@ -616,7 +611,7 @@ class EbejerConformerGenerator(IGenerator):
             new_mol = deepcopy(macrocycle)
             AllChem.RemoveStereochemistry(new_mol)
             AllChem.AssignStereochemistryFrom3D(new_mol, confId=conf_id)
-            if self.smiles != Chem.MolToSmiles(Chem.RemoveHs(new_mol)) or not self.compare_double_bonds(self.double_bonds, self._get_double_bonds(Chem.RemoveHs(new_mol))):
+            if self.smiles != Chem.MolToSmiles(Chem.RemoveHs(new_mol)) or not self.compare_double_bonds(self.double_bonds, self.get_double_bonds(Chem.RemoveHs(new_mol))):
                 macrocycle.RemoveConformer(conf_id)
                 energies_ids.remove((energy, conf_id))
 
@@ -637,7 +632,7 @@ class EbejerConformerGenerator(IGenerator):
 
         return True
 
-    def _get_double_bonds(self, macrocycle):
+    def get_double_bonds(self, macrocycle):
         """
         Helper function that finds all double bonds in the macrocyclic rings and stores them along with their
         stereochemistry.

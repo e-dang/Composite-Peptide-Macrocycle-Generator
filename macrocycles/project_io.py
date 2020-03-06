@@ -589,6 +589,17 @@ class JsonConformerIO(AbstractJsonIO, JsonFileReader):
         super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
 
 
+class JsonEbejerConformerIO(AbstractJsonIO, JsonFileReader):
+
+    FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'ebejer.json')
+
+    def __init__(self, file_num_range=(None, None), **kwargs):
+
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length'], kwargs['job_num']),
+                         file_num_range)
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+
+
 class JsonReactionIO(AbstractJsonIO):
     """
     Implmentation of the AbstractJsonIO class for handling reaction data.

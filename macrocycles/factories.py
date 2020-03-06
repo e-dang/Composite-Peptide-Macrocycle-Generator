@@ -268,7 +268,7 @@ class EbejerConformerGenerationArgs(IFactoryArgument):
 
     def __init__(self, **kwargs):
 
-        super().__init__(data_handlers.ConformerGeneratorDataHandler(**kwargs),
+        super().__init__(data_handlers.EbejerConformerGeneratorDataHandler(**kwargs),
                          argument_producers.ConformerGeneratorArgProducer(**kwargs),
                          generators.EbejerConformerGenerator())
 
