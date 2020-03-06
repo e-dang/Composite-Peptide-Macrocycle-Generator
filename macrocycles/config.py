@@ -49,9 +49,9 @@ CONFORMER_ARGS = ConformerArgs(REPEATS_PER_CUT, NUM_CONFS_GENETIC, NUM_CONFS_ROT
                                CLASH_THRESHOLD, DISTANCE_INTERVAL, NUM_THREADS, MAX_ITERS, NUM_EMBED_TRIES)
 
 ########################################## EbejerConformerGenerator Parameters #########################################
-D_MIN = 0.35
+D_MIN = 0.5
 NUM_CONFS = 50
-
+MIN_MACRO_RING_SIZE = 10
 
 ################################################ MongoDB Schema ################################################
 HOST = 'localhost'

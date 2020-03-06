@@ -561,7 +561,6 @@ class MacrocycleConformerGenerator(IGenerator, Runner):
 
 
 class EbejerConformerGenerator(IGenerator):
-    MIN_MACRO_RING_SIZE = 10
 
     def generate(self, args):
         self.macrocycle = args
@@ -646,7 +645,7 @@ class EbejerConformerGenerator(IGenerator):
 
         double_bonds = {}
         ring_bonds = [ring for ring in macrocycle.GetRingInfo().BondRings() if len(ring) >=
-                      self.MIN_MACRO_RING_SIZE - 1]
+                      config.MIN_MACRO_RING_SIZE - 1]
         for bond_idx in chain.from_iterable(ring_bonds):
             bond = macrocycle.GetBondWithIdx(bond_idx)
             if bond.GetBondType() == Chem.BondType.DOUBLE and not bond.GetIsAromatic():
@@ -683,7 +682,7 @@ class EbejerConformerGenerator(IGenerator):
         keep = deque()
         lowest_energy = energies_ids[0][0]
         for energy, _id in energies_ids:
-            if energy <= lowest_energy + 5:
+            if energy <= lowest_energy + config.ENERGY_DIFF:
                 keep.append((energy, _id))
             else:
                 macrocycle.RemoveConformer(_id)
@@ -724,7 +723,7 @@ class EbejerConformerGenerator(IGenerator):
 
     def get_ring_atoms(self, macrocycle):
         ring_atoms = [ring for ring in macrocycle.GetRingInfo().AtomRings() if
-                      len(ring) >= self.MIN_MACRO_RING_SIZE]
+                      len(ring) >= config.MIN_MACRO_RING_SIZE]
         return list(set().union(*ring_atoms))
 
     def format_data(self):
