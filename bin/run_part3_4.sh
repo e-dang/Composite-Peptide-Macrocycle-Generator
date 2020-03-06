@@ -3,7 +3,7 @@
 #$ -N p3_4
 #$ -o ../output/part3_4.txt
 #$ -j y
-#$ -l h_data=1500M,h_rt=02:00:00,h_vmem=12000
+#$ -l h_data=1500M,h_rt=02:00:00,h_vmem=12000M
 #$ -pe shared 8
 #$ -t 1-500:1
 

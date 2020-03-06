@@ -2,7 +2,7 @@
 #$ -cwd
 #$ -o ../output/part4.txt
 #$ -j y
-#$ -l h_data=1000M,h_rt=00:10:00,h_vmem=1000
+#$ -l h_data=1000M,h_rt=00:10:00,h_vmem=1000M
 #$ -t 3-5:1
 
 
