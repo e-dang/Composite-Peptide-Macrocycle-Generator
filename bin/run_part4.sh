@@ -21,4 +21,4 @@ else
     NUM_CONFS=333333
 fi
 
-python ../macrocycles/run_part4.py --peptide_len ${SGE_TASK_ID} --num_conformers $NUM_CONFS --macrocycle_output ../output/
+python ../macrocycles/run_part4.py --peptide_len ${SGE_TASK_ID} --num_conformers $NUM_CONFS --macrocycle_output ../output/ > ../output/part4_${SGE_TASK_ID}.txt
