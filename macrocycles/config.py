@@ -25,9 +25,10 @@ MAX_ROTATABLE_BONDS = 10
 MAX_TPSA = 200
 
 ############################################ ConformerGenerator Parameters #############################################
-REPEATS_PER_CUT = 1
-NUM_CONFS_GENETIC = 50
-NUM_CONFS_ROTAMER_SEARCH = 5
+REPEATS_PER_CUT = 2
+NUM_CONFS_EMBED = 5
+NUM_CONFS_GENETIC = 10
+NUM_CONFS_ROTAMER_SEARCH = 25
 FORCE_FIELD = 'MMFF94s'
 DIELECTRIC = 1.0
 SCORE = 'energy'
@@ -40,18 +41,18 @@ CLASH_THRESHOLD = 0.9
 DISTANCE_INTERVAL = [1.0, 2.5]
 NUM_THREADS = 0
 MAX_ITERS = 1000
-NUM_EMBED_TRIES = 5
-ConformerArgs = namedtuple('ConformerArgs', 'repeats_per_cut num_confs_genetic num_confs_rotamer_search force_field \
+EXTRA_ITERS = 50
+MIN_MACRO_RING_SIZE = 10
+ConformerArgs = namedtuple('ConformerArgs', 'repeats_per_cut num_confs_embed num_confs_genetic num_confs_rotamer_search force_field \
                            dielectric score min_rmsd energy_diff embed_params small_angle_gran large_angle_gran \
-                           clash_threshold distance_interval num_threads max_iters num_embed_tries')
-CONFORMER_ARGS = ConformerArgs(REPEATS_PER_CUT, NUM_CONFS_GENETIC, NUM_CONFS_ROTAMER_SEARCH, FORCE_FIELD, DIELECTRIC,
+                           clash_threshold distance_interval num_threads max_iters extra_iters min_macro_ring_size')
+CONFORMER_ARGS = ConformerArgs(REPEATS_PER_CUT, NUM_CONFS_EMBED, NUM_CONFS_GENETIC, NUM_CONFS_ROTAMER_SEARCH, FORCE_FIELD, DIELECTRIC,
                                SCORE, MIN_RMSD, ENERGY_DIFF, EMBED_PARAMS, SMALL_ANGLE_GRAN, LARGE_ANGLE_GRAN,
-                               CLASH_THRESHOLD, DISTANCE_INTERVAL, NUM_THREADS, MAX_ITERS, NUM_EMBED_TRIES)
+                               CLASH_THRESHOLD, DISTANCE_INTERVAL, NUM_THREADS, MAX_ITERS, EXTRA_ITERS, MIN_MACRO_RING_SIZE)
 
 ########################################## EbejerConformerGenerator Parameters #########################################
 D_MIN = 0.5
 NUM_CONFS = 50
-MIN_MACRO_RING_SIZE = 10
 
 ################################################ MongoDB Schema ################################################
 HOST = 'localhost'
