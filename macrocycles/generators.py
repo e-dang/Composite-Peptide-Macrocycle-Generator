@@ -6,8 +6,7 @@ from itertools import chain
 from time import time
 
 import numpy as np
-from confbusterplusplus.confbusterplusplus import ConformerGenerator
-from confbusterplusplus.runner import Runner
+from confbusterplusplus.factory import ConfBusterFactory
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
@@ -528,20 +527,19 @@ class MacrocycleGenerator(IGenerator):
         return data
 
 
-class MacrocycleConformerGenerator(IGenerator, Runner):
+class MacrocycleConformerGenerator(IGenerator):
 
     def __init__(self):
         self.args = config.CONFORMER_ARGS
-        self.params = {}
-        self._parse_parameters()
 
     def generate(self, args):
 
         self.macrocycle = args
         macrocycle = Chem.MolFromSmiles(self.macrocycle['kekule'])
-        conformer_generator = ConformerGenerator(**self.params)
-        conformer_generator.MOL_FILE = os.path.join(config.TMP_DIR, 'conf_macrocycle.sdf')
-        conformer_generator.GENETIC_FILE = os.path.join(config.TMP_DIR, 'genetic_results.sdf')
+        factory = ConfBusterFactory(**self.args._asdict())
+        factory.MOL_FILE = os.path.join(config.TMP_DIR, 'conf_macrocycle.sdf')
+        factory.GENETIC_FILE = os.path.join(config.TMP_DIR, 'genetic_results.sdf')
+        conformer_generator = factory.create_conformer_generator()
         start = time()
         self.result = conformer_generator.generate(macrocycle)
         self.time = time() - start
