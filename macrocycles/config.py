@@ -26,9 +26,9 @@ MAX_TPSA = 200
 
 ############################################ ConformerGenerator Parameters #############################################
 REPEATS_PER_CUT = 2
-NUM_CONFS_EMBED = 5
+NUM_CONFS_EMBED = 3
 NUM_CONFS_GENETIC = 10
-NUM_CONFS_ROTAMER_SEARCH = 25
+NUM_CONFS_ROTAMER_SEARCH = 15
 FORCE_FIELD = 'MMFF94s'
 DIELECTRIC = 1.0
 SCORE = 'energy'
