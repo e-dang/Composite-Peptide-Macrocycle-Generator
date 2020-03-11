@@ -664,27 +664,27 @@ class JsonMWDescriptorIO(AbstractJsonIO):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'mw.json')
 
-    def __init__(self, file_num_range=(None, None)):
+    def __init__(self, file_num_range=(None, None), **kwargs):
 
-        super().__init__(self.FILEPATH, file_num_range)
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
 
 
 class JsonRBDescriptorIO(AbstractJsonIO):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'rb.json')
 
-    def __init__(self, file_num_range=(None, None)):
+    def __init__(self, file_num_range=(None, None), **kwargs):
 
-        super().__init__(self.FILEPATH, file_num_range)
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
 
 
 class JsonTPSADescriptorIO(AbstractJsonIO):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'tpsa.json')
 
-    def __init__(self, file_num_range=(None, None)):
+    def __init__(self, file_num_range=(None, None), **kwargs):
 
-        super().__init__(self.FILEPATH, file_num_range)
+        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
 
 
 class MongoDataBase():

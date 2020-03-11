@@ -397,7 +397,7 @@ class MWDescriptorDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
         self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
-        self.mw_descriptor_saver = project_io.JsonMWDescriptorIO()
+        self.mw_descriptor_saver = project_io.JsonMWDescriptorIO(**kwargs)
 
     def load(self):
         for doc in self.macrocycle_loader:
@@ -411,7 +411,7 @@ class RBDescriptorDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
         self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
-        self.rb_descriptor_saver = project_io.JsonRBDescriptorIO()
+        self.rb_descriptor_saver = project_io.JsonRBDescriptorIO(**kwargs)
 
     def load(self):
         for doc in self.macrocycle_loader:
@@ -425,7 +425,7 @@ class TPSADescriptorDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
         self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
-        self.tpsa_descriptor_saver = project_io.JsonTPSADescriptorIO()
+        self.tpsa_descriptor_saver = project_io.JsonTPSADescriptorIO(**kwargs)
 
     def load(self):
         for doc in self.macrocycle_loader:
