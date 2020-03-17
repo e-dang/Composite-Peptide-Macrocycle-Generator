@@ -563,101 +563,59 @@ class EbejerConformerGenerator(IGenerator):
     def generate(self, args):
         self.macrocycle = args
         macrocycle = Chem.AddHs(Chem.MolFromSmiles(self.macrocycle['kekule']))
+        self.smiles = Chem.MolToSmiles(Chem.MolFromSmiles(self.macrocycle['kekule']))
+
         start = time()
-        while macrocycle.GetNumConformers() == 0:
-            conf_ids = self.embed_mol(macrocycle)
-            energies_ids = self.optimize_conformers(macrocycle, conf_ids)
-            if not len(energies_ids):
-                continue
-            energies_ids = self.filter_conformers_energy(macrocycle, energies_ids)
-            energies, ids = self.ebejer_algorithm(macrocycle, energies_ids)
-            self.remap_confs(macrocycle, energies, ids)
-            rmsd, ring_rmsd = self.align_mols(macrocycle)
-        self.result = (macrocycle, energies, rmsd, ring_rmsd)
+        try:
+            while macrocycle.GetNumConformers() == 0:
+                self.embed_mol(macrocycle)
+                self.optimize_conformers(macrocycle)
+                self.filter_confs_structure(macrocycle)
+                if not macrocycle.GetNumConformers():
+                    continue
+                macrocycle, energies = self.filter_conformers_energy(macrocycle)
+                self.ebejer_algorithm(macrocycle, energies)
+                rmsd, ring_rmsd = self.align_mols(macrocycle)
+            self.result = (macrocycle, self.calc_energies(self.get_force_fields(macrocycle)), rmsd, ring_rmsd)
+        except RuntimeError:
+            self.result = (macrocycle, [], [], [])
+
         self.time = time() - start
         return self.format_data()
 
-    def remap_confs(self, macrocycle, energies, old_ids):
-        mapping = {}
-        num_confs = macrocycle.GetNumConformers()
-        for i, conf in enumerate(list(macrocycle.GetConformers())):
-            mapping[conf.GetId()] = num_confs + i
-            conf.SetId(num_confs + i)
-
-        for i, old_id in enumerate(old_ids):
-            macrocycle.GetConformer(mapping[old_id]).SetId(i)
-
     def embed_mol(self, macrocycle):
-        self.smiles = Chem.MolToSmiles(Chem.RemoveHs(macrocycle))
-        self.double_bonds = self.get_double_bonds(Chem.RemoveHs(macrocycle))
+        num_tries = 0
+        params = AllChem.ETKDGv2()
         while macrocycle.GetNumConformers() == 0:
-            conf_ids = list(AllChem.EmbedMultipleConfs(macrocycle, numConfs=config.NUM_CONFS, params=AllChem.ETKDGv2()))
-            for conf_id in conf_ids:
-                if self.smiles != Chem.MolToSmiles(Chem.MolFromMolBlock(Chem.MolToMolBlock(Chem.RemoveHs(macrocycle), confId=conf_id, forceV3000=True))):
-                    macrocycle.RemoveConformer(conf_id)
+            if num_tries < 10:
+                AllChem.EmbedMultipleConfs(macrocycle, numConfs=config.NUM_CONFS, params=params)
+            elif num_tries < 15:
+                AllChem.EmbedMultipleConfs(macrocycle, numConfs=config.NUM_CONFS,
+                                           randomSeed=int(time()), useRandomCoords=True)
+            else:
+                raise RuntimeError
+            self.filter_confs_structure(macrocycle)
+            params.randomSeed = int(time())
+            num_tries += 1
+            print(num_tries)
 
-        conf_ids = []
-        for i, conf in enumerate(macrocycle.GetConformers()):
-            conf.SetId(i)
-            conf_ids.append(i)
-
-        return conf_ids
-
-    def filter_confs_stereo(self, macrocycle, energies_ids):
-        for energy, conf_id in list(energies_ids):
-            new_mol = deepcopy(macrocycle)
-            AllChem.RemoveStereochemistry(new_mol)
-            AllChem.AssignStereochemistryFrom3D(new_mol, confId=conf_id)
-            if self.smiles != Chem.MolToSmiles(Chem.RemoveHs(new_mol)) or not self.compare_double_bonds(self.double_bonds, self.get_double_bonds(Chem.RemoveHs(new_mol))):
+    def filter_confs_structure(self, macrocycle):
+        Chem.SanitizeMol(macrocycle)
+        for conf_id in range(macrocycle.GetNumConformers()):
+            if self.smiles != Chem.MolToSmiles(Chem.MolFromMolBlock(Chem.MolToMolBlock(Chem.RemoveHs(macrocycle), confId=conf_id))):
+                print('original', self.smiles)
+                print(Chem.MolToSmiles(Chem.MolFromMolBlock(Chem.MolToMolBlock(Chem.RemoveHs(macrocycle), confId=conf_id))))
                 macrocycle.RemoveConformer(conf_id)
-                energies_ids.remove((energy, conf_id))
 
-        new_energies_ids = []
-        for i, conf in enumerate(macrocycle.GetConformers()):
-            for energy_id in energies_ids:
-                if energy_id[1] == conf.GetId():
-                    new_energies_ids.append((energy_id[0], i))
-                    break
+        self.reset_ids(macrocycle)
+
+    def reset_ids(self, mol):
+        for i, conf in enumerate(mol.GetConformers()):
             conf.SetId(i)
 
-        return new_energies_ids
+    def optimize_conformers(self, macrocycle):
 
-    def compare_double_bonds(self, old_double_bonds, new_double_bonds):
-        for key, value in old_double_bonds.items():
-            if new_double_bonds[key] != value:
-                return False
-
-        return True
-
-    def get_double_bonds(self, macrocycle):
-        """
-        Helper function that finds all double bonds in the macrocyclic rings and stores them along with their
-        stereochemistry.
-
-        Args:
-            macrocycle (RDKit Mol): The macrocycle molecule.
-
-        Returns:
-            dict: A dictionary containing double bond indices and stereochemistrys as key, values pairs respectively.
-        """
-
-        double_bonds = {}
-        ring_bonds = [ring for ring in macrocycle.GetRingInfo().BondRings() if len(ring) >=
-                      config.MIN_MACRO_RING_SIZE - 1]
-        for bond_idx in chain.from_iterable(ring_bonds):
-            bond = macrocycle.GetBondWithIdx(bond_idx)
-            if bond.GetBondType() == Chem.BondType.DOUBLE and not bond.GetIsAromatic():
-                double_bonds[bond_idx] = bond.GetStereo()
-
-        return double_bonds
-
-    def optimize_conformers(self, macrocycle, conf_ids):
-
-        mol_props = AllChem.MMFFGetMoleculeProperties(macrocycle)
-        mol_props.SetMMFFVariant(config.FORCE_FIELD)
-        mol_props.SetMMFFDielectricConstant(config.DIELECTRIC)
-        force_fields = list(map(lambda x: AllChem.MMFFGetMoleculeForceField(
-            macrocycle, mol_props, confId=x, ignoreInterfragInteractions=False), range(macrocycle.GetNumConformers())))
+        force_fields = self.get_force_fields(macrocycle)
 
         convergence, energy = zip(*AllChem.MMFFOptimizeMoleculeConfs(macrocycle, mmffVariant=config.FORCE_FIELD,
                                                                      maxIters=config.MAX_ITERS,
@@ -670,45 +628,62 @@ class EbejerConformerGenerator(IGenerator):
                 convergence[non_converged_id] = force_fields[non_converged_id].Minimize(50)
                 energy[non_converged_id] = force_fields[non_converged_id].CalcEnergy()
 
-        energies = map(lambda x: x.CalcEnergy(), force_fields)
-        energies_ids = sorted(zip(energies, conf_ids), key=lambda x: x[0])
+    def get_force_fields(self, mol):
+        mol_props = AllChem.MMFFGetMoleculeProperties(mol)
+        mol_props.SetMMFFVariant(config.FORCE_FIELD)
+        mol_props.SetMMFFDielectricConstant(config.DIELECTRIC)
+        return list(map(lambda x: AllChem.MMFFGetMoleculeForceField(
+            mol, mol_props, confId=x, ignoreInterfragInteractions=False), range(mol.GetNumConformers())))
 
-        return self.filter_confs_stereo(macrocycle, energies_ids)
+    def calc_energies(self, force_fields):
 
-    def filter_conformers_energy(self, macrocycle, energies_ids):
+        return list(map(lambda x: x.CalcEnergy(), force_fields))
 
-        keep = deque()
-        lowest_energy = energies_ids[0][0]
-        for energy, _id in energies_ids:
-            if energy <= lowest_energy + config.ENERGY_DIFF:
-                keep.append((energy, _id))
-            else:
-                macrocycle.RemoveConformer(_id)
+    def filter_conformers_energy(self, macrocycle):
 
-        return keep
+        energies = self.calc_energies(self.get_force_fields(macrocycle))
+        lowest_energy = min(energies)
+        for i, energy in enumerate(list(energies)):
+            if energy > lowest_energy + config.ENERGY_DIFF:
+                macrocycle.RemoveConformer(i)
+                energies.remove(energy)
 
-    def ebejer_algorithm(self, macrocycle, energies_ids):
+        self.reset_ids(macrocycle)
+        return self.reorder_confs(macrocycle, energies)
 
-        keep = []
-        keep.append(energies_ids.popleft())
+    def reorder_confs(self, macrocycle, energies):
 
-        while energies_ids:
-            conf = energies_ids[0]
+        ordered_energies = []
+        copy_macrocycle = deepcopy(macrocycle)
+        for conf_id, energy in sorted(zip(range(macrocycle.GetNumConformers()), energies), key=lambda x: x[1]):
+            copy_macrocycle.AddConformer(macrocycle.GetConformer(conf_id), assignId=True)
+            ordered_energies.append(energy)
+
+        return copy_macrocycle, ordered_energies
+
+    def ebejer_algorithm(self, macrocycle, energies):
+
+        keep = [0]  # conformers are ordered based on increasing energy, 0 is index of lowest energy conf
+
+        conf_id = 1
+        while energies:
+            print('looping')
             for keep_conf in keep:
                 rms = AllChem.AlignMol(macrocycle, macrocycle,
-                                       prbCid=conf[1], refCid=keep_conf[1], maxIters=config.MAX_ITERS)
+                                       prbCid=conf_id, refCid=keep_conf, maxIters=config.MAX_ITERS)
                 if rms < config.D_MIN:
-                    energies_ids.popleft()
+                    energies.pop(0)
+                    macrocycle.RemoveConformer(conf_id)
+                    conf_id += 1
                     break
             else:
-                keep.append(energies_ids.popleft())
+                energies.pop(0)
+                conf_id += 1
 
-        energies, ids = zip(*keep)
-        for conf in macrocycle.GetConformers():
-            if conf.GetId() not in ids:
-                macrocycle.RemoveConformer(conf.GetId())
+        print('exit loop')
+        self.reset_ids(macrocycle)
 
-        return energies, ids
+        return keep
 
     def align_mols(self, macrocycle):
 
