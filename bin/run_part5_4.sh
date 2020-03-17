@@ -9,6 +9,7 @@
 
 . /u/local/Modules/default/init/modules.sh
 module load python/anaconda3
+module load openbabel/2.4.1
 
 source activate rdkit
 
