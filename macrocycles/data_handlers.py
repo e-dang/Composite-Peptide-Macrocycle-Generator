@@ -399,9 +399,21 @@ class MWDescriptorDataHandler(IDataHandler):
         self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
         self.mw_descriptor_saver = project_io.JsonMWDescriptorIO(**kwargs)
 
+        try:
+            self.start = kwargs['start']
+            self.end = kwargs['end']
+        except KeyError:
+            self.start = -1
+            self.end = 1000000000
+
     def load(self):
-        for doc in self.macrocycle_loader:
-            yield Chem.Mol(doc['binary'])
+        for i, doc in enumerate(self.macrocycle_loader):
+            if i < self.start:
+                continue
+            elif i >= self.end:
+                break
+            else:
+                yield Chem.Mol(doc['binary'])
 
     def save(self, data):
         self.mw_descriptor_saver.save(data)
@@ -413,9 +425,21 @@ class RBDescriptorDataHandler(IDataHandler):
         self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
         self.rb_descriptor_saver = project_io.JsonRBDescriptorIO(**kwargs)
 
+        try:
+            self.start = kwargs['start']
+            self.end = kwargs['end']
+        except KeyError:
+            self.start = -1
+            self.end = 1000000000
+
     def load(self):
-        for doc in self.macrocycle_loader:
-            yield Chem.Mol(doc['binary'])
+        for i, doc in enumerate(self.macrocycle_loader):
+            if i < self.start:
+                continue
+            elif i >= self.end:
+                break
+            else:
+                yield Chem.Mol(doc['binary'])
 
     def save(self, data):
         self.rb_descriptor_saver.save(data)
@@ -427,9 +451,21 @@ class TPSADescriptorDataHandler(IDataHandler):
         self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
         self.tpsa_descriptor_saver = project_io.JsonTPSADescriptorIO(**kwargs)
 
+        try:
+            self.start = kwargs['start']
+            self.end = kwargs['end']
+        except KeyError:
+            self.start = -1
+            self.end = 1000000000
+
     def load(self):
-        for doc in self.macrocycle_loader:
-            yield Chem.Mol(doc['binary'])
+        for i, doc in enumerate(self.macrocycle_loader):
+            if i < self.start:
+                continue
+            elif i >= self.end:
+                break
+            else:
+                yield Chem.Mol(doc['binary'])
 
     def save(self, data):
         self.tpsa_descriptor_saver.save(data)

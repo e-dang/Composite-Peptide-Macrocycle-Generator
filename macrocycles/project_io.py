@@ -660,31 +660,37 @@ class JsonpKaIO(AbstractJsonIO):
         super().__init__(self.FILEPATH, file_num_range)
 
 
-class JsonMWDescriptorIO(AbstractJsonIO):
+class JsonMWDescriptorIO(AbstractJsonIO, JsonFileReader):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'mw.json')
 
     def __init__(self, file_num_range=(None, None), **kwargs):
 
-        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
+        super().__init__(utils.attach_file_num(self.FILEPATH,
+                                               kwargs['peptide_length'], kwargs['job_num']), file_num_range)
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
 
 
-class JsonRBDescriptorIO(AbstractJsonIO):
+class JsonRBDescriptorIO(AbstractJsonIO, JsonFileReader):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'rb.json')
 
     def __init__(self, file_num_range=(None, None), **kwargs):
 
-        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
+        super().__init__(utils.attach_file_num(self.FILEPATH,
+                                               kwargs['peptide_length'], kwargs['job_num']), file_num_range)
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
 
 
-class JsonTPSADescriptorIO(AbstractJsonIO):
+class JsonTPSADescriptorIO(AbstractJsonIO, JsonFileReader):
 
     FILEPATH = os.path.join(config.DATA_DIR, 'generated', 'tpsa.json')
 
     def __init__(self, file_num_range=(None, None), **kwargs):
 
-        super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
+        super().__init__(utils.attach_file_num(self.FILEPATH,
+                                               kwargs['peptide_length'], kwargs['job_num']), file_num_range)
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
 
 
 class MongoDataBase():
