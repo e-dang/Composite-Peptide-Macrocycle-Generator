@@ -1,5 +1,4 @@
 import math
-import os
 from argparse import ArgumentParser
 
 import macrocycles.project_io as project_io
