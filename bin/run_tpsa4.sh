@@ -11,4 +11,4 @@ module load python/anaconda3
 
 source activate rdkit
 
-python ../macrocycles/run_descriptors.py --tpsa --peptide_len 4 --num_jobs 1000 --num ${SGE_TASK_ID} > ../output/tpsa4_${SGE_TASK_ID}.txt
+python ../macrocycles/run_descriptors.py --tpsa --peptide_len 4 --num_jobs 1000 --num ${SGE_TASK_ID} --macrocycle_output ../output/ > ../output/tpsa4_${SGE_TASK_ID}.txt
