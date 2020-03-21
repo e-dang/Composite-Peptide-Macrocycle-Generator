@@ -192,7 +192,7 @@ def file_rotator(filepath):
             return new_fp
 
 
-def attach_file_num(filepath, *file_nums):
+def attach_file_num(filepath, *file_nums, delimiter='_'):
     """
     Function that inserts an underscore and the specified file number to the file name given in the filepath.
 
@@ -211,7 +211,7 @@ def attach_file_num(filepath, *file_nums):
 
     for file_num in file_nums:
         if file_num is not None:
-            new_fp += '_' + str(file_num)
+            new_fp += delimiter + str(file_num)
 
     new_fp += '.' + ext
 
