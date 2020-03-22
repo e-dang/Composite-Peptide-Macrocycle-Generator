@@ -22,9 +22,9 @@ args = parser.parse_args()
 
 num_macrocycles = get_num_macrocycles(args.peptide_len)
 
-data_chunks = ranges.ContinuousDataChunk(num_macrocycles, args.num_jobs, args.num)
+data_chunk = ranges.ContinuousDataChunk(num_macrocycles, args.num_jobs, args.num)
 
 if args.ebejer:
-    runners.run_ebejer(peptide_length=args.peptide_len, data_chunks=data_chunks, job_num=args.num)
+    runners.run_ebejer(peptide_length=args.peptide_len, data_chunk=data_chunk, job_num=args.num)
 else:
-    runners.run_conformers(peptide_length=args.peptide_len, data_chunks=data_chunks, job_num=args.num)
+    runners.run_conformers(peptide_length=args.peptide_len, data_chunk=data_chunk, job_num=args.num)

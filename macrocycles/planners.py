@@ -135,7 +135,7 @@ class ConformerPublicationPlanner(IPlanner):
         if self.macrocycle_loader is None:
             return self.num_macrocycles
 
-        for i, _ in enumerate(self.macrocycle_loader):
+        for i, _ in enumerate(self.macrocycle_loader.iterate()):
             pass
 
         return i

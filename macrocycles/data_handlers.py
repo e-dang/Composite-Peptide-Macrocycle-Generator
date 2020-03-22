@@ -7,6 +7,7 @@ import macrocycles.iterators as iterators
 import macrocycles.molecules as molecules
 import macrocycles.project_io as project_io
 import macrocycles.reactions as reactions
+import macrocycles.ranges as ranges
 
 
 class IDataHandler(ABC):
@@ -208,13 +209,6 @@ class MCGDataHandler(IDataHandler):
         self.reaction_loader = project_io.get_reaction_io()
         self.macrocycle_saver = project_io.get_macrocycle_io(**kwargs)
 
-        try:
-            self.start = kwargs['start']
-            self.end = kwargs['end']
-        except KeyError:
-            self.start = -1
-            self.end = 1000000000
-
     def load(self):
         """
         Method that calls the TemplatePeptideIO and ReactionIO's load() method and returns the loaded data as tuple.
@@ -223,9 +217,8 @@ class MCGDataHandler(IDataHandler):
             tuple[iterable[dict]]: A tuple of iterables, where the first index contains the template_peptide documents
                 and the second index contains the reaction documents.
         """
-
         MacrocycleGeneratorData = namedtuple('MacrocycleGeneratorData', 'template_peptides reactions')
-        return MacrocycleGeneratorData(self.load_template_peptides(), self.reaction_loader.load())
+        return MacrocycleGeneratorData(self.template_peptide_loader.iterate(), self.reaction_loader.load())
 
     def save(self, data):
         """
@@ -237,53 +230,30 @@ class MCGDataHandler(IDataHandler):
 
         self.macrocycle_saver.save(data)
 
-    def load_template_peptides(self):
-        """
-        Helper method for using the instance variables self.start and self.end, to load the specified chunk of
-        template_peptide molecules.
-
-        Yields:
-            dict: A template_peptide document.
-        """
-
-        for i, template_peptide in enumerate(self.template_peptide_loader.load()):
-            if i < self.start:
-                continue
-            elif i >= self.end:
-                break
-            else:
-                yield template_peptide
-
 
 class ConformerGeneratorDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
 
-        # self.macrocycle_loader = project_io.get_macrocycle_io(**kwargs)
+        self.kwargs = kwargs
         self.plan_loader = project_io.ConformerPlannerIO(kwargs['peptide_length'])
         self.conformer_saver = project_io.get_conformer_io(**kwargs)
-
-        try:
-            self.start = kwargs['start']
-            self.end = kwargs['end']
-        except KeyError:
-            self.start = -1
-            self.end = 1000000000
 
     def save(self, data):
         self.conformer_saver.save(data)
 
     def load(self):
-        return deque(self.load_macrocycles())
+        self.load_macrocycle_indices()
+        macrocycle_io = project_io.get_macrocycle_io(**self.kwargs)
+        return macrocycle_io.iterate()
 
-    def load_macrocycles(self):
-        for i, macrocycle in enumerate(self.plan_loader.load()):
-            if i < self.start:
-                continue
-            elif i >= self.end:
-                break
-            else:
-                yield macrocycle
+    def load_macrocycle_indices(self):
+        macrocycle_indices = []
+        for i, macrocycle_index in enumerate(self.plan_loader.load()):
+            if i in self.kwargs['data_chunks']:
+                macrocycle_indices.append(macrocycle_index)
+
+        self.kwargs['data_chunk'] = ranges.DiscreteDataChunk(macrocycle_indices)
 
 
 class EbejerConformerGeneratorDataHandler(IDataHandler):
