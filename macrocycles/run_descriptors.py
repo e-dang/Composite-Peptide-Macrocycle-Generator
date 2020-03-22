@@ -1,8 +1,9 @@
-import math
+
 import os
 from argparse import ArgumentParser
 
 import macrocycles.runners as runners
+import macrocycles.ranges as ranges
 
 
 def get_num_macrocycles(filepath, peptide_len):
@@ -39,17 +40,11 @@ if args.num_macrocycles is None:
 else:
     num_macrocycles = args.num_macrocycles
 
-# calculate the chunk to work on
-chunk_size = math.ceil(num_macrocycles / args.num_jobs)
-start = chunk_size * (args.num - 1)
-end = chunk_size * args.num
-if end > num_macrocycles:
-    end = num_macrocycles
+data_chunk = ranges.ContinuousDataChunk(num_macrocycles, args.num_jobs, args.num)
 
-
-elif args.mw:
-    runners.run_mw_descriptor(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+if args.mw:
+    runners.run_mw_descriptor(peptide_length=args.peptide_len, data_chunk=data_chunk, job_num=args.num)
 elif args.rb:
-    runners.run_rb_descriptor(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+    runners.run_rb_descriptor(peptide_length=args.peptide_len, data_chunk=data_chunk, job_num=args.num)
 else:
-    runners.run_tpsa_descriptor(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+    runners.run_tpsa_descriptor(peptide_length=args.peptide_len, data_chunk=data_chunk, job_num=args.num)
