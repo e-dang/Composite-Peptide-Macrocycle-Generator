@@ -29,12 +29,15 @@ class FileReader:
 
     def iterate(self):
         self.skip_to()
-        for filepath in self.filepaths:
-            self.read_data(filepath)
-            for doc in self.data:
-                if self.count == self.requested_chunk:
-                    yield doc
-                self.count += 1
+        try:
+            for filepath in self.filepaths:
+                self.read_data(filepath)
+                for doc in self.data:
+                    if self.count == self.requested_chunk:
+                        yield doc
+                    self.count += 1
+        except StopIteration:
+            pass
 
     def skip_to(self):
         self.count = 0
@@ -602,7 +605,8 @@ class JsonConformerIO(AbstractJsonIO, JsonFileReader):
 
         super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length'], kwargs['job_num']),
                          file_num_range)
-        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'],
+                      kwargs['peptide_length'], data_chunk=kwargs.get('data_chunk'))
 
 
 class JsonEbejerConformerIO(AbstractJsonIO, JsonFileReader):
@@ -684,7 +688,8 @@ class JsonMWDescriptorIO(AbstractJsonIO, JsonFileReader):
 
         super().__init__(utils.attach_file_num(self.FILEPATH,
                                                kwargs['peptide_length'], kwargs['job_num']), file_num_range)
-        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'],
+                      kwargs['peptide_length'], data_chunk=kwargs.get('data_chunk'))
 
 
 class JsonRBDescriptorIO(AbstractJsonIO, JsonFileReader):
@@ -695,7 +700,8 @@ class JsonRBDescriptorIO(AbstractJsonIO, JsonFileReader):
 
         super().__init__(utils.attach_file_num(self.FILEPATH,
                                                kwargs['peptide_length'], kwargs['job_num']), file_num_range)
-        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'],
+                      kwargs['peptide_length'], data_chunk=kwargs.get('data_chunk'))
 
 
 class JsonTPSADescriptorIO(AbstractJsonIO, JsonFileReader):
@@ -706,7 +712,8 @@ class JsonTPSADescriptorIO(AbstractJsonIO, JsonFileReader):
 
         super().__init__(utils.attach_file_num(self.FILEPATH,
                                                kwargs['peptide_length'], kwargs['job_num']), file_num_range)
-        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'],
+                      kwargs['peptide_length'], data_chunk=kwargs.get('data_chunk'))
 
 
 class MongoDataBase():
