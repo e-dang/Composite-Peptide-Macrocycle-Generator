@@ -249,9 +249,12 @@ class ConformerGeneratorDataHandler(IDataHandler):
 
     def load_macrocycle_indices(self):
         macrocycle_indices = []
-        for i, macrocycle_index in enumerate(self.plan_loader.load()):
-            if i in self.kwargs['data_chunks']:
-                macrocycle_indices.append(macrocycle_index)
+        try:
+            for i, macrocycle_index in enumerate(self.plan_loader.load()):
+                if i == self.kwargs['data_chunk']:
+                    macrocycle_indices.append(int(macrocycle_index.strip('\n')))
+        except StopIteration:
+            pass
 
         self.kwargs['data_chunk'] = ranges.DiscreteDataChunk(macrocycle_indices)
 
