@@ -12,10 +12,11 @@ from rdkit import Chem
 
 import macrocycles.config as config
 import macrocycles.utils as utils
+import macrocycles.ranges as ranges
 
 
 class FileReader:
-    def setup(self, filepath, sort_order, *args, delimiter='_', glob='*'):
+    def setup(self, filepath, sort_order, *args, delimiter='_', glob='*', **kwargs):
         self.globber = FileGlober()
         self.sorter = FileSorter()
         self.filepaths = []
@@ -24,28 +25,26 @@ class FileReader:
         if len(filepaths):
             self.filepaths = self.sorter(filepaths, unique_file_props, sort_order)
         self.data = []
+        self.requested_chunk = kwargs['data_chunk'] if kwargs['data_chunk'] is not None else ranges.WholeRange()
 
-    def __iter__(self):
-        if len(self.filepaths):
-            self.data_count = 0
-            self.read_data(self.filepaths[0])
-            self.fp_count = 1
-        return self
+    def iterate(self):
+        self.skip_to()
+        for filepath in self.filepaths:
+            self.read_data(filepath)
+            for doc in self.data:
+                if self.count == self.requested_chunk:
+                    yield doc
+                self.count += 1
 
-    def __next__(self):
-        if self.data_count < len(self.data):
-            self.data_count += 1
-            return self.data[self.data_count - 1]
-        elif (self.data_count == len(self.data) or len(self.data) == 0) and self.fp_count < len(self.filepaths):
-            self.read_data(self.filepaths[self.fp_count])
-            self.fp_count += 1
-            self.data_count = 1
-            if len(self.data) > 0:
-                return self.data[self.data_count - 1]
-            else:
-                return next(self)
-        else:
-            raise StopIteration
+    def skip_to(self):
+        self.count = 0
+        for i, filepath in enumerate(self.filepaths):
+            self.read_data(filepath)
+            data_range = ranges.Range(self.count, self.count + len(self.data))
+            if data_range in self.requested_chunk:
+                self.filepaths = self.filepaths[i:]
+                break
+            self.count += len(self.data)
 
     def add_glob(self, filepath, glob):
         path, filename = os.path.split(filepath)
@@ -87,7 +86,21 @@ class FileGlober:
     def parse_filepath(self, filepath, delimiter):
         _, file = os.path.split(filepath)
         filename, _ = os.path.splitext(file)
-        return filename.split(delimiter)
+        base_filename, *prop_vals = filename.split(delimiter)
+        props = []
+        flag = False
+        for prop_val in prop_vals:
+            try:
+                int(prop_val)
+            except ValueError:
+                base_filename += '_' + prop_val
+                flag = True
+            props.append(prop_val)
+
+        if not flag:
+            props.insert(0, base_filename)
+
+        return props
 
     def validate_properties(self, given_props, found_props):
         if len(given_props) != len(found_props):
@@ -533,7 +546,7 @@ class JsonPeptideIO(AbstractJsonIO):
         super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
 
 
-class JsonTemplatePeptideIO(AbstractJsonIO):
+class JsonTemplatePeptideIO(AbstractJsonIO, JsonFileReader):
     """
     Implmentation of the AbstractJsonIO class for handling template_peptide data.
     """
@@ -552,6 +565,8 @@ class JsonTemplatePeptideIO(AbstractJsonIO):
         """
 
         super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length']), file_num_range)
+        super().setup(self.FILEPATH, ['peptide_length', 'file_num'],
+                      kwargs['peptide_length'], data_chunk=kwargs.get('data_chunk'))
 
 
 class JsonMacrocycleIO(AbstractJsonIO, JsonFileReader):
@@ -575,7 +590,8 @@ class JsonMacrocycleIO(AbstractJsonIO, JsonFileReader):
 
         super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length'], kwargs['job_num']),
                          file_num_range)
-        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'],
+                      kwargs['peptide_length'], data_chunk=kwargs.get('data_chunk'))
 
 
 class JsonConformerIO(AbstractJsonIO, JsonFileReader):
