@@ -1,6 +1,6 @@
-import math
 from argparse import ArgumentParser
 
+import macrocycles.ranges as ranges
 import macrocycles.project_io as project_io
 import macrocycles.runners as runners
 
@@ -22,14 +22,9 @@ args = parser.parse_args()
 
 num_macrocycles = get_num_macrocycles(args.peptide_len)
 
-# calculate the chunk to work on
-chunk_size = math.ceil(num_macrocycles / args.num_jobs)
-start = chunk_size * (args.num - 1)
-end = chunk_size * args.num
-if end > num_macrocycles:
-    end = num_macrocycles
+data_chunks = ranges.ContinuousDataChunk(num_macrocycles, args.num_jobs, args.num)
 
 if args.ebejer:
-    runners.run_ebejer(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+    runners.run_ebejer(peptide_length=args.peptide_len, data_chunks=data_chunks, job_num=args.num)
 else:
-    runners.run_conformers(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+    runners.run_conformers(peptide_length=args.peptide_len, data_chunks=data_chunks, job_num=args.num)

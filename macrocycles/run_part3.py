@@ -1,8 +1,8 @@
-import math
 from argparse import ArgumentParser
 
 import macrocycles.runners as runners
 from macrocycles.utils import suppress_stdout_stderr
+import macrocycles.ranges as ranges
 
 
 def get_num_tp_hybrids(filepath):
@@ -35,14 +35,9 @@ elif args.tp_output:
 else:
     parser.error('Must specify either option --tp_output or --num_tp_hybrids.')
 
-# calculate the chunk to work on
-chunk_size = math.ceil(num_template_peptides / args.num_jobs)
-start = chunk_size * (args.num - 1)
-end = chunk_size * args.num
-if end > num_template_peptides:
-    end = num_template_peptides
+data_chunk = ranges.ContinuousDataChunk(num_template_peptides, args.num_jobs, args.num)
 
 with suppress_stdout_stderr():
-    print_str = runners.run_macrocycles(peptide_length=args.peptide_len, start=start, end=end, job_num=args.num)
+    print_str = runners.run_macrocycles(peptide_length=args.peptide_len, data_chunk=data_chunk, job_num=args.num)
 
 print(*print_str)
