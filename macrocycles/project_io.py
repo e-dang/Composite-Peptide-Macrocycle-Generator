@@ -617,7 +617,8 @@ class JsonEbejerConformerIO(AbstractJsonIO, JsonFileReader):
 
         super().__init__(utils.attach_file_num(self.FILEPATH, kwargs['peptide_length'], kwargs['job_num']),
                          file_num_range)
-        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'], kwargs['peptide_length'])
+        super().setup(self.FILEPATH, ['peptide_length', 'job_num', 'file_num'],
+                      kwargs['peptide_length'], data_chunk=kwargs.get('data_chunk'))
 
 
 class JsonReactionIO(AbstractJsonIO):
