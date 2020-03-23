@@ -263,30 +263,28 @@ class EbejerConformerGeneratorDataHandler(IDataHandler):
 
     def __init__(self, **kwargs):
 
+        self.kwargs = kwargs
         self.plan_loader = project_io.ConformerPlannerIO(kwargs['peptide_length'])
         self.conformer_saver = project_io.JsonEbejerConformerIO(**kwargs)
-
-        try:
-            self.start = kwargs['start']
-            self.end = kwargs['end']
-        except KeyError:
-            self.start = -1
-            self.end = 1000000000
 
     def save(self, data):
         self.conformer_saver.save(data)
 
     def load(self):
-        return deque(self.load_macrocycles())
+        self.load_macrocycle_indices()
+        macrocycle_io = project_io.get_macrocycle_io(**self.kwargs)
+        return macrocycle_io.iterate()
 
-    def load_macrocycles(self):
-        for i, macrocycle in enumerate(self.plan_loader.load()):
-            if i < self.start:
-                continue
-            elif i >= self.end:
-                break
-            else:
-                yield macrocycle
+    def load_macrocycle_indices(self):
+        macrocycle_indices = []
+        try:
+            for i, macrocycle_index in enumerate(self.plan_loader.load()):
+                if i == self.kwargs['data_chunk']:
+                    macrocycle_indices.append(int(macrocycle_index.strip('\n')))
+        except StopIteration:
+            pass
+
+        self.kwargs['data_chunk'] = ranges.DiscreteDataChunk(macrocycle_indices)
 
 
 class UMRGDataHandler(IDataHandler):
