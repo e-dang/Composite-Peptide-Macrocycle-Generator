@@ -597,14 +597,11 @@ class EbejerConformerGenerator(IGenerator):
             self.filter_confs_structure(macrocycle)
             params.randomSeed = int(time())
             num_tries += 1
-            print(num_tries)
 
     def filter_confs_structure(self, macrocycle):
         Chem.SanitizeMol(macrocycle)
         for conf_id in range(macrocycle.GetNumConformers()):
             if self.smiles != Chem.MolToSmiles(Chem.MolFromMolBlock(Chem.MolToMolBlock(Chem.RemoveHs(macrocycle), confId=conf_id))):
-                print('original', self.smiles)
-                print(Chem.MolToSmiles(Chem.MolFromMolBlock(Chem.MolToMolBlock(Chem.RemoveHs(macrocycle), confId=conf_id))))
                 macrocycle.RemoveConformer(conf_id)
 
         self.reset_ids(macrocycle)
@@ -667,7 +664,6 @@ class EbejerConformerGenerator(IGenerator):
 
         conf_id = 1
         while energies:
-            print('looping')
             for keep_conf in keep:
                 rms = AllChem.AlignMol(macrocycle, macrocycle,
                                        prbCid=conf_id, refCid=keep_conf, maxIters=config.MAX_ITERS)
@@ -680,7 +676,6 @@ class EbejerConformerGenerator(IGenerator):
                 energies.pop(0)
                 conf_id += 1
 
-        print('exit loop')
         self.reset_ids(macrocycle)
 
         return keep
