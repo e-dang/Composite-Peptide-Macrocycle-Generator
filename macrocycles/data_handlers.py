@@ -246,9 +246,12 @@ class ConformerGeneratorDataHandler(IDataHandler):
     def load(self):
         for filepath in self.plan_loader.load():
             with open(filepath.strip('\n'), 'r') as file:
-                print(filepath)
-                for doc in json_util.loads(json_util.dumps(json.load(file))):
-                    yield doc
+                try:
+                    for i, doc in enumerate(json_util.loads(json_util.dumps(json.load(file)))):
+                        if i == self.kwargs['range']:
+                            yield doc
+                except StopIteration:
+                    pass
 
         # self.load_macrocycle_indices()
         # macrocycle_io = project_io.get_macrocycle_io(**self.kwargs)
