@@ -2,6 +2,8 @@ import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from random import choice, choices, sample
+import json
+import glob
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -109,14 +111,42 @@ class PeptidePublicationPlanner(IPlanner):
                              ' times the peptide length')
 
 
+# class ConformerPublicationPlanner(IPlanner):
+
+#     def __init__(self, peptide_length, num_conformers, num_macrocycles):
+#         if num_macrocycles is None:
+#             self.macrocycle_loader = project_io.get_macrocycle_io(peptide_length=peptide_length, job_num=None)
+#         else:
+#             self.macrocycle_loader = None
+#             self.num_macrocycles = num_macrocycles
+#         self.saver = project_io.ConformerPlannerIO(peptide_length)
+#         self.peptide_length = peptide_length
+#         self.num_conformers = num_conformers
+
+#     def create_plan(self):
+
+#         if not os.path.exists(utils.attach_file_num(self.saver.FILEPATH, self.peptide_length)):
+#             count = self.count_macrocycles()
+#             macrocycle_idxs = list(sample(range(count), self.num_conformers))
+#             macrocycle_idxs.sort()
+#             self.saver.save(macrocycle_idxs)
+
+#     def count_macrocycles(self):
+
+#         # total number of macrocycles was given to us
+#         if self.macrocycle_loader is None:
+#             return self.num_macrocycles
+
+#         for i, _ in enumerate(self.macrocycle_loader.iterate()):
+#             pass
+
+#         return i
+
+
 class ConformerPublicationPlanner(IPlanner):
 
     def __init__(self, peptide_length, num_conformers, num_macrocycles):
-        if num_macrocycles is None:
-            self.macrocycle_loader = project_io.get_macrocycle_io(peptide_length=peptide_length, job_num=None)
-        else:
-            self.macrocycle_loader = None
-            self.num_macrocycles = num_macrocycles
+        self.macrocycle_loader = project_io.get_macrocycle_io(peptide_length=peptide_length, job_num=None)
         self.saver = project_io.ConformerPlannerIO(peptide_length)
         self.peptide_length = peptide_length
         self.num_conformers = num_conformers
@@ -124,18 +154,17 @@ class ConformerPublicationPlanner(IPlanner):
     def create_plan(self):
 
         if not os.path.exists(utils.attach_file_num(self.saver.FILEPATH, self.peptide_length)):
-            count = self.count_macrocycles()
-            macrocycle_idxs = list(sample(range(count), self.num_conformers))
-            macrocycle_idxs.sort()
-            self.saver.save(macrocycle_idxs)
+            filepaths = glob.glob(utils.attach_file_num(self.macrocycle_loader.FILEPATH, self.peptide_length, '*'))
+            count = 0
+            selected_filepaths = set()
+            while count < self.num_conformers:
+                filepath = choice(filepaths)
+                if filepath not in selected_filepaths:
+                    count += self.count_macrocycles(filepath)
+                    selected_filepaths.add(filepath)
 
-    def count_macrocycles(self):
+            self.saver.save(selected_filepaths)
 
-        # total number of macrocycles was given to us
-        if self.macrocycle_loader is None:
-            return self.num_macrocycles
-
-        for i, _ in enumerate(self.macrocycle_loader.iterate()):
-            pass
-
-        return i
+    def count_macrocycles(self, filepath):
+        with open(filepath, 'r') as file:
+            return len(list(json.load(file)))

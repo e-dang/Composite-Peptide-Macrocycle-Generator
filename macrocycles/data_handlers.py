@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from collections import namedtuple, deque
 
 from rdkit import Chem
-
+from bson import json_util
+import json
 import macrocycles.iterators as iterators
 import macrocycles.molecules as molecules
 import macrocycles.project_io as project_io
@@ -243,9 +244,15 @@ class ConformerGeneratorDataHandler(IDataHandler):
         self.conformer_saver.save(data)
 
     def load(self):
-        self.load_macrocycle_indices()
-        macrocycle_io = project_io.get_macrocycle_io(**self.kwargs)
-        return macrocycle_io.iterate()
+        for filepath in self.plan_loader.load():
+            with open(filepath.strip('\n'), 'r') as file:
+                print(filepath)
+                for doc in json_util.loads(json_util.dumps(json.load(file))):
+                    yield doc
+
+        # self.load_macrocycle_indices()
+        # macrocycle_io = project_io.get_macrocycle_io(**self.kwargs)
+        # return macrocycle_io.iterate()
 
     def load_macrocycle_indices(self):
         macrocycle_indices = []
