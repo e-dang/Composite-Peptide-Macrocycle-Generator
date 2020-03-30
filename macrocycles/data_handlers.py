@@ -248,7 +248,7 @@ class ConformerGeneratorDataHandler(IDataHandler):
             with open(filepath.strip('\n'), 'r') as file:
                 try:
                     for i, doc in enumerate(json_util.loads(json_util.dumps(json.load(file)))):
-                        if i == self.kwargs['range']:
+                        if i == self.kwargs['data_chunk']:
                             yield doc
                 except StopIteration:
                     pass
