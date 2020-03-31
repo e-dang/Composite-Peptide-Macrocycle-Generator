@@ -244,12 +244,14 @@ class ConformerGeneratorDataHandler(IDataHandler):
         self.conformer_saver.save(data)
 
     def load(self):
+        count = 0
         for filepath in self.plan_loader.load():
             with open(filepath.strip('\n'), 'r') as file:
                 try:
-                    for i, doc in enumerate(json_util.loads(json_util.dumps(json.load(file)))):
-                        if i == self.kwargs['data_chunk']:
+                    for doc in json_util.loads(json_util.dumps(json.load(file))):
+                        if count == self.kwargs['data_chunk']:
                             yield doc
+                        count += 1
                 except StopIteration:
                     pass
 
