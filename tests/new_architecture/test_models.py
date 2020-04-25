@@ -24,6 +24,16 @@ def monomer_from_dict():
     return models.Monomer.from_dict(TEST_MONOMER_1, _id='qr398fhiusd')
 
 
+@pytest.fixture()
+def peptide_from_mol():
+    return models.Peptide.from_mol(Chem.MolFromSmiles('NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1'), False, [models.Monomer.from_dict(TEST_MONOMER_1, _id='qr398fhiusd'), models.Monomer.from_dict(TEST_MONOMER_2, _id='acjiafuy892'), models.Monomer.from_dict(TEST_MONOMER_3, _id='afsidvjoasd')])
+
+
+@pytest.fixture()
+def peptide_from_dict():
+    return models.Peptide.from_dict(TEST_PEPTIDE_1, _id='aefoi249')
+
+
 def test_sidechain_from_mol(sidechain_from_mol):
     assert(sidechain_from_mol._id == None)
     assert(sidechain_from_mol.binary != None)
@@ -68,3 +78,27 @@ def test_monomer_from_dict(monomer_from_dict):
 
 def test_monomer_to_dict(monomer_from_dict):
     assert(monomer_from_dict.to_dict() == TEST_MONOMER_1)
+
+
+def test_peptide_from_mol(peptide_from_mol):
+    assert(peptide_from_mol._id == None)
+    assert(peptide_from_mol.binary != None)
+    assert(peptide_from_mol.kekule ==
+           'NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1')
+    assert(peptide_from_mol.has_cap == False)
+    assert(len(peptide_from_mol.monomers) == 3)
+    for monomer in peptide_from_mol.monomers:
+        assert(monomer['_id'] != None)
+        assert(monomer['is_proline'] != None)
+
+
+def test_peptide_from_dict(peptide_from_dict):
+    assert(peptide_from_dict._id == 'aefoi249')
+    assert(peptide_from_dict.binary != None)
+    assert(peptide_from_dict.kekule ==
+           'NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1')
+    assert(peptide_from_dict.has_cap == False)
+    assert(len(peptide_from_dict.monomers) == 3)
+    for monomer in peptide_from_dict.monomers:
+        assert(monomer['_id'] != None)
+        assert(monomer['is_proline'] != None)

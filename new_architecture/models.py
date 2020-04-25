@@ -37,8 +37,6 @@ class Sidechain(AbstractMolecule):
 
 
 class Monomer(AbstractMolecule):
-    PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')
-
     def __init__(self, binary, kekule, required, backbone, sidechain, connection, is_proline, imported, _id=None, index=None):
         super().__init__(binary, kekule, _id)
         self.index = index
@@ -61,3 +59,21 @@ class Monomer(AbstractMolecule):
     def from_dict(cls, data, _id=None):
         return Monomer(data['binary'], data['kekule'], data['required'], data['backbone'], data['sidechain'],
                        data['connection'], data['is_proline'], data['imported'], _id=_id, index=data['index'])
+
+
+class Peptide(AbstractMolecule):
+    def __init__(self, binary, kekule, has_cap, monomers, _id=None):
+        super().__init__(binary, kekule, _id)
+        self.has_cap = has_cap
+        self.monomers = monomers
+
+    @classmethod
+    def from_mol(cls, mol, has_cap, monomers):
+        Chem.Kekulize(mol)
+        monomers = [{'_id': monomer._id, 'sidechain': monomer.sidechain,
+                     'is_proline': monomer.is_proline} for monomer in monomers]
+        return Peptide(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), has_cap, monomers)
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return Peptide(data['binary'], data['kekule'], data['has_cap'], data['monomers'], _id=_id)
