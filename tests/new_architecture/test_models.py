@@ -5,6 +5,16 @@ from tests.new_architecture.data.mols import *
 
 
 @pytest.fixture()
+def connection_from_mol():
+    return models.Connection.from_mol(Chem.MolFromSmiles('CC'))
+
+
+@pytest.fixture()
+def connection_from_dict():
+    return models.Connection.from_dict(TEST_CONNECTION_1, _id='ethyl')
+
+
+@pytest.fixture()
 def template_from_mol():
     return models.Template.from_mol(Chem.MolFromSmiles('CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'))
 
@@ -50,6 +60,22 @@ def peptide_from_dict():
 # @pytest.fixture()
 # def template_peptide_from_dict():
 #     return models.TemplatePeptide.from_dict(TEST_PEPTIDE_1, _id='aefoi249')
+
+
+def test_connection_from_mol(connection_from_mol):
+    assert(connection_from_mol._id == None)
+    assert(connection_from_mol.binary != None)
+    assert(connection_from_mol.kekule == 'CC')
+
+
+def test_connection_from_dict(connection_from_dict):
+    assert(connection_from_dict._id == 'ethyl')
+    assert(connection_from_dict.binary != None)
+    assert(connection_from_dict.kekule == 'CC')
+
+
+def test_connection_to_dict(connection_from_dict):
+    assert(connection_from_dict.to_dict() == TEST_CONNECTION_1)
 
 
 def test_template_from_mol(template_from_mol):
