@@ -87,7 +87,7 @@ class Sidechain(AbstractMolecule):
     @classmethod
     def from_mol(cls, mol, connection, shared_id):
         Chem.Kekulize(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), connection, shared_id)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), connection._id, shared_id)
 
     @classmethod
     def from_dict(cls, data, _id=None):
@@ -110,7 +110,7 @@ class Monomer(AbstractMolecule):
         Chem.Kekulize(mol)
         required = bool(AllChem.CalcNumAromaticRings(mol))
         is_proline = AllChem.CalcNumAliphaticRings(mol) and mol.HasSubstructMatch(PROLINE_N_TERM)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), required, backbone,
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), required, backbone._id,
                    sidechain.shared_id, sidechain.connection, is_proline, False)
 
     @classmethod
