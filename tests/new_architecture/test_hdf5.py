@@ -37,7 +37,6 @@ def test_serialize_deserialize():
     assert(TEST_DICT == deserialized_data)
 
 
-
 def test_serialize_deserialize_chunk():
     serialized_data = hdf5.serialize_chunk(TEST_LIST)
 

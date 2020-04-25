@@ -117,6 +117,14 @@ class MonomerRepository(AbstractRepository):
         super().__init__(impl)
 
 
+class PeptideRepository(AbstractRepository):
+    TYPE = models.Peptide
+    CATEGORY = 'peptides'
+
+    def __init__(self, impl):
+        super().__init__(impl)
+
+
 def repository_impl_from_string(impl):
     if impl == HDF5:
         return HDF5Repository()
@@ -133,6 +141,7 @@ def get_repository(repository):
 
 create_sidechain_repository = get_repository(SidechainRepository)
 create_monomer_repository = get_repository(MonomerRepository)
+create_peptide_repository = get_repository(PeptideRepository)
 
 # def create_sidechain_repository(impl=config.DATA_FORMAT):
 #     return SidechainRepository(repository_impl_from_string(impl))

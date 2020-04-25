@@ -47,3 +47,24 @@ def test_monomer_repository(repository_patch):
     assert(TEST_MONOMER_1 in data)
     assert(TEST_MONOMER_2 in data)
     assert(TEST_MONOMER_3 in data)
+
+
+def test_monomer_repository_fail(repository_patch):
+    monomer_repo = repo.create_monomer_repository(repository_patch)
+    with pytest.raises(TypeError):
+        _ids = monomer_repo.save(['dne'])
+
+
+def test_peptide_repository(repository_patch):
+    peptide_repo = repo.create_peptide_repository(repository_patch)
+    _ids = peptide_repo.save(list(map(models.Peptide.from_dict, [TEST_PEPTIDE_1])))
+    data = peptide_repo.load(_ids)
+    data = list(map(lambda x: x.to_dict(), data))
+    assert(len(data) == 1)
+    assert(TEST_PEPTIDE_1 == data[0])
+
+
+def test_peptide_repository_fail(repository_patch):
+    peptide_repo = repo.create_peptide_repository(repository_patch)
+    with pytest.raises(TypeError):
+        _ids = peptide_repo.save(['dne'])
