@@ -101,6 +101,14 @@ class AbstractRepository:
         return self.impl.save(self.CATEGORY, map(lambda x: x.to_dict(), data))
 
 
+class BackboneRepository(AbstractRepository):
+    TYPE = models.Connection
+    CATEGORY = 'backbone'
+
+    def __init__(self, impl):
+        super().__init__(impl)
+
+
 class ConnectionRepository(AbstractRepository):
     TYPE = models.Connection
     CATEGORY = 'connections'
@@ -155,6 +163,7 @@ def get_repository(repository):
     return repository_closure
 
 
+create_backbone_repository = get_repository(BackboneRepository)
 create_connection_repository = get_repository(ConnectionRepository)
 create_template_repository = get_repository(TemplateRepository)
 create_sidechain_repository = get_repository(SidechainRepository)

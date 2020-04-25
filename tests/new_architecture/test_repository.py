@@ -21,6 +21,23 @@ def test_repository_impl_from_string_fail():
         repo.repository_impl_from_string('dne')
 
 
+def test_backbone_repository(repository_patch):
+    backbone_repo = repo.create_backbone_repository(repository_patch)
+    _ids = backbone_repo.save(list(map(models.Backbone.from_dict, [TEST_BACKBONE_1, TEST_BACKBONE_2, TEST_BACKBONE_3])))
+    data = backbone_repo.load(_ids)
+    data = list(map(lambda x: x.to_dict(), data))
+    assert(len(data) == 3)
+    assert(TEST_BACKBONE_1 in data)
+    assert(TEST_BACKBONE_2 in data)
+    assert(TEST_BACKBONE_3 in data)
+
+
+def test_backbone_repository_fail(repository_patch):
+    backbone_repo = repo.create_backbone_repository(repository_patch)
+    with pytest.raises(TypeError):
+        _ids = backbone_repo.save(['dne'])
+
+
 def test_connection_repository(repository_patch):
     connection_repo = repo.create_connection_repository(repository_patch)
     _ids = connection_repo.save(list(map(models.Connection.from_dict, [TEST_CONNECTION_1])))
