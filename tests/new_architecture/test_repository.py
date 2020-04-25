@@ -21,6 +21,17 @@ def test_repository_impl_from_string_fail():
         repo.repository_impl_from_string('dne')
 
 
+def test_template_repository(repository_patch):
+    template_repo = repo.create_template_repository(repository_patch)
+    _ids = template_repo.save(list(map(models.Template.from_dict, [TEST_TEMPLATE_1, TEST_TEMPLATE_2, TEST_TEMPLATE_3])))
+    data = template_repo.load(_ids)
+    data = list(map(lambda x: x.to_dict(), data))
+    assert(len(data) == 3)
+    assert(TEST_TEMPLATE_1 in data)
+    assert(TEST_TEMPLATE_2 in data)
+    assert(TEST_TEMPLATE_3 in data)
+
+
 def test_sidechain_repository(repository_patch):
     sc_repo = repo.create_sidechain_repository(repository_patch)
     _ids = sc_repo.save(list(map(models.Sidechain.from_dict, [TEST_SIDECHAIN_1, TEST_SIDECHAIN_2, TEST_SIDECHAIN_3])))

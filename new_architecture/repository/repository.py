@@ -101,6 +101,14 @@ class AbstractRepository:
         return self.impl.save(self.CATEGORY, map(lambda x: x.to_dict(), data))
 
 
+class TemplateRepository(AbstractRepository):
+    TYPE = models.Template
+    CATEGORY = 'templates'
+
+    def __init__(self, impl):
+        super().__init__(impl)
+
+
 class SidechainRepository(AbstractRepository):
     TYPE = models.Sidechain
     CATEGORY = 'sidechains'
@@ -139,6 +147,7 @@ def get_repository(repository):
     return repository_closure
 
 
+create_template_repository = get_repository(TemplateRepository)
 create_sidechain_repository = get_repository(SidechainRepository)
 create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
