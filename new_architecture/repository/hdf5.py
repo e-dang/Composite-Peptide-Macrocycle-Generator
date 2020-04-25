@@ -3,7 +3,6 @@ import h5py
 import numpy as np
 import uuid
 import macrocycles.config as config
-from new_architecture.repository.repository import Range
 
 
 def get_maximum(data, func):
@@ -62,10 +61,10 @@ class HDF5Repository:
     ENCODING = 'ascii'
 
     def load(self, group, key):
-        if isinstance(key, Range):
-            return self._load_range(group, key)
-        else:
+        if isinstance(key, list) and isinstance(key[0], str):
             return self._load_ids(group, key)
+        else:
+            return self._load_range(group, key)
 
     def save(self, group, data):
         serialized_data = serialize_chunk(to_list(data))
