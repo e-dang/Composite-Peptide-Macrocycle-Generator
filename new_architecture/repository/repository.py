@@ -1,5 +1,12 @@
 import math
 from collections import deque
+import new_architecture.models as models
+from new_architecture.repository.hdf5 import HDF5Repository, to_list
+import macrocycles.config as config
+import random
+
+
+HDF5 = 'hdf5'
 
 
 class Range:
@@ -75,97 +82,107 @@ class ContinuousDataChunk(Range):
         return end
 
 
-class MetaData:
-    def __init__(self, data_type, peptide_length, job_num):
-        self.data_type = data_type
-        self.peptide_length = peptide_length
-        self.job_num = job_num
+class AbstractRepository:
+    TYPE = None
+    CATEGORY = None
 
-    def to_json(self, filename):
-        json_data = {filename: self.__dict__}
-        return json_data
+    def __init__(self, impl):
+        self.impl = impl
 
+    def load(self, key):
+        for _id, data in self.impl.load(self.CATEGORY, key):
+            yield self.TYPE.from_dict(data, _id=_id)
 
-class SaveRequest:
-    def __init__(self, data, data_type, peptide_length=None, job_num=None):
-        self.data = data
-        self.data_type = data_type
-        self.peptide_length = peptide_length
-        self.job_num = job_num
+    def save(self, data):
+        if not isinstance(random.choice(data), self.TYPE):
+            print(self.TYPE, random.choice(data))
+            raise TypeError('Error! Repository - type mismatch')
 
-    @classmethod
-    def create_request(cls, data, meta_data):
-        return cls(data, meta_data.data_type, meta_data.peptide_length, meta_data.job_num)
+        return self.impl.save(self.CATEGORY, map(lambda x: x.to_dict(), data))
 
 
-class LoadRequest:
+class SidechainRepository(AbstractRepository):
+    TYPE = models.Sidechain
+    CATEGORY = 'sidechains'
 
-    def __init__(self, data_type, peptide_length=None, data_chunk=WholeRange()):
-        self.data_type = data_type
-        self.peptide_length = peptide_length
-        self.data_chunk = data_chunk
-        self.next_request = None
-
-    def add_request(self, request):
-        if self.next_request is None:
-            self.next_request = request
-        else:
-            self.next_request.add_request(request)
-
-    def get_next_request(self, result):
-        try:
-            self.next_request.update_data_chunk(result)
-        except AttributeError:
-            pass
-
-        return self.next_request
-
-    def update_data_chunk(self, data_chunk):
-        self.data_chunk = data_chunk
-
-    def format_result(self, func):
-        self.result = func(self.result)
+    def __init__(self, impl):
+        super().__init__(impl)
 
 
-class Repository:
+# class MonomerRepository(AbstractRepository):
+#     TYPE = models.Monomer
+#     CATEGORY = 'monomers'
 
-    def __init__(self, daos):
-        self.daos = daos
-        self.data = []
-        self.meta_data = None
-
-    def add(self, data):
-        self.data.append(data)
-
-    def add_meta_data(self, meta_data):
-        self.meta_data = meta_data
-
-    def load(self, load_request):
-        while True:
-            data = self.daos[load_request.data_type].load(load_request)
-            load_request = load_request.get_next_request(data)
-            if load_request is None:
-                return data
-
-    def save(self):
-        self.daos[self.meta_data.data_type].save(SaveRequest.create_request(self.data, self.meta_data))
+#     def __init__(self, impl):
+#         super().__init__(impl)
 
 
-def create_repository():
-    import sys
-    import inspect
-    from collections import defaultdict
-
-    clsmembers = inspect.getmembers(sys.modules[__name__], lambda x: inspect.isclass(x) and 'DAO' in x.__name__)
-
-    daos = defaultdict(GenericDAO)
-    for _, instance in clsmembers:
-        try:
-            daos[instance.TYPE] = instance
-        except AttributeError:
-            continue
-
-    return Repository(daos)
+def repository_impl_from_string(impl):
+    if impl == HDF5:
+        return HDF5Repository()
+    else:
+        raise ValueError('Unrecognized repository implementation')
 
 
-repository = create_repository()
+def create_sidechain_repository(impl=config.DATA_FORMAT):
+    return SidechainRepository(repository_impl_from_string(impl))
+
+
+# class SaveRequest:
+#     def __init__(self, data, data_type, peptide_length=None, job_num=None):
+#         self.data = data
+#         self.data_type = data_type
+#         self.peptide_length = peptide_length
+#         self.job_num = job_num
+
+#     @classmethod
+#     def create_request(cls, data, meta_data):
+#         return cls(data, meta_data.data_type, meta_data.peptide_length, meta_data.job_num)
+
+
+# class LoadRequest:
+
+#     def __init__(self, data_type, peptide_length=None, data_chunk=WholeRange()):
+#         self.data_type = data_type
+#         self.peptide_length = peptide_length
+#         self.data_chunk = data_chunk
+#         self.next_request = None
+
+#     def add_request(self, request):
+#         if self.next_request is None:
+#             self.next_request = request
+#         else:
+#             self.next_request.add_request(request)
+
+#     def get_next_request(self, result):
+#         try:
+#             self.next_request.update_data_chunk(result)
+#         except AttributeError:
+#             pass
+
+#         return self.next_request
+
+#     def update_data_chunk(self, data_chunk):
+#         self.data_chunk = data_chunk
+
+#     def format_result(self, func):
+#         self.result = func(self.result)
+
+# def create_repository():
+#     import sys
+#     import inspect
+#     from collections import defaultdict
+
+#     clsmembers = inspect.getmembers(sys.modules[__name__], lambda x: inspect.isclass(x) and 'DAO' in x.__name__)
+
+#     daos = defaultdict(GenericDAO)
+#     for _, instance in clsmembers:
+#         try:
+#             daos[instance.TYPE] = instance
+#         except AttributeError:
+#             continue
+
+#     return Repository(daos)
+
+
+# repository = create_repository()
