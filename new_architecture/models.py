@@ -130,7 +130,9 @@ class TemplatePeptide(AbstractMolecule):
     @classmethod
     def from_mol(cls, mol, template, peptide):
         Chem.Kekulize(mol)
-        return TemplatePeptide(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide._id)
+        peptide = peptide.__dict__
+        peptide.pop('binary')
+        return TemplatePeptide(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide)
 
     @classmethod
     def from_dict(cls, data, _id=None):

@@ -63,13 +63,15 @@ def peptide_from_mol():
 def peptide_from_dict():
     return models.Peptide.from_dict(TEST_PEPTIDE_1, _id='aefoi249')
 
-# @pytest.fixture()
-# def template_peptide_from_mol():
-#     return models.TemplatePeptide.from_mol(Chem.MolFromSmiles('NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1'), False, [models.Monomer.from_dict(TEST_MONOMER_1, _id='qr398fhiusd'), models.Monomer.from_dict(TEST_MONOMER_2, _id='acjiafuy892'), models.Monomer.from_dict(TEST_MONOMER_3, _id='afsidvjoasd')])
 
-# @pytest.fixture()
-# def template_peptide_from_dict():
-#     return models.TemplatePeptide.from_dict(TEST_PEPTIDE_1, _id='aefoi249')
+@pytest.fixture()
+def template_peptide_from_mol():
+    return models.TemplatePeptide.from_mol(Chem.MolFromSmiles('C/C=C/C1=CC=CC(CCC(=O)NC(CCC2=C3C=COC3=CS2)C(=O)NC(CCC2=CC=CC3=COC=C23)C(=O)NC(CCC2=CC=C(O)C=C2)C(=O)N2[C@H](C(=O)NC(C(=O)O)C(C)C)C[C@H]3C[C@H]32)=C1'), models.Template.from_dict(TEST_TEMPLATE_1, _id='temp1'), models.Peptide.from_dict(TEST_PEPTIDE_1, _id='aefoi249'))
+
+
+@pytest.fixture()
+def template_peptide_from_dict():
+    return models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='afji923')
 
 
 def test_backbone_from_mol(backbone_from_mol):
@@ -176,6 +178,8 @@ def test_peptide_from_mol(peptide_from_mol):
     for monomer in peptide_from_mol.monomers:
         assert(monomer['_id'] != None)
         assert(monomer['is_proline'] != None)
+        with pytest.raises(KeyError):
+            monomer['binary']
 
 
 def test_peptide_from_dict(peptide_from_dict):
@@ -194,10 +198,31 @@ def test_peptide_to_dict(peptide_from_dict):
     assert(peptide_from_dict.to_dict() == TEST_PEPTIDE_1)
 
 
-# def test_template_peptide_from_mol(template_peptide_from_mol):
-#     assert(template_peptide_from_mol._id == None)
-#     assert(template_peptide_from_mol.binary != None)
-#     assert(template_peptide_from_mol.kekule ==
-#            'C/C=C/C1=CC=CC(CCC(=O)NC(CCC2=CC3=C(O2)SC=C3)CC(=O)NC(CC2=CSC3=CC=CN23)C(=O)NC(CO)C(=O)N2C[C@@H]3C[C@@H]3[C@H]2C(=O)NCC(CC2=C[NH]C3=CC=CN23)C(=O)O)=C1')
-#     assert(template_peptide_from_mol.template == 'temp1')
-#     assert(template_peptide_from_mol.peptide == '')
+def test_template_peptide_from_mol(template_peptide_from_mol):
+    assert(template_peptide_from_mol._id == None)
+    assert(template_peptide_from_mol.binary != None)
+    assert(template_peptide_from_mol.kekule ==
+           'C/C=C/C1=CC=CC(CCC(=O)NC(CCC2=C3C=COC3=CS2)C(=O)NC(CCC2=CC=CC3=COC=C23)C(=O)NC(CCC2=CC=C(O)C=C2)C(=O)N2[C@H](C(=O)NC(C(=O)O)C(C)C)C[C@H]3C[C@H]32)=C1')
+    assert(template_peptide_from_mol.template == 'temp1')
+    assert(template_peptide_from_mol.peptide['_id'] == 'aefoi249')
+    assert(template_peptide_from_mol.peptide['has_cap'] == False)
+    assert(len(template_peptide_from_mol.peptide['monomers']) == 3)
+    with pytest.raises(KeyError):
+        template_peptide_from_mol.peptide['binary']
+
+
+def test_template_peptide_from_dict(template_peptide_from_dict):
+    assert(template_peptide_from_dict._id == 'afji923')
+    assert(template_peptide_from_dict.binary != None)
+    assert(template_peptide_from_dict.kekule ==
+           'C/C=C/C1=CC=CC(CCC(=O)NC(CCC2=C3C=COC3=CS2)C(=O)NC(CCC2=CC=CC3=COC=C23)C(=O)NC(CCC2=CC=C(O)C=C2)C(=O)N2[C@H](C(=O)NC(C(=O)O)C(C)C)C[C@H]3C[C@H]32)=C1')
+    assert(template_peptide_from_dict.template == 'temp1')
+    assert(template_peptide_from_dict.peptide['_id'] == 'aefoi249')
+    assert(template_peptide_from_dict.peptide['has_cap'] == False)
+    assert(len(template_peptide_from_dict.peptide['monomers']) == 3)
+    with pytest.raises(KeyError):
+        template_peptide_from_dict.peptide['binary']
+
+
+def test_template_peptide_to_dict(template_peptide_from_dict):
+    assert(template_peptide_from_dict.to_dict() == TEST_TEMPLATE_PEPTIDE_1)
