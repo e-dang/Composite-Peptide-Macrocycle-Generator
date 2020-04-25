@@ -102,3 +102,7 @@ def test_peptide_from_dict(peptide_from_dict):
     for monomer in peptide_from_dict.monomers:
         assert(monomer['_id'] != None)
         assert(monomer['is_proline'] != None)
+
+
+def test_peptide_to_dict(peptide_from_dict):
+    assert(peptide_from_dict.to_dict() == TEST_PEPTIDE_1)
