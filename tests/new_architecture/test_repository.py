@@ -36,3 +36,14 @@ def test_sidechain_repository_fail(repository_patch):
     sc_repo = repo.create_sidechain_repository(repository_patch)
     with pytest.raises(TypeError):
         _ids = sc_repo.save(['dne'])
+
+
+def test_monomer_repository(repository_patch):
+    monomer_repo = repo.create_monomer_repository(repository_patch)
+    _ids = monomer_repo.save(list(map(models.Monomer.from_dict, [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3])))
+    data = monomer_repo.load(_ids)
+    data = list(map(lambda x: x.to_dict(), data))
+    assert(len(data) == 3)
+    assert(TEST_MONOMER_1 in data)
+    assert(TEST_MONOMER_2 in data)
+    assert(TEST_MONOMER_3 in data)

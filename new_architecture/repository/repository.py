@@ -109,12 +109,12 @@ class SidechainRepository(AbstractRepository):
         super().__init__(impl)
 
 
-# class MonomerRepository(AbstractRepository):
-#     TYPE = models.Monomer
-#     CATEGORY = 'monomers'
+class MonomerRepository(AbstractRepository):
+    TYPE = models.Monomer
+    CATEGORY = 'monomers'
 
-#     def __init__(self, impl):
-#         super().__init__(impl)
+    def __init__(self, impl):
+        super().__init__(impl)
 
 
 def repository_impl_from_string(impl):
@@ -124,8 +124,18 @@ def repository_impl_from_string(impl):
         raise ValueError('Unrecognized repository implementation')
 
 
-def create_sidechain_repository(impl=config.DATA_FORMAT):
-    return SidechainRepository(repository_impl_from_string(impl))
+def get_repository(repository):
+    def repository_closure(impl=config.DATA_FORMAT):
+        return repository(repository_impl_from_string(impl))
+
+    return repository_closure
+
+
+create_sidechain_repository = get_repository(SidechainRepository)
+create_monomer_repository = get_repository(MonomerRepository)
+
+# def create_sidechain_repository(impl=config.DATA_FORMAT):
+#     return SidechainRepository(repository_impl_from_string(impl))
 
 
 # class SaveRequest:
