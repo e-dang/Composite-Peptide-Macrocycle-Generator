@@ -1,0 +1,10 @@
+[
+    {
+        "kekule": "CC(C)C(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NC(CC(=O)O)CN1C=C2C=CC=CC2=C1",
+        "backbone": "NCCC(=O)O"
+    }
+]
