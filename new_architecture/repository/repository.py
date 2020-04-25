@@ -95,7 +95,6 @@ class AbstractRepository:
 
     def save(self, data):
         if not isinstance(random.choice(data), self.TYPE):
-            print(self.TYPE, random.choice(data))
             raise TypeError('Error! Repository - type mismatch')
 
         return self.impl.save(self.CATEGORY, map(lambda x: x.to_dict(), data))
@@ -149,6 +148,14 @@ class PeptideRepository(AbstractRepository):
         super().__init__(impl)
 
 
+class TemplatePeptideRepository(AbstractRepository):
+    TYPE = models.TemplatePeptide
+    CATEGORY = 'template_peptides'
+
+    def __init__(self, impl):
+        super().__init__(impl)
+
+
 def repository_impl_from_string(impl):
     if impl == HDF5:
         return HDF5Repository()
@@ -169,6 +176,7 @@ create_template_repository = get_repository(TemplateRepository)
 create_sidechain_repository = get_repository(SidechainRepository)
 create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
+create_template_peptide_repository = get_repository(TemplatePeptideRepository)
 
 # def create_sidechain_repository(impl=config.DATA_FORMAT):
 #     return SidechainRepository(repository_impl_from_string(impl))

@@ -117,3 +117,18 @@ def test_peptide_repository_fail(repository_patch):
     peptide_repo = repo.create_peptide_repository(repository_patch)
     with pytest.raises(TypeError):
         _ids = peptide_repo.save(['dne'])
+
+
+def test_template_peptide_repository(repository_patch):
+    template_peptide_repo = repo.create_template_peptide_repository(repository_patch)
+    _ids = template_peptide_repo.save(list(map(models.TemplatePeptide.from_dict, [TEST_TEMPLATE_PEPTIDE_1])))
+    data = template_peptide_repo.load(_ids)
+    data = list(map(lambda x: x.to_dict(), data))
+    assert(len(data) == 1)
+    assert(TEST_TEMPLATE_PEPTIDE_1 == data[0])
+
+
+def test_template_peptide_repository_fail(repository_patch):
+    template_peptide_repo = repo.create_template_peptide_repository(repository_patch)
+    with pytest.raises(TypeError):
+        _ids = template_peptide_repo.save(['dne'])
