@@ -101,7 +101,7 @@ class AbstractRepository:
 
 
 class BackboneRepository(AbstractRepository):
-    TYPE = models.Connection
+    TYPE = models.Backbone
     CATEGORY = 'backbone'
 
     def __init__(self, impl):
