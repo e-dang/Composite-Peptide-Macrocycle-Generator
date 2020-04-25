@@ -20,6 +20,20 @@ class AbstractMolecule:
         return data
 
 
+class Backbone(AbstractMolecule):
+    def __init__(self, binary, kekule, _id=None):
+        super().__init__(binary, kekule, _id)
+
+    @classmethod
+    def from_mol(cls, mol):
+        Chem.Kekulize(mol)
+        return Connection(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True))
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return Connection(data['binary'], data['kekule'], _id=_id)
+
+
 class Connection(AbstractMolecule):
     def __init__(self, binary, kekule, _id=None):
         super().__init__(binary, kekule, _id)

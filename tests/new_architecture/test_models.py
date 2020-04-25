@@ -5,6 +5,16 @@ from tests.new_architecture.data.mols import *
 
 
 @pytest.fixture()
+def backbone_from_mol():
+    return models.Backbone.from_mol(Chem.MolFromSmiles('N[CH2:1]C(=O)O'))
+
+
+@pytest.fixture()
+def backbone_from_dict():
+    return models.Backbone.from_dict(TEST_BACKBONE_1, _id='alpha')
+
+
+@pytest.fixture()
 def connection_from_mol():
     return models.Connection.from_mol(Chem.MolFromSmiles('CC'))
 
@@ -60,6 +70,22 @@ def peptide_from_dict():
 # @pytest.fixture()
 # def template_peptide_from_dict():
 #     return models.TemplatePeptide.from_dict(TEST_PEPTIDE_1, _id='aefoi249')
+
+
+def test_backbone_from_mol(backbone_from_mol):
+    assert(backbone_from_mol._id == None)
+    assert(backbone_from_mol.binary != None)
+    assert(backbone_from_mol.kekule == 'N[CH2:1]C(=O)O')
+
+
+def test_backbone_from_dict(backbone_from_dict):
+    assert(backbone_from_dict._id == 'alpha')
+    assert(backbone_from_dict.binary != None)
+    assert(backbone_from_dict.kekule == 'N[CH2:1]C(=O)O')
+
+
+def test_backbone_to_dict(backbone_from_dict):
+    assert(backbone_from_dict.to_dict() == TEST_BACKBONE_1)
 
 
 def test_connection_from_mol(connection_from_mol):
