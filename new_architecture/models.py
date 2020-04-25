@@ -20,6 +20,20 @@ class AbstractMolecule:
         return data
 
 
+class Template(AbstractMolecule):
+    def __init__(self, binary, kekule, _id=None):
+        super().__init__(binary, kekule, _id)
+
+    @classmethod
+    def from_mol(cls, mol):
+        Chem.Kekulize(mol)
+        return Template(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True))
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return Template(data['binary'], data['kekule'], _id=_id)
+
+
 class Sidechain(AbstractMolecule):
     def __init__(self, binary, kekule, connection, shared_id, _id=None):
         super().__init__(binary, kekule, _id)
@@ -77,3 +91,19 @@ class Peptide(AbstractMolecule):
     @classmethod
     def from_dict(cls, data, _id=None):
         return Peptide(data['binary'], data['kekule'], data['has_cap'], data['monomers'], _id=_id)
+
+
+class TemplatePeptide(AbstractMolecule):
+    def __init__(self, binary, kekule, template, peptide, _id=None):
+        super().__init__(binary, kekule, _id)
+        self.template = template
+        self.peptide = peptide
+
+    @classmethod
+    def from_mol(cls, mol, template, peptide):
+        Chem.Kekulize(mol)
+        return TemplatePeptide(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide._id)
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return TemplatePeptide(data['binary'], data['kekule'], data['template'], data['peptide'], _id=_id)
