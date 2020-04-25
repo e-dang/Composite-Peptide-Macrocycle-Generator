@@ -1,15 +1,10 @@
 import pickle
-import h5py
-import numpy as np
 import uuid
+
+import h5py
+
 import macrocycles.config as config
-
-
-def get_maximum(data, func):
-    try:
-        return np.max(list(map(func, data)))
-    except ValueError:
-        return None
+import new_architecture.utils as utils
 
 
 def serialize(data):
@@ -26,13 +21,6 @@ def serialize_chunk(data):
 
 def deserialize_chunk(data):
     return [deserialize(doc) for doc in data]
-
-
-def to_list(data):
-    if isinstance(data, dict):
-        return [data]
-
-    return data
 
 
 class HDF5File(h5py.File):
@@ -68,8 +56,8 @@ class HDF5Repository:
             return self._load_range(group, key)
 
     def save(self, group, data):
-        serialized_data = serialize_chunk(to_list(data))
-        max_bin_len = get_maximum(serialized_data, len)
+        serialized_data = serialize_chunk(utils.to_list(data))
+        max_bin_len = utils.get_maximum(serialized_data, len)
 
         _ids = []
         with HDF5File() as file:
@@ -82,7 +70,7 @@ class HDF5Repository:
         return _ids
 
     def _create_dataset(self, group, rows, dlen):
-        max_idx = get_maximum(group, int)
+        max_idx = utils.get_maximum(group, int)
         max_idx = -1 if max_idx is None else max_idx
         return group.create_dataset(str(max_idx + 1), (rows,), dtype='S' + dlen, compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
 

@@ -1,7 +1,7 @@
 import math
 from collections import deque
 import new_architecture.models as models
-from new_architecture.repository.hdf5 import HDF5Repository, to_list
+from new_architecture.repository.hdf5 import HDF5Repository
 import macrocycles.config as config
 import random
 

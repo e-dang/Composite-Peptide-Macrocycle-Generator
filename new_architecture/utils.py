@@ -1,4 +1,18 @@
-from rdkit import Chem
+import numpy as np
+
+
+def get_maximum(data, func):
+    try:
+        return np.max(list(map(func, data)))
+    except ValueError:
+        return None
+
+
+def to_list(data):
+    if isinstance(data, dict):
+        return [data]
+
+    return data
 
 
 def has_atom_map_nums(mol):
