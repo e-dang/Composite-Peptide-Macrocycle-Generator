@@ -21,6 +21,21 @@ def test_repository_impl_from_string_fail():
         repo.repository_impl_from_string('dne')
 
 
+def test_connection_repository(repository_patch):
+    connection_repo = repo.create_connection_repository(repository_patch)
+    _ids = connection_repo.save(list(map(models.Connection.from_dict, [TEST_CONNECTION_1])))
+    data = connection_repo.load(_ids)
+    data = list(map(lambda x: x.to_dict(), data))
+    assert(len(data) == 1)
+    assert(TEST_CONNECTION_1 in data)
+
+
+def test_connection_repository_fail(repository_patch):
+    connection_repo = repo.create_connection_repository(repository_patch)
+    with pytest.raises(TypeError):
+        _ids = connection_repo.save(['dne'])
+
+
 def test_template_repository(repository_patch):
     template_repo = repo.create_template_repository(repository_patch)
     _ids = template_repo.save(list(map(models.Template.from_dict, [TEST_TEMPLATE_1, TEST_TEMPLATE_2, TEST_TEMPLATE_3])))
@@ -30,6 +45,12 @@ def test_template_repository(repository_patch):
     assert(TEST_TEMPLATE_1 in data)
     assert(TEST_TEMPLATE_2 in data)
     assert(TEST_TEMPLATE_3 in data)
+
+
+def test_template_repository_fail(repository_patch):
+    template_repo = repo.create_template_repository(repository_patch)
+    with pytest.raises(TypeError):
+        _ids = template_repo.save(['dne'])
 
 
 def test_sidechain_repository(repository_patch):
