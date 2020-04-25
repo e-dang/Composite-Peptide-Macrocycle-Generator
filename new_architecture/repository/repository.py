@@ -89,7 +89,7 @@ class AbstractRepository:
     def __init__(self, impl):
         self.impl = impl
 
-    def load(self, key):
+    def load(self, key=WholeRange()):
         for _id, data in self.impl.load(self.CATEGORY, key):
             yield self.TYPE.from_dict(data, _id=_id)
 

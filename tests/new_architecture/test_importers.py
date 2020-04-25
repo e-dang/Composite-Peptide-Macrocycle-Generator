@@ -21,6 +21,16 @@ def json_importer(import_path_patch):
     yield importers.JsonImporter()
 
 
+@pytest.fixture
+def independent_importers(json_importer, repository_patch):
+    connection_importer = importers.ConnectionImporter(json_importer)
+    backbone_importer = importers.BackboneImporter(json_importer)
+    template_importer = importers.TemplateImporter(json_importer)
+    connection_importer.import_data()
+    backbone_importer.import_data()
+    template_importer.import_data()
+
+
 def test_json_importer_assemble_filepaths(json_importer):
     filepaths = json_importer._assemble_filepaths('test_type')
 
@@ -82,4 +92,25 @@ def test_template_importer(json_importer, repository_patch):
     for mol in data:
         assert(mol._id != None)
         assert(mol.kekule in kekules)
+        kekules.remove(mol.kekule)
+
+
+def test_sidechain_importer(json_importer, independent_importers):
+    sidechain_importer = importers.SidechainImporter(json_importer)
+    ids = sidechain_importer.import_data()
+
+    sidechain_repo = repo.create_sidechain_repository()
+    connection_repo = repo.create_connection_repository()
+    sidechain_data = list(sidechain_repo.load(ids))
+    sidechain_docs = json_importer.load(sidechain_importer.saver.CATEGORY)
+    connection_data = list(connection_repo.load())
+    kekules = [doc['kekule'] for doc in sidechain_docs]
+    connection_ids = [mol._id for mol in connection_data]
+
+    assert(len(sidechain_data) == 2)
+    for mol in sidechain_data:
+        assert(mol._id != None)
+        assert(mol.shared_id != None)
+        assert(mol.kekule in kekules)
+        assert(mol.connection in connection_ids)
         kekules.remove(mol.kekule)

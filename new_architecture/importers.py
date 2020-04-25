@@ -5,6 +5,7 @@ import os
 import json
 import glob
 from rdkit import Chem
+import uuid
 
 
 class JsonImporter:
@@ -70,11 +71,13 @@ class SidechainImporter:
 
     def import_data(self):
         data = []
-        for sidechain in self.loader.load():
+        for sidechain in self.loader.load(self.saver.CATEGORY):
             sidechain = self._match_connection(sidechain)
+            sidechain['binary'] = Chem.MolFromSmiles(sidechain['kekule']).ToBinary()
+            sidechain['shared_id'] = str(uuid.uuid4())
             data.append(models.Sidechain.from_dict(sidechain))
 
-        self.saver.save(data)
+        return self.saver.save(data)
 
     def _hash_connections(self, connections):
         connection_dict = {}
