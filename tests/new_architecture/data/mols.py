@@ -2,11 +2,11 @@ from rdkit import Chem
 from copy import deepcopy
 
 TEST_BACKBONE_1 = {'binary': Chem.MolFromSmiles('N[CH2:1]C(=O)O').ToBinary(
-), 'kekule': 'N[CH2:1]C(=O)O'}
+), 'kekule': 'NCC(=O)O', 'mapped_kekule': 'N[CH2:1]C(=O)O'}
 TEST_BACKBONE_2 = {'binary': Chem.MolFromSmiles('N[CH2:1]CC(=O)O').ToBinary(
-), 'kekule': 'N[CH2:1]CC(=O)O'}
+), 'kekule': 'NCCC(=O)O', 'mapped_kekule': 'N[CH2:1]CC(=O)O'}
 TEST_BACKBONE_3 = {'binary': Chem.MolFromSmiles('NC[CH2:1]C(=O)O').ToBinary(
-), 'kekule': 'NC[CH2:1]C(=O)O'}
+), 'kekule': 'NCCC(=O)O', 'mapped_kekule': 'NC[CH2:1]C(=O)O'}
 
 TEST_CONNECTION_1 = {'binary': Chem.MolFromSmiles('CC').ToBinary(), 'kekule': 'CC'}
 

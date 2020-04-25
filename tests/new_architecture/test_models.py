@@ -74,16 +74,22 @@ def template_peptide_from_dict():
     return models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='afji923')
 
 
+# @pytest.fixture()
+# def macrocycle_from_mol():
+    # return models.Macrocycle.from_mol(Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O'), 'm', models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='afji923'), mode)
+
 def test_backbone_from_mol(backbone_from_mol):
     assert(backbone_from_mol._id == None)
     assert(backbone_from_mol.binary != None)
-    assert(backbone_from_mol.kekule == 'N[CH2:1]C(=O)O')
+    assert(backbone_from_mol.kekule == 'NCC(=O)O')
+    assert(backbone_from_mol.mapped_kekule == 'N[CH2:1]C(=O)O')
 
 
 def test_backbone_from_dict(backbone_from_dict):
     assert(backbone_from_dict._id == 'alpha')
     assert(backbone_from_dict.binary != None)
-    assert(backbone_from_dict.kekule == 'N[CH2:1]C(=O)O')
+    assert(backbone_from_dict.kekule == 'NCC(=O)O')
+    assert(backbone_from_dict.mapped_kekule == 'N[CH2:1]C(=O)O')
 
 
 def test_backbone_to_dict(backbone_from_dict):
@@ -226,3 +232,29 @@ def test_template_peptide_from_dict(template_peptide_from_dict):
 
 def test_template_peptide_to_dict(template_peptide_from_dict):
     assert(template_peptide_from_dict.to_dict() == TEST_TEMPLATE_PEPTIDE_1)
+
+
+# def test_macrocycle_from_mol(macrocycle_from_mol):
+#     assert(macrocycle_from_mol._id == None)
+#     assert(macrocycle_from_mol.binary != None)
+#     assert(macrocycle_from_mol.kekule ==
+#            'C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O')
+#     assert(macrocycle_from_mol.template == 'temp1')
+#     assert(macrocycle_from_mol.template_peptide == '')
+
+
+# def test_macrocycle_from_dict(macrocycle_from_dict):
+#     assert(macrocycle_from_dict._id == 'afji923')
+#     assert(macrocycle_from_dict.binary != None)
+#     assert(macrocycle_from_dict.kekule ==
+#            'C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O')
+#     assert(macrocycle_from_dict.template == 'temp1')
+#     assert(macrocycle_from_dict.peptide['_id'] == 'aefoi249')
+#     assert(macrocycle_from_dict.peptide['has_cap'] == False)
+#     assert(len(macrocycle_from_dict.peptide['monomers']) == 3)
+#     with pytest.raises(KeyError):
+#         macrocycle_from_dict.peptide['binary']
+
+
+# def test_macrocycle_to_dict(macrocycle_from_dict):
+#     assert(macrocycle_from_dict.to_dict() == TEST_MACROCYCLE_1)
