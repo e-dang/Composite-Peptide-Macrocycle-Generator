@@ -1,0 +1,11 @@
+[
+    {
+        "kekule": "CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1"
+    },
+    {
+        "kekule": "CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1"
+    },
+    {
+        "kekule": "C#CCCC[C@@](C=O)(CC(=O)ON1C(=O)CCC1=O)CC1=CC(/C=C/COC(=O)OC(C)(C)C)=CC=C1"
+    }
+]
