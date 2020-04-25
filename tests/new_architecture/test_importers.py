@@ -1,10 +1,12 @@
 import os
 
 import pytest
+from rdkit.Chem import AllChem
 
 import macrocycles.config as config
 import new_architecture.importers as importers
 import new_architecture.repository.repository as repo
+from new_architecture.models import PROLINE_N_TERM
 from tests.new_architecture.test_hdf5 import filepath, initialize_repo
 from tests.new_architecture.test_repository import repository_patch
 
@@ -114,3 +116,28 @@ def test_sidechain_importer(json_importer, independent_importers):
         assert(mol.kekule in kekules)
         assert(mol.connection in connection_ids)
         kekules.remove(mol.kekule)
+
+
+def test_monomer_importer(json_importer, independent_importers):
+    monomer_importer = importers.MonomerImporter(json_importer)
+    ids = monomer_importer.import_data()
+
+    monomer_repo = repo.create_monomer_repository()
+    backbone_repo = repo.create_backbone_repository()
+    monomer_data = list(monomer_repo.load(ids))
+    monomer_docs = json_importer.load(monomer_importer.saver.CATEGORY)
+    backbone_data = list(backbone_repo.load())
+    kekules = [doc['kekule'] for doc in monomer_docs]
+    backbone_ids = [mol._id for mol in backbone_data]
+
+    assert(len(monomer_data) == 2)
+    for mol in monomer_data:
+        rdkit_mol = mol.mol
+        assert(mol._id != None)
+        assert(mol.required == bool(AllChem.CalcNumAromaticRings(rdkit_mol)))
+        assert(mol.backbone in backbone_ids)
+        assert(mol.sidechain is None)
+        assert(mol.connection is None)
+        assert(mol.is_proline == bool(AllChem.CalcNumAliphaticRings(
+            rdkit_mol) and rdkit_mol.HasSubstructMatch(PROLINE_N_TERM)))
+        assert(mol.imported == True)

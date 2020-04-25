@@ -6,6 +6,7 @@ import json
 import glob
 from rdkit import Chem
 import uuid
+from collections import namedtuple
 
 
 class JsonImporter:
@@ -40,8 +41,14 @@ class BackboneImporter:
         self.saver = repo.create_backbone_repository()
 
     def import_data(self):
-        data = [models.Backbone.from_mol(Chem.MolFromSmiles(backbone['kekule']))
-                for backbone in self.loader.load(self.saver.CATEGORY)]
+        # data = [models.Backbone.from_mol(Chem.MolFromSmiles(backbone['kekule']))
+        #         for backbone in self.loader.load(self.saver.CATEGORY)]
+
+        data = []
+        for backbone in self.loader.load(self.saver.CATEGORY):
+            backbone['binary'] = Chem.MolFromSmiles(backbone['mapped_kekule']).ToBinary()
+            data.append(models.Backbone.from_dict(backbone))
+
         return self.saver.save(data)
 
 
@@ -101,13 +108,39 @@ class SidechainImporter:
             return sidechain
 
 
-# class MonomerImporter:
+class MonomerImporter:
 
-#     def __init__(self, loader):
-#         self.loader = loader
-#         self.saver = repo.create_monomer_repository()
+    def __init__(self, loader):
+        self.loader = loader
+        self.saver = repo.create_monomer_repository()
+        self.backbones = self._hash_backbones(repo.create_backbone_repository().load())
+        self._validate_backbones()
 
-#     def import_data(self):
-#         data = []
-#         for monomer in self.loader.load():
-#             monomer = self.
+    def import_data(self):
+        mock_sidechain = namedtuple('sidechain', 'shared_id connection')
+
+        data = []
+        for monomer in self.loader.load(self.saver.CATEGORY):
+            data.append(models.Monomer.from_mol(Chem.MolFromSmiles(
+                monomer['kekule']), self._match_backbone(monomer['backbone']), mock_sidechain(None, None), True))
+
+        return self.saver.save(data)
+
+    def _hash_backbones(self, backbones):
+        backbone_dict = {}
+        for backbone in backbones:
+            backbone_dict[backbone.kekule] = backbone
+
+        return backbone_dict
+
+    def _validate_backbones(self):
+        if len(self.backbones) == 0:
+            raise RuntimeError(
+                'No backbone molecules were found in the repository! Backbones must be imported before '
+                'monomers can be imported.')
+
+    def _match_backbone(self, backbone):
+        try:
+            return self.backbones[backbone]
+        except KeyError:
+            raise KeyError(f'Unrecognized backbone specified in imported monomers: {backbone}')

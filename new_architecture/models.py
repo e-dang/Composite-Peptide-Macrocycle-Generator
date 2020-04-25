@@ -106,12 +106,12 @@ class Monomer(AbstractMolecule):
         self.imported = imported
 
     @classmethod
-    def from_mol(cls, mol, backbone, sidechain):
+    def from_mol(cls, mol, backbone, sidechain, imported=False):
         Chem.Kekulize(mol)
         required = bool(AllChem.CalcNumAromaticRings(mol))
-        is_proline = AllChem.CalcNumAliphaticRings(mol) and mol.HasSubstructMatch(PROLINE_N_TERM)
+        is_proline = bool(AllChem.CalcNumAliphaticRings(mol) and mol.HasSubstructMatch(PROLINE_N_TERM))
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), required, backbone._id,
-                   sidechain.shared_id, sidechain.connection, is_proline, False)
+                   sidechain.shared_id, sidechain.connection, is_proline, imported)
 
     @classmethod
     def from_dict(cls, data, _id=None):
