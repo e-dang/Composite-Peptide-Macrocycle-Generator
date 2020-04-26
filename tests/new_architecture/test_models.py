@@ -148,6 +148,12 @@ def test_sidechain_to_dict(sidechain_from_dict):
     assert(sidechain_from_dict.to_dict() == TEST_SIDECHAIN_3)
 
 
+def test_sidechain_eq(sidechain_from_dict):
+    assert(sidechain_from_dict == models.Sidechain.from_dict(TEST_SIDECHAIN_3, _id='shouldnt matter'))
+    assert(sidechain_from_dict != models.Sidechain.from_mol(Chem.MolFromSmiles('C'),
+                                                            models.Connection.from_dict(TEST_CONNECTION_1, _id='methyl'), shared_id='1'))
+
+
 def test_monomer_from_mol(monomer_from_mol):
     assert(monomer_from_mol._id == None)
     assert(monomer_from_mol.binary != None)
