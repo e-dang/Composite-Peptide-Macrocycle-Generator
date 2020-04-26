@@ -9,6 +9,7 @@ import new_architecture.repository.repository as repo
 from new_architecture.models import PROLINE_N_TERM
 from tests.new_architecture.test_hdf5 import filepath, initialize_repo
 from tests.new_architecture.test_repository import repository_patch
+import macrocycles.exceptions as exceptions
 
 
 @pytest.fixture
@@ -65,7 +66,7 @@ def test_connection_importer(json_importer, repository_patch):
         kekules.remove(mol.kekule)
 
 
-def test_bacbone_importer(json_importer, repository_patch):
+def test_backbone_importer(json_importer, repository_patch):
     backbone_importer = importers.BackboneImporter(json_importer)
     ids = backbone_importer.import_data()
 
@@ -79,6 +80,13 @@ def test_bacbone_importer(json_importer, repository_patch):
         assert(mol._id != None)
         assert(mol.kekule in kekules)
         kekules.remove(mol.kekule)
+
+
+def test_backbone_importer_fail(monkeypatch, json_importer, repository_patch):
+    monkeypatch.setattr(importers.repo.BackboneRepository, 'CATEGORY', 'invalid_backbones')
+    backbone_importer = importers.BackboneImporter(json_importer)
+    with pytest.raises(exceptions.InvalidMolecule):
+        ids = backbone_importer.import_data()
 
 
 def test_template_importer(json_importer, repository_patch):

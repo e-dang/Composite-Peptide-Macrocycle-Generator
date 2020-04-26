@@ -9,6 +9,7 @@ from rdkit import Chem
 import macrocycles.config as config
 import new_architecture.models as models
 import new_architecture.repository.repository as repo
+import new_architecture.validators as validators
 
 
 class JsonImporter:
@@ -45,7 +46,9 @@ class BackboneImporter:
     def import_data(self):
         data = []
         for backbone in self.loader.load(self.saver.CATEGORY):
-            backbone['binary'] = Chem.MolFromSmiles(backbone['mapped_kekule']).ToBinary()
+            backbone_mol = Chem.MolFromSmiles(backbone['mapped_kekule'])
+            validators.validate_backbone(backbone_mol)
+            backbone['binary'] = backbone_mol.ToBinary()
             data.append(models.Backbone.from_dict(backbone))
 
         return self.saver.save(data)
