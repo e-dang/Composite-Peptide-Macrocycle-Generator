@@ -2,6 +2,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from macrocycles.exceptions import InvalidMolecule
 import new_architecture.utils as utils
+import macrocycles.exceptions as exceptions
 
 NON_ATTACHMENT_METHYL = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')
@@ -38,9 +39,7 @@ class Backbone(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol):
-        if not utils.has_atom_map_nums(mol):
-            raise InvalidMolecule('Backbone molecule must contain atom map numbers specifying the attachment point!')
-
+        cls.validate(mol)
         Chem.Kekulize(mol)
         mapped_kekule = Chem.MolToSmiles(mol, kekuleSmiles=True)
         utils.clear_atom_map_nums(mol)
@@ -48,7 +47,20 @@ class Backbone(AbstractMolecule):
 
     @classmethod
     def from_dict(cls, data, _id=None):
+        cls.validate(Chem.MolFromSmiles(data['mapped_kekule']))
         return cls(data['binary'], data['kekule'], data['mapped_kekule'], _id=_id)
+
+    @staticmethod
+    def validate(mol):
+        try:
+            _, map_nums = zip(*utils.get_atom_map_nums(mol))
+            if not all(map(lambda x: x == 1, map_nums)):
+                raise ValueError
+        except ValueError:
+            raise exceptions.InvalidMolecule(
+                f'Backbone molecule is missing an atom map number or the atom map number is not equal to 1')
+
+        return True
 
 
 class Connection(AbstractMolecule):

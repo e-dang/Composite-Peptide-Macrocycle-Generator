@@ -2,6 +2,7 @@ import pytest
 import new_architecture.models as models
 from rdkit import Chem
 from tests.new_architecture.data.mols import *
+import macrocycles.exceptions as exceptions
 
 
 @pytest.fixture()
@@ -94,6 +95,17 @@ def test_backbone_from_dict(backbone_from_dict):
 
 def test_backbone_to_dict(backbone_from_dict):
     assert(backbone_from_dict.to_dict() == TEST_BACKBONE_1)
+
+
+@pytest.mark.parametrize('backbone', [(Chem.MolFromSmiles('N[CH2:1]C(=O)O')), (Chem.MolFromSmiles('N[CH2:1]CC(=O)O')), (Chem.MolFromSmiles('NC[CH2:1]C(=O)O'))])
+def test_backbone_validate(backbone):
+    assert(models.Backbone.validate(backbone))
+
+
+@pytest.mark.parametrize('backbone', [(Chem.MolFromSmiles('NCC(=O)O')), (Chem.MolFromSmiles('NCCC(=O)O'))])
+def test_validate_backbone_fail(backbone):
+    with pytest.raises(exceptions.InvalidMolecule):
+        models.Backbone.validate(backbone)
 
 
 def test_connection_from_mol(connection_from_mol):

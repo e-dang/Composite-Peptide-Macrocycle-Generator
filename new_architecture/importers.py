@@ -9,7 +9,6 @@ from rdkit import Chem
 import macrocycles.config as config
 import new_architecture.models as models
 import new_architecture.repository.repository as repo
-import new_architecture.validators as validators
 
 
 class JsonImporter:
@@ -46,9 +45,7 @@ class BackboneImporter:
     def import_data(self):
         data = []
         for backbone in self.loader.load(self.saver.CATEGORY):
-            backbone_mol = Chem.MolFromSmiles(backbone['mapped_kekule'])
-            validators.validate_backbone(backbone_mol)
-            backbone['binary'] = backbone_mol.ToBinary()
+            backbone['binary'] = Chem.MolFromSmiles(backbone['mapped_kekule']).ToBinary()
             data.append(models.Backbone.from_dict(backbone))
 
         return self.saver.save(data)
@@ -72,7 +69,7 @@ class SidechainImporter:
 
     def import_data(self):
         self._load_connections()
-        self._validate_connections()
+        self._check_connections()
 
         data = []
         for sidechain in self.loader.load(self.saver.CATEGORY):
@@ -88,7 +85,7 @@ class SidechainImporter:
         for connection in repo.create_connection_repository().load():
             self.connections[connection.kekule] = connection._id
 
-    def _validate_connections(self):
+    def _check_connections(self):
         if len(self.connections) == 0:
             raise RuntimeError(
                 'No connection molecules were found in the repository! Connections must be imported before sidechains '
@@ -111,7 +108,7 @@ class MonomerImporter:
 
     def import_data(self):
         self._load_backbones()
-        self._validate_backbones()
+        self._check_backbones()
         mock_sidechain = namedtuple('sidechain', 'shared_id connection')
 
         data = []
@@ -126,7 +123,7 @@ class MonomerImporter:
         for backbone in repo.create_backbone_repository().load():
             self.backbones[backbone.kekule] = backbone
 
-    def _validate_backbones(self):
+    def _check_backbones(self):
         if len(self.backbones) == 0:
             raise RuntimeError(
                 'No backbone molecules were found in the repository! Backbones must be imported before '
