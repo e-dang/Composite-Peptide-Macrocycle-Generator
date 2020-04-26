@@ -2,7 +2,6 @@ import os
 
 import pytest
 
-import new_architecture.importers as importers
 import new_architecture.repository.repository as repo
 from new_architecture.initializer import CPMGInitializer
 from tests.new_architecture.test_hdf5 import filepath
