@@ -11,5 +11,4 @@ class CPMGInitializer:
     def initialize(self):
         self.repo_initializer.initialize()
         for importer in self.importers:
-            print(importer.loader.search_dir)
             importer.import_data()
