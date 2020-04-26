@@ -151,6 +151,12 @@ def test_sidechain_from_mol(sidechain_from_mol):
     assert(sidechain_from_mol.kekule == 'CC1=CC(=O)C2=C([NH]1)SC=C2')
     assert(sidechain_from_mol.connection == 'ethyl')
     assert(sidechain_from_mol.shared_id == 'q')
+    assert(isinstance(sidechain_from_mol.attachment_point, int))
+
+    sidechain = sidechain_from_mol.mol
+    attachment_point = sidechain.GetAtomWithIdx(sidechain_from_mol.attachment_point)
+    assert(attachment_point.GetSymbol() == 'C')
+    assert(attachment_point.GetTotalNumHs() == 3)
 
 
 def test_sidechain_from_dict(sidechain_from_dict):
@@ -159,6 +165,12 @@ def test_sidechain_from_dict(sidechain_from_dict):
     assert(sidechain_from_dict.kekule == 'CC1=CC(=O)C2=C([NH]1)SC=C2')
     assert(sidechain_from_dict.connection == 'methyl')
     assert(sidechain_from_dict.shared_id == 'q')
+    assert(isinstance(sidechain_from_dict.attachment_point, int))
+
+    sidechain = sidechain_from_dict.mol
+    attachment_point = sidechain.GetAtomWithIdx(sidechain_from_dict.attachment_point)
+    assert(attachment_point.GetSymbol() == 'C')
+    assert(attachment_point.GetTotalNumHs() == 3)
 
 
 def test_sidechain_to_dict(sidechain_from_dict):
@@ -167,8 +179,7 @@ def test_sidechain_to_dict(sidechain_from_dict):
 
 def test_sidechain_eq(sidechain_from_dict):
     assert(sidechain_from_dict == models.Sidechain.from_dict(TEST_SIDECHAIN_3, _id='shouldnt matter'))
-    assert(sidechain_from_dict != models.Sidechain.from_mol(Chem.MolFromSmiles('C'),
-                                                            models.Connection.from_dict(TEST_CONNECTION_1, _id='methyl'), shared_id='1'))
+    assert(sidechain_from_dict != models.Sidechain.from_dict(TEST_SIDECHAIN_2, _id='shouldnt matter'))
 
 
 def test_monomer_from_mol(monomer_from_mol):

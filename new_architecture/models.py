@@ -3,8 +3,8 @@ from rdkit.Chem import AllChem
 from macrocycles.exceptions import InvalidMolecule
 import new_architecture.utils as utils
 import macrocycles.exceptions as exceptions
-
-NON_ATTACHMENT_METHYL = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
+from itertools import chain
+SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')
 
 
@@ -39,6 +39,7 @@ class Backbone(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol):
+        Chem.SanitizeMol(mol)
         cls.validate(mol)
         Chem.Kekulize(mol)
         mapped_kekule = Chem.MolToSmiles(mol, kekuleSmiles=True)
@@ -47,7 +48,7 @@ class Backbone(AbstractMolecule):
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        cls.validate(Chem.MolFromSmiles(data['mapped_kekule']))
+        cls.validate(Chem.Mol(data['binary']))
         return cls(data['binary'], data['kekule'], data['mapped_kekule'], _id=_id)
 
     @staticmethod
@@ -92,8 +93,9 @@ class Template(AbstractMolecule):
 
 
 class Sidechain(AbstractMolecule):
-    def __init__(self, binary, kekule, connection, shared_id, _id=None):
+    def __init__(self, binary, kekule, attachment_point, connection, shared_id, _id=None):
         super().__init__(binary, kekule, _id)
+        self.attachment_point = attachment_point
         self.connection = connection
         self.shared_id = shared_id
 
@@ -102,12 +104,28 @@ class Sidechain(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol, connection, shared_id):
+        Chem.SanitizeMol(mol)
         Chem.Kekulize(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), connection._id, shared_id)
+        attachment_point = cls.validate(mol)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), attachment_point, connection._id, shared_id)
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], data['connection'], data['shared_id'], _id=_id)
+        attachment_point = cls.validate(Chem.Mol(data['binary']))
+        return cls(data['binary'], data['kekule'], attachment_point, data['connection'], data['shared_id'], _id=_id)
+
+    @staticmethod
+    def validate(mol):
+        attachment_point = list(chain.from_iterable(mol.GetSubstructMatches(SC_ATTACHMENT_POINT)))
+        if len(attachment_point) != 1:
+            raise exceptions.InvalidMolecule(f'Sidechains must have exactly one attachment point')
+
+        return attachment_point[0]
+
+    def to_dict(self):
+        data = super().to_dict()
+        data.pop('attachment_point')
+        return data
 
 
 class Monomer(AbstractMolecule):
