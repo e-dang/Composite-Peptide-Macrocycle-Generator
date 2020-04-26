@@ -47,3 +47,11 @@ def test_clear_atom_map_nums(mol):
     utils.clear_atom_map_nums(mol)
     assert(Chem.MolToSmiles(mol) == 'CCC')
     assert(not utils.has_atom_map_nums(mol))
+
+
+@pytest.mark.parametrize('mol', [(Chem.MolFromSmiles('C[13CH2]C')), (Chem.MolFromSmiles('CCC'))])
+def test_clear_isotopes(mol):
+    utils.clear_isotopes(mol)
+    assert(Chem.MolToSmiles(mol) == 'CCC')
+    for atom in mol.GetAtoms():
+        assert(atom.GetIsotope() == 0)

@@ -26,3 +26,8 @@ def has_atom_map_nums(mol):
 def clear_atom_map_nums(mol):
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(0)
+
+
+def clear_isotopes(mol):
+    for atom in mol.GetAtoms():
+        atom.SetIsotope(0)
