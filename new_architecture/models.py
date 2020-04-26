@@ -37,6 +37,9 @@ class Backbone(AbstractMolecule):
         super().__init__(binary, kekule, _id)
         self.mapped_kekule = mapped_kekule
 
+    def __eq__(self, other):
+        return self.kekule == other.kekule and self.mapped_kekule == other.mapped_kekule
+
     @classmethod
     def from_mol(cls, mol):
         Chem.SanitizeMol(mol)

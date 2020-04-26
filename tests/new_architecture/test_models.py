@@ -113,6 +113,11 @@ def test_backbone_mol(backbone_from_dict):
     assert(models.Backbone.validate(backbone))
 
 
+def test_backbone_eq(backbone_from_dict):
+    assert(backbone_from_dict == models.Backbone.from_dict(TEST_BACKBONE_1, _id='shouldnt matter'))
+    assert(backbone_from_dict != models.Backbone.from_dict(TEST_BACKBONE_2, _id='shouldnt matter'))
+
+
 def test_connection_from_mol(connection_from_mol):
     assert(connection_from_mol._id == None)
     assert(connection_from_mol.binary != None)
