@@ -141,3 +141,14 @@ def test_monomer_importer(json_importer, independent_importers):
         assert(mol.is_proline == bool(AllChem.CalcNumAliphaticRings(
             rdkit_mol) and rdkit_mol.HasSubstructMatch(PROLINE_N_TERM)))
         assert(mol.imported == True)
+
+
+def test_create_importers(json_importer, repository_patch):
+    instances = importers.create_importers()
+    types = list(map(type, instances))
+    assert(len(instances) == 5)
+    assert(importers.ConnectionImporter in types)
+    assert(importers.BackboneImporter in types)
+    assert(importers.TemplateImporter in types)
+    assert(importers.SidechainImporter in types)
+    assert(importers.MonomerImporter in types)

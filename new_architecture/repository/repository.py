@@ -1,7 +1,7 @@
 import math
 from collections import deque
 import new_architecture.models as models
-from new_architecture.repository.hdf5 import HDF5Repository
+from new_architecture.repository.hdf5 import HDF5Repository, HDF5Initializer
 import macrocycles.config as config
 import random
 
@@ -82,6 +82,14 @@ class ContinuousDataChunk(Range):
         return end
 
 
+class RepositoryInitializer:
+    def __init__(self, impl):
+        self.impl = impl
+
+    def initialize(self):
+        self.impl.initialize()
+
+
 class AbstractRepository:
     TYPE = None
     CATEGORY = None
@@ -160,7 +168,14 @@ def repository_impl_from_string(impl):
     if impl == HDF5:
         return HDF5Repository()
     else:
-        raise ValueError('Unrecognized repository implementation')
+        raise ValueError('Unrecognized repository implementation!')
+
+
+def create_repository_initializer(impl=config.DATA_FORMAT):
+    if impl == HDF5:
+        return RepositoryInitializer(HDF5Initializer())
+    else:
+        raise ValueError('Unrecognized repository implementation!')
 
 
 def get_repository(repository):
@@ -177,10 +192,6 @@ create_sidechain_repository = get_repository(SidechainRepository)
 create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
 create_template_peptide_repository = get_repository(TemplatePeptideRepository)
-
-# def create_sidechain_repository(impl=config.DATA_FORMAT):
-#     return SidechainRepository(repository_impl_from_string(impl))
-
 
 # class SaveRequest:
 #     def __init__(self, data, data_type, peptide_length=None, job_num=None):
@@ -221,22 +232,3 @@ create_template_peptide_repository = get_repository(TemplatePeptideRepository)
 
 #     def format_result(self, func):
 #         self.result = func(self.result)
-
-# def create_repository():
-#     import sys
-#     import inspect
-#     from collections import defaultdict
-
-#     clsmembers = inspect.getmembers(sys.modules[__name__], lambda x: inspect.isclass(x) and 'DAO' in x.__name__)
-
-#     daos = defaultdict(GenericDAO)
-#     for _, instance in clsmembers:
-#         try:
-#             daos[instance.TYPE] = instance
-#         except AttributeError:
-#             continue
-
-#     return Repository(daos)
-
-
-# repository = create_repository()

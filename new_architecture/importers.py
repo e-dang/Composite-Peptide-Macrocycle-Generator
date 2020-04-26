@@ -1,12 +1,14 @@
-import new_architecture.repository.repository as repo
-import new_architecture.models as models
-import macrocycles.config as config
-import os
-import json
 import glob
-from rdkit import Chem
+import json
+import os
 import uuid
 from collections import namedtuple
+
+from rdkit import Chem
+
+import macrocycles.config as config
+import new_architecture.models as models
+import new_architecture.repository.repository as repo
 
 
 class JsonImporter:
@@ -41,9 +43,6 @@ class BackboneImporter:
         self.saver = repo.create_backbone_repository()
 
     def import_data(self):
-        # data = [models.Backbone.from_mol(Chem.MolFromSmiles(backbone['kekule']))
-        #         for backbone in self.loader.load(self.saver.CATEGORY)]
-
         data = []
         for backbone in self.loader.load(self.saver.CATEGORY):
             backbone['binary'] = Chem.MolFromSmiles(backbone['mapped_kekule']).ToBinary()
@@ -63,20 +62,15 @@ class TemplateImporter:
         return self.saver.save(data)
 
 
-'''
-sidechains should be imported from json format with following information : {'smiles': XXX, 'connection': XXX} where both smiles and connection are smiles strings.
-monomers should be imported from json format with following information : {'smiles': XXX, 'connection': XXX, 'backbone': XXX, 'is_proline': XXX}
-'''
-
-
 class SidechainImporter:
     def __init__(self, loader):
         self.loader = loader
         self.saver = repo.create_sidechain_repository()
-        self.connections = self._hash_connections(repo.create_connection_repository().load())
-        self._validate_connections()
 
     def import_data(self):
+        self._load_connections()
+        self._validate_connections()
+
         data = []
         for sidechain in self.loader.load(self.saver.CATEGORY):
             sidechain = self._match_connection(sidechain)
@@ -86,12 +80,10 @@ class SidechainImporter:
 
         return self.saver.save(data)
 
-    def _hash_connections(self, connections):
-        connection_dict = {}
-        for connection in connections:
-            connection_dict[connection.kekule] = connection._id
-
-        return connection_dict
+    def _load_connections(self):
+        self.connections = {}
+        for connection in repo.create_connection_repository().load():
+            self.connections[connection.kekule] = connection._id
 
     def _validate_connections(self):
         if len(self.connections) == 0:
@@ -113,10 +105,10 @@ class MonomerImporter:
     def __init__(self, loader):
         self.loader = loader
         self.saver = repo.create_monomer_repository()
-        self.backbones = self._hash_backbones(repo.create_backbone_repository().load())
-        self._validate_backbones()
 
     def import_data(self):
+        self._load_backbones()
+        self._validate_backbones()
         mock_sidechain = namedtuple('sidechain', 'shared_id connection')
 
         data = []
@@ -126,12 +118,10 @@ class MonomerImporter:
 
         return self.saver.save(data)
 
-    def _hash_backbones(self, backbones):
-        backbone_dict = {}
-        for backbone in backbones:
-            backbone_dict[backbone.kekule] = backbone
-
-        return backbone_dict
+    def _load_backbones(self):
+        self.backbones = {}
+        for backbone in repo.create_backbone_repository().load():
+            self.backbones[backbone.kekule] = backbone
 
     def _validate_backbones(self):
         if len(self.backbones) == 0:
@@ -144,3 +134,11 @@ class MonomerImporter:
             return self.backbones[backbone]
         except KeyError:
             raise KeyError(f'Unrecognized backbone specified in imported monomers: {backbone}')
+
+
+def create_importers(data_format_importer=JsonImporter()):
+    return [ConnectionImporter(data_format_importer),
+            BackboneImporter(data_format_importer),
+            TemplateImporter(data_format_importer),
+            SidechainImporter(data_format_importer),
+            MonomerImporter(data_format_importer)]
