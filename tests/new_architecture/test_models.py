@@ -1,5 +1,6 @@
 import pytest
 import new_architecture.models as models
+import new_architecture.utils as utils
 from rdkit import Chem
 from tests.new_architecture.data.mols import *
 import macrocycles.exceptions as exceptions
@@ -185,6 +186,14 @@ def test_sidechain_to_dict(sidechain_from_dict):
 def test_sidechain_eq(sidechain_from_dict):
     assert(sidechain_from_dict == models.Sidechain.from_dict(TEST_SIDECHAIN_3, _id='shouldnt matter'))
     assert(sidechain_from_dict != models.Sidechain.from_dict(TEST_SIDECHAIN_2, _id='shouldnt matter'))
+
+
+def test_sidechain_mapped_mol(sidechain_from_dict):
+    sidechain = sidechain_from_dict.mapped_mol
+    atom_idx, map_num = zip(*utils.get_atom_map_nums(sidechain))
+    assert(len(atom_idx) == len(map_num) == 1)
+    assert(atom_idx[0] == sidechain_from_dict.attachment_point)
+    assert(map_num[0] == models.Sidechain.MAP_NUM)
 
 
 def test_monomer_from_mol(monomer_from_mol):

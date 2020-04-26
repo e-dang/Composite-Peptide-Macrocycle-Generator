@@ -33,6 +33,8 @@ class AbstractMolecule:
 
 
 class Backbone(AbstractMolecule):
+    MAP_NUM = 1
+
     def __init__(self, binary, kekule, mapped_kekule, _id=None):
         super().__init__(binary, kekule, _id)
         self.mapped_kekule = mapped_kekule
@@ -58,7 +60,7 @@ class Backbone(AbstractMolecule):
     def validate(mol):
         try:
             _, map_nums = zip(*utils.get_atom_map_nums(mol))
-            if not all(map(lambda x: x == 1, map_nums)):
+            if not all(map(lambda x: x == Backbone.MAP_NUM, map_nums)):
                 raise ValueError
         except ValueError:
             raise exceptions.InvalidMolecule(
@@ -96,6 +98,8 @@ class Template(AbstractMolecule):
 
 
 class Sidechain(AbstractMolecule):
+    MAP_NUM = 2
+
     def __init__(self, binary, kekule, attachment_point, connection, shared_id, _id=None):
         super().__init__(binary, kekule, _id)
         self.attachment_point = attachment_point
@@ -124,6 +128,12 @@ class Sidechain(AbstractMolecule):
             raise exceptions.InvalidMolecule(f'Sidechains must have exactly one attachment point')
 
         return attachment_point[0]
+
+    @property
+    def mapped_mol(self):
+        sidechain = self.mol
+        sidechain.GetAtomWithIdx(self.attachment_point).SetAtomMapNum(self.MAP_NUM)
+        return sidechain
 
     def to_dict(self):
         data = super().to_dict()
