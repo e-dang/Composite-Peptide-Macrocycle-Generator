@@ -108,6 +108,11 @@ def test_validate_backbone_fail(backbone):
         models.Backbone.validate(backbone)
 
 
+def test_backbone_mol(backbone_from_dict):
+    backbone = backbone_from_dict.mol
+    assert(models.Backbone.validate(backbone))
+
+
 def test_connection_from_mol(connection_from_mol):
     assert(connection_from_mol._id == None)
     assert(connection_from_mol.binary != None)
