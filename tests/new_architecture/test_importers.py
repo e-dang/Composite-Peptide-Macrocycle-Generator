@@ -136,14 +136,14 @@ def test_monomer_importer(json_importer, independent_importers):
     monomer_docs = json_importer.load(monomer_importer.saver.CATEGORY)
     backbone_data = list(backbone_repo.load())
     kekules = [doc['kekule'] for doc in monomer_docs]
-    backbone_ids = [mol._id for mol in backbone_data]
+    backbones = [mol.to_reduced_dict() for mol in backbone_data]
 
     assert(len(monomer_data) == 2)
     for mol in monomer_data:
         rdkit_mol = mol.mol
         assert(mol._id != None)
         assert(mol.required == bool(AllChem.CalcNumAromaticRings(rdkit_mol)))
-        assert(mol.backbone in backbone_ids)
+        assert(mol.backbone in backbones)
         assert(mol.sidechain is None)
         assert(mol.connection is None)
         assert(mol.proline == bool(AllChem.CalcNumAliphaticRings(

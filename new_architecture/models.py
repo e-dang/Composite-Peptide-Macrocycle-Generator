@@ -68,6 +68,12 @@ class Backbone(AbstractMolecule):
 
         return True
 
+    def to_reduced_dict(self):
+        data = self.__dict__
+        data.pop('binary')
+        data.pop('mapped_kekule')
+        return data
+
 
 class Connection(AbstractMolecule):
     def __init__(self, binary, kekule, _id=None):
@@ -159,7 +165,7 @@ class Monomer(AbstractMolecule):
     @classmethod
     def from_mol(cls, mol, backbone, sidechain, imported=False):
         Chem.Kekulize(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol), backbone._id,
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol), backbone.to_reduced_dict(),
                    sidechain.shared_id, sidechain.connection, cls.is_proline(mol), imported)
 
     @classmethod
