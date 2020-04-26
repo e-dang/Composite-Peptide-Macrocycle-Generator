@@ -105,7 +105,7 @@ def test_connection_from_mol(connection_from_mol):
 def test_connection_from_dict(connection_from_dict):
     assert(connection_from_dict._id == 'ethyl')
     assert(connection_from_dict.binary != None)
-    assert(connection_from_dict.kekule == 'CC')
+    assert(connection_from_dict.kekule == 'C')
 
 
 def test_connection_to_dict(connection_from_dict):

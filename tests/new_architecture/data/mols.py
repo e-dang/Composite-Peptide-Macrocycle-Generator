@@ -8,7 +8,8 @@ TEST_BACKBONE_2 = {'binary': Chem.MolFromSmiles('N[CH2:1]CC(=O)O').ToBinary(
 TEST_BACKBONE_3 = {'binary': Chem.MolFromSmiles('NC[CH2:1]C(=O)O').ToBinary(
 ), 'kekule': 'NCCC(=O)O', 'mapped_kekule': 'NC[CH2:1]C(=O)O'}
 
-TEST_CONNECTION_1 = {'binary': Chem.MolFromSmiles('CC').ToBinary(), 'kekule': 'CC'}
+TEST_CONNECTION_1 = {'binary': Chem.MolFromSmiles('C').ToBinary(), 'kekule': 'C'}
+TEST_CONNECTION_2 = {'binary': Chem.MolFromSmiles('CC').ToBinary(), 'kekule': 'CC'}
 
 TEST_TEMPLATE_1 = {'binary': Chem.MolFromSmiles(
     'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1').ToBinary(), 'kekule': 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'}

@@ -3,6 +3,7 @@ from rdkit.Chem import AllChem
 from macrocycles.exceptions import InvalidMolecule
 import new_architecture.utils as utils
 
+NON_ATTACHMENT_METHYL = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')
 
 
@@ -83,6 +84,9 @@ class Sidechain(AbstractMolecule):
         super().__init__(binary, kekule, _id)
         self.connection = connection
         self.shared_id = shared_id
+
+    def __eq__(self, other):
+        return self.kekule == other.kekule and self.connection == other.connection and self.shared_id == other.shared_id
 
     @classmethod
     def from_mol(cls, mol, connection, shared_id):
