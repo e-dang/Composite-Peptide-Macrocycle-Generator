@@ -142,28 +142,45 @@ class Sidechain(AbstractMolecule):
 
 
 class Monomer(AbstractMolecule):
-    def __init__(self, binary, kekule, required, backbone, sidechain, connection, is_proline, imported, _id=None, index=None):
+    def __init__(self, binary, kekule, required, backbone, sidechain, connection, proline, imported, _id=None, index=None):
         super().__init__(binary, kekule, _id)
         self.index = index
         self.required = required
         self.backbone = backbone
         self.sidechain = sidechain
         self.connection = connection
-        self.is_proline = is_proline
+        self.proline = proline
         self.imported = imported
+
+    def __eq__(self, other):
+        return self.kekule == other.kekule and self.backbone == other.backbone and self.sidechain == other.sidechain \
+            and self.required == other.required and self.proline == other.proline and self.imported == other.imported
 
     @classmethod
     def from_mol(cls, mol, backbone, sidechain, imported=False):
         Chem.Kekulize(mol)
-        required = bool(AllChem.CalcNumAromaticRings(mol))
-        is_proline = bool(AllChem.CalcNumAliphaticRings(mol) and mol.HasSubstructMatch(PROLINE_N_TERM))
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), required, backbone._id,
-                   sidechain.shared_id, sidechain.connection, is_proline, imported)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol), backbone._id,
+                   sidechain.shared_id, sidechain.connection, cls.is_proline(mol), imported)
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], data['required'], data['backbone'], data['sidechain'],
-                   data['connection'], data['is_proline'], data['imported'], _id=_id, index=data['index'])
+        mol = Chem.Mol(data['binary'])
+        return cls(data['binary'], data['kekule'], cls.is_required(mol), data['backbone'], data['sidechain'],
+                   data['connection'], cls.is_proline(mol), data['imported'], _id=_id, index=data['index'])
+
+    @staticmethod
+    def is_required(mol):
+        return bool(AllChem.CalcNumAromaticRings(mol))
+
+    @staticmethod
+    def is_proline(mol):
+        return bool(AllChem.CalcNumAliphaticRings(mol) and mol.HasSubstructMatch(PROLINE_N_TERM))
+
+    def to_dict(self):
+        data = super().to_dict()
+        data.pop('required')
+        data.pop('proline')
+        return data
 
 
 class Peptide(AbstractMolecule):
@@ -176,7 +193,7 @@ class Peptide(AbstractMolecule):
     def from_mol(cls, mol, has_cap, monomers):
         Chem.Kekulize(mol)
         monomers = [{'_id': monomer._id, 'sidechain': monomer.sidechain,
-                     'is_proline': monomer.is_proline} for monomer in monomers]
+                     'proline': monomer.proline} for monomer in monomers]
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), has_cap, monomers)
 
     @classmethod

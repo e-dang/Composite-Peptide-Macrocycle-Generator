@@ -146,7 +146,7 @@ def test_monomer_importer(json_importer, independent_importers):
         assert(mol.backbone in backbone_ids)
         assert(mol.sidechain is None)
         assert(mol.connection is None)
-        assert(mol.is_proline == bool(AllChem.CalcNumAliphaticRings(
+        assert(mol.proline == bool(AllChem.CalcNumAliphaticRings(
             rdkit_mol) and rdkit_mol.HasSubstructMatch(PROLINE_N_TERM)))
         assert(mol.imported == True)
 

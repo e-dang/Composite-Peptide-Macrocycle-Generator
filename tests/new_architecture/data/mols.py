@@ -28,14 +28,14 @@ TEST_SIDECHAIN_3 = {'binary': Chem.MolFromSmiles('CC1=CC(=O)C2=C([NH]1)SC=C2').T
 
 
 TEST_MONOMER_1 = {'binary': Chem.MolFromSmiles('O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1').ToBinary(
-), 'kekule': 'O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1', 'index': 17, 'required': True, 'backbone': 'alpha',
-    'sidechain': None, 'connection': None, 'is_proline': True, 'imported': True}
+), 'kekule': 'O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1', 'index': 17, 'backbone': 'alpha',
+    'sidechain': None, 'connection': None, 'imported': True}
 TEST_MONOMER_2 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@@H]3CN[C@H](C(=O)O)C3)=CC(C3=CC=CC=C3)=NC2=C1').ToBinary(
-), 'kekule': 'COC1=CC=C2C(O[C@@H]3CN[C@H](C(=O)O)C3)=CC(C3=CC=CC=C3)=NC2=C1', 'index': 20, 'required': True, 'backbone': 'alpha',
-    'sidechain': None, 'connection': None, 'is_proline': True, 'imported': True}
+), 'kekule': 'COC1=CC=C2C(O[C@@H]3CN[C@H](C(=O)O)C3)=CC(C3=CC=CC=C3)=NC2=C1', 'index': 20, 'backbone': 'alpha',
+    'sidechain': None, 'connection': None, 'imported': True}
 TEST_MONOMER_3 = {'binary': Chem.MolFromSmiles('NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O').ToBinary(
-), 'kekule': 'NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O', 'index': 140, 'required': True, 'backbone': 'beta3',
-    'sidechain': 'af', 'connection': 'methyl', 'is_proline': False, 'imported': False}
+), 'kekule': 'NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O', 'index': 140, 'backbone': 'beta3',
+    'sidechain': 'af', 'connection': 'methyl', 'imported': False}
 
 
 TEST_PEPTIDE_1 = {'binary': Chem.MolFromSmiles(
@@ -43,9 +43,9 @@ TEST_PEPTIDE_1 = {'binary': Chem.MolFromSmiles(
     'kekule': 'NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1',
     'has_cap': False,
     'monomers': [
-        {'_id': '12898afefgfad', 'sidechain': 'adwi8', 'is_proline': False},
-        {'_id': 'awfseg4', 'sidechain': '3gdfbv', 'is_proline': False},
-        {'_id': 'asfg43', 'sidechain': 'dws2', 'is_proline': True}
+        {'_id': '12898afefgfad', 'sidechain': 'adwi8', 'proline': False},
+        {'_id': 'awfseg4', 'sidechain': '3gdfbv', 'proline': False},
+        {'_id': 'asfg43', 'sidechain': 'dws2', 'proline': True}
 ]}
 
 TEST_PEPTIDE_WITH_ID = deepcopy(TEST_PEPTIDE_1)

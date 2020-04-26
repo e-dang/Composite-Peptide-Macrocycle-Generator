@@ -196,6 +196,16 @@ def test_sidechain_mapped_mol(sidechain_from_dict):
     assert(map_num[0] == models.Sidechain.MAP_NUM)
 
 
+@pytest.mark.parametrize('mol,expected_result', [(Chem.MolFromSmiles('N=C(N)NCCCC(N)C(=O)O'), False), (Chem.MolFromSmiles('O=C(O)[C@@H]1C[C@H](O)CN1'), False), (Chem.MolFromSmiles('NC(CC(=O)O)CC1=CC=CO1'), True)])
+def test_monomer_is_required(mol, expected_result):
+    assert(models.Monomer.is_required(mol) == expected_result)
+
+
+@pytest.mark.parametrize('mol,expected_result', [(Chem.MolFromSmiles('N=C(N)NCCCC(N)C(=O)O'), False), (Chem.MolFromSmiles('O=C(O)[C@@H]1C[C@H](O)CN1'), True), (Chem.MolFromSmiles('NC(CC(=O)O)CC1=CC=CO1'), False)])
+def test_monomer_is_proline(mol, expected_result):
+    assert(models.Monomer.is_proline(mol) == expected_result)
+
+
 def test_monomer_from_mol(monomer_from_mol):
     assert(monomer_from_mol._id == None)
     assert(monomer_from_mol.binary != None)
@@ -203,7 +213,7 @@ def test_monomer_from_mol(monomer_from_mol):
     assert(monomer_from_mol.backbone == 'beta3')
     assert(monomer_from_mol.sidechain == 'af')
     assert(monomer_from_mol.connection == 'ethyl')
-    assert(monomer_from_mol.is_proline == False)
+    assert(monomer_from_mol.proline == False)
     assert(monomer_from_mol.imported == False)
 
 
@@ -214,12 +224,17 @@ def test_monomer_from_dict(monomer_from_dict):
     assert(monomer_from_dict.backbone == 'alpha')
     assert(monomer_from_dict.sidechain == None)
     assert(monomer_from_dict.connection == None)
-    assert(monomer_from_dict.is_proline == True)
+    assert(monomer_from_dict.proline == True)
     assert(monomer_from_dict.imported == True)
 
 
 def test_monomer_to_dict(monomer_from_dict):
     assert(monomer_from_dict.to_dict() == TEST_MONOMER_1)
+
+
+def test_monomer_eq(monomer_from_dict):
+    assert(monomer_from_dict == models.Monomer.from_dict(TEST_MONOMER_1, _id='shouldnt matter'))
+    assert(monomer_from_dict != models.Monomer.from_dict(TEST_MONOMER_2, _id='shouldnt matter'))
 
 
 def test_peptide_from_mol(peptide_from_mol):
@@ -231,7 +246,7 @@ def test_peptide_from_mol(peptide_from_mol):
     assert(len(peptide_from_mol.monomers) == 3)
     for monomer in peptide_from_mol.monomers:
         assert(monomer['_id'] != None)
-        assert(monomer['is_proline'] != None)
+        assert(monomer['proline'] != None)
         with pytest.raises(KeyError):
             monomer['binary']
 
@@ -245,7 +260,7 @@ def test_peptide_from_dict(peptide_from_dict):
     assert(len(peptide_from_dict.monomers) == 3)
     for monomer in peptide_from_dict.monomers:
         assert(monomer['_id'] != None)
-        assert(monomer['is_proline'] != None)
+        assert(monomer['proline'] != None)
 
 
 def test_peptide_to_dict(peptide_from_dict):
