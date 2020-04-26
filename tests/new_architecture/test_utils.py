@@ -42,6 +42,11 @@ def test_has_atom_map_nums(mol, expected_result):
     assert(utils.has_atom_map_nums(mol) == expected_result)
 
 
+@pytest.mark.parametrize('mol,expected_result', [(Chem.MolFromSmiles('C[CH2:1][CH3:2]'), [(1, 1), (2, 2)]), (Chem.MolFromSmiles('CCC'), [])])
+def test_get_atom_map_nums(mol, expected_result):
+    assert(utils.get_atom_map_nums(mol) == expected_result)
+
+
 @pytest.mark.parametrize('mol', [(Chem.MolFromSmiles('C[CH2:1]C')), (Chem.MolFromSmiles('CCC'))])
 def test_clear_atom_map_nums(mol):
     utils.clear_atom_map_nums(mol)

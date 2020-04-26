@@ -23,6 +23,16 @@ def has_atom_map_nums(mol):
     return False
 
 
+def get_atom_map_nums(mol):
+    atom_map_nums = []
+    for atom in mol.GetAtoms():
+        map_num = atom.GetAtomMapNum()
+        if map_num != 0:
+            atom_map_nums.append((atom.GetIdx(), map_num))
+
+    return atom_map_nums
+
+
 def clear_atom_map_nums(mol):
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(0)
