@@ -71,15 +71,25 @@ TEST_PEPTIDE_3 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)
     {'_id': '98asfh', 'sidechain': 'af', 'proline': False},
     {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True}
 ]}
-TEST_PEPTIDE_4 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)NC(CC(=O)O)CC4=CC=CC5=N[NH]C(=O)N45)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1').ToBinary(
-), 'kekule': 'COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)NC(CC(=O)O)CC4=CC=CC5=N[NH]C(=O)N45)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1',
+TEST_PEPTIDE_4_CAP = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)NCCC4=CC=CC5=N[NH]C(=O)N45)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1').ToBinary(
+), 'kekule': 'COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)NCCC4=CC=CC5=N[NH]C(=O)N45)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1',
+    'has_cap': True,
+    'monomers': [
+    {'_id': 'ad98fh', 'sidechain': None, 'proline': True},
+    {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True},
+    {'_id': '98asfh', 'sidechain': 'af', 'proline': False},
+    {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True},
+    {'_id': '98asfh', 'sidechain': 'af', 'proline': False}
+]}
+TEST_PEPTIDE_4 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)NC(CC4=CC=CC5=N[NH]C(=O)N45)C(=O)O)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1').ToBinary(
+), 'kekule': 'COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)NC(CC4=CC=CC5=N[NH]C(=O)N45)C(=O)O)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1',
     'has_cap': False,
     'monomers': [
     {'_id': 'ad98fh', 'sidechain': None, 'proline': True},
     {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True},
     {'_id': '98asfh', 'sidechain': 'af', 'proline': False},
     {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True},
-    {'_id': 'adjha82', 'sidechain': 'af', 'proline': False},
+    {'_id': '98asfh', 'sidechain': 'af', 'proline': False}
 ]}
 
 TEST_PEPTIDE_WITH_ID = deepcopy(TEST_PEPTIDE_1)
