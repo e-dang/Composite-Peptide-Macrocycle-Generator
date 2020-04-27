@@ -317,6 +317,10 @@ def test_template_peptide_to_dict(template_peptide_from_dict):
     assert(template_peptide_from_dict.to_dict() == TEST_TEMPLATE_PEPTIDE_1)
 
 
+def test_template_peptide_eq(template_peptide_from_dict):
+    assert(template_peptide_from_dict == models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='doesnt matter'))
+    assert(template_peptide_from_dict != models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_2, _id='doesnt matter'))
+
 # def test_macrocycle_from_mol(macrocycle_from_mol):
 #     assert(macrocycle_from_mol._id == None)
 #     assert(macrocycle_from_mol.binary != None)

@@ -4,6 +4,7 @@ from macrocycles.exceptions import InvalidMolecule
 import new_architecture.utils as utils
 import macrocycles.exceptions as exceptions
 from itertools import chain
+from copy import deepcopy
 
 SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')
@@ -237,10 +238,13 @@ class TemplatePeptide(AbstractMolecule):
         self.template = template
         self.peptide = peptide
 
+    def __eq__(self, other):
+        return self.kekule == other.kekule and self.template == other.template and self.peptide == other.peptide
+
     @classmethod
     def from_mol(cls, mol, template, peptide):
         Chem.Kekulize(mol)
-        peptide = peptide.__dict__
+        peptide = deepcopy(peptide.__dict__)
         peptide.pop('binary')
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide)
 
