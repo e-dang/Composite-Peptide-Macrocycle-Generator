@@ -56,7 +56,11 @@ class HDF5Repository:
             return self._load_range(group, key)
 
     def save(self, group, data):
-        serialized_data = serialize_chunk(utils.to_list(data))
+        data = utils.to_list(data)
+        if len(data) == 0:
+            return []
+
+        serialized_data = serialize_chunk(data)
         max_bin_len = utils.get_maximum(serialized_data, len)
 
         _ids = []
@@ -68,6 +72,14 @@ class HDF5Repository:
                 dataset.attrs[_ids[-1]] = i
 
         return _ids
+
+    def get_num_records(self, group):
+        num_records = 0
+        with HDF5File() as file:
+            for dataset in file[group]:
+                num_records += len(file[group][dataset])
+
+        return num_records
 
     def _create_dataset(self, group, rows, dlen):
         max_idx = utils.get_maximum(group, int)

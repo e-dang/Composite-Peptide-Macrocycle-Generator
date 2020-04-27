@@ -172,3 +172,13 @@ def test_hdf5_repository_save_load_ids_multi_separate(initialize_repo):
     assert(len(data) == 2)
     assert(data[0] == TEST_SIDECHAIN_1)
     assert(data[1] == TEST_SIDECHAIN_2)
+
+
+@pytest.mark.parametrize('dataset1,dataset2,expected_result,initialize_repo', [([TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3], [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6], 6, ''), ([], [], 0, '')], indirect=['initialize_repo'])
+def test_hdf5_get_num_records(dataset1, dataset2, expected_result, initialize_repo):
+    _, filepath = initialize_repo
+    repo = hdf5.HDF5Repository()
+    _ids = repo.save('monomers', dataset1)
+    _ids.extend(repo.save('monomers', dataset2))
+
+    assert(repo.get_num_records('monomers') == expected_result)
