@@ -57,8 +57,11 @@ class TemplateImporter:
         self.saver = repo.create_template_repository()
 
     def import_data(self):
-        data = [models.Template.from_mol(Chem.MolFromSmiles(template['kekule']))
-                for template in self.loader.load(self.saver.CATEGORY)]
+        data = []
+        for template in self.loader.load(self.saver.CATEGORY):
+            template['binary'] = Chem.MolFromSmiles(template['mapped_kekule']).ToBinary()
+            data.append(models.Template.from_dict(template))
+
         return self.saver.save(data)
 
 

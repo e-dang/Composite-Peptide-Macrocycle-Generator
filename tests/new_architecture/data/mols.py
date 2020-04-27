@@ -12,11 +12,11 @@ TEST_CONNECTION_1 = {'binary': Chem.MolFromSmiles('C').ToBinary(), 'kekule': 'C'
 TEST_CONNECTION_2 = {'binary': Chem.MolFromSmiles('CC').ToBinary(), 'kekule': 'CC'}
 
 TEST_TEMPLATE_1 = {'binary': Chem.MolFromSmiles(
-    'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1').ToBinary(), 'kekule': 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'}
+    'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1').ToBinary(), 'kekule': 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1', 'mapped_kekule': 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1'}
 TEST_TEMPLATE_2 = {'binary': Chem.MolFromSmiles(
-    'CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1').ToBinary(), 'kekule': 'CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1'}
+    'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:1]=O)=C1').ToBinary(), 'kekule': 'CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1', 'mapped_kekule': 'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:1]=O)=C1'}
 TEST_TEMPLATE_3 = {'binary': Chem.MolFromSmiles(
-    'C#CCCC[C@@](Cc1cc(/C=C/COC(OC(C)(C)C)=O)ccc1)(C=O)CC(ON2C(CCC2=O)=O)=O').ToBinary(), 'kekule': 'C#CCCC[C@@](Cc1cc(/C=C/COC(OC(C)(C)C)=O)ccc1)(C=O)CC(ON2C(CCC2=O)=O)=O'}
+    'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:1]=O').ToBinary(), 'kekule': 'C#CCCC[C@@](Cc1cc(/C=C/COC(OC(C)(C)C)=O)ccc1)(C=O)CC(ON2C(CCC2=O)=O)=O', 'mapped_kekule': 'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:1]=O'}
 
 
 TEST_SIDECHAIN_1 = {'binary': Chem.MolFromSmiles('CC1=CC=C(O)C=C1').ToBinary(

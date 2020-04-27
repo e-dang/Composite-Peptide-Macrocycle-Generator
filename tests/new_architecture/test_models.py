@@ -28,7 +28,7 @@ def connection_from_dict():
 
 @pytest.fixture()
 def template_from_mol():
-    return models.Template.from_mol(Chem.MolFromSmiles('CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'))
+    return models.Template.from_mol(Chem.MolFromSmiles('C/C=C/C1=CC(CC[CH:1]=O)=CC=C1'), 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1')
 
 
 @pytest.fixture()
@@ -135,16 +135,29 @@ def test_connection_to_dict(connection_from_dict):
     assert(connection_from_dict.to_dict() == TEST_CONNECTION_1)
 
 
+@pytest.mark.parametrize('template', [(Chem.MolFromSmiles('C/C=C/C1=CC(CC[CH:1]=O)=CC=C1')), (Chem.MolFromSmiles('C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:1]=O)=C1')), (Chem.MolFromSmiles('C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:1]=O'))])
+def test_template_validate(template):
+    assert(models.Template.validate(template))
+
+
+@pytest.mark.parametrize('template', [(Chem.MolFromSmiles('CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1')), (Chem.MolFromSmiles('CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1'))])
+def test_validate_template_fail(template):
+    with pytest.raises(exceptions.InvalidMolecule):
+        models.Template.validate(template)
+
+
 def test_template_from_mol(template_from_mol):
     assert(template_from_mol._id == None)
     assert(template_from_mol.binary != None)
     assert(template_from_mol.kekule == 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1')
+    assert(template_from_mol.mapped_kekule == 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1')
 
 
 def test_template_from_dict(template_from_dict):
     assert(template_from_dict._id == 'temp1')
     assert(template_from_dict.binary != None)
     assert(template_from_dict.kekule == 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1')
+    assert(template_from_dict.mapped_kekule == 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1')
 
 
 def test_template_to_dict(template_from_dict):

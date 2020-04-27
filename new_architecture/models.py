@@ -91,17 +91,33 @@ class Connection(AbstractMolecule):
 
 
 class Template(AbstractMolecule):
-    def __init__(self, binary, kekule, _id=None):
+    OLIGOMERIZATION_MAP_NUM = 1
+
+    def __init__(self, binary, kekule, mapped_kekule, _id=None):
         super().__init__(binary, kekule, _id)
+        self.mapped_kekule = mapped_kekule
 
     @classmethod
-    def from_mol(cls, mol):
+    def from_mol(cls, mol, full_kekule):
         Chem.Kekulize(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True))
+        cls.validate(mol)
+        return cls(mol.ToBinary(), full_kekule, Chem.MolToSmiles(mol, kekuleSmiles=True))
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], _id=_id)
+        cls.validate(Chem.Mol(data['binary']))
+        return cls(data['binary'], data['kekule'], data['mapped_kekule'], _id=_id)
+
+    @staticmethod
+    def validate(mol):
+        try:
+            _, map_nums = zip(*utils.get_atom_map_nums(mol))
+            if Template.OLIGOMERIZATION_MAP_NUM not in map_nums:
+                raise ValueError(f'Template molecule is missing oligomerization atom map number!')
+        except ValueError as err:
+            raise exceptions.InvalidMolecule(str(err))
+
+        return True
 
 
 class Sidechain(AbstractMolecule):
