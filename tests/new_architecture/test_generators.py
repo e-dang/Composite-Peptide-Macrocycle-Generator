@@ -4,6 +4,9 @@ import new_architecture.models as models
 from tests.new_architecture.data.mols import *
 from copy import deepcopy
 
+TEMPLATE_1 = models.Template.from_dict(TEST_TEMPLATE_1, _id='temp1')
+TEMPLATE_2 = models.Template.from_dict(TEST_TEMPLATE_2, _id='temp2')
+TEMPLATE_3 = models.Template.from_dict(TEST_TEMPLATE_3, _id='temp3')
 CONNECTION = models.Connection.from_dict(TEST_CONNECTION_2, _id='ethyl')
 BACKBONES = [models.Backbone.from_dict(doc, _id=_id) for doc, _id in [(
     TEST_BACKBONE_1, 'alpha'), (TEST_BACKBONE_2, 'beta2'), (TEST_BACKBONE_3, 'beta3')]]
@@ -13,12 +16,21 @@ MONOMERS_4 = [models.Monomer.from_dict(doc, _id=_id) for doc, _id in [(
     TEST_MONOMER_1, 'ad98fh'), (TEST_MONOMER_2, 'sdwd89cvh'), (TEST_MONOMER_3, '98asfh'), (TEST_MONOMER_2, 'sdwd89cvh')]]
 MONOMERS_5 = deepcopy(MONOMERS_4)
 MONOMERS_6 = deepcopy(MONOMERS_4)
+MONOMERS_7 = deepcopy(MONOMERS_4)
 MONOMERS_5.append(models.Monomer.from_dict(TEST_MONOMER_3, _id='98asfh'))
 MONOMERS_6.append(models.Monomer.from_dict(TEST_MONOMER_4, _id='af9f7w'))
+MONOMERS_7.append(models.Monomer.from_dict(TEST_MONOMER_6, _id='12fakwd'))
 PEPTIDE_3 = models.Peptide.from_dict(TEST_PEPTIDE_2, _id='qadfioj2')
 PEPTIDE_4_CAP = models.Peptide.from_dict(TEST_PEPTIDE_4_CAP, _id='acd98efh')
 PEPTIDE_4 = models.Peptide.from_dict(TEST_PEPTIDE_3, _id='124fiawd')
 PEPTIDE_5 = models.Peptide.from_dict(TEST_PEPTIDE_4, _id='af882hd')
+PEPTIDE_6 = models.Peptide.from_dict(TEST_PEPTIDE_5, _id='fasef00')
+TEMPLATE_PEPTIDE_1 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_2, _id='afsfg-30i')
+TEMPLATE_PEPTIDE_2 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_3, _id='fspva8d')
+TEMPLATE_PEPTIDE_3 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_4, _id='afvm,svu9')
+TEMPLATE_PEPTIDE_4 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_5, _id='faopsvp98')
+TEMPLATE_PEPTIDE_5 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_6, _id='ca0-fiuqe2')
+TEMPLATE_PEPTIDE_6 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_7, _id='cas.f-3aw')
 
 
 @pytest.mark.parametrize('data,expected_result', [((models.Sidechain.from_dict(TEST_SIDECHAIN_1, _id='1afdw'), [CONNECTION]), models.Sidechain.from_mol(Chem.MolFromSmiles('CCc1ccc(O)cc1'), CONNECTION, TEST_SIDECHAIN_1['shared_id']))])
@@ -57,4 +69,18 @@ def test_peptide_generator_fail(monomers, peptide_length):
     generator = generators.PeptideGenerator(peptide_length)
 
     with pytest.raises(RuntimeError):
-        peptides = generator.generate(monomers)
+        generator.generate(monomers)
+
+
+@pytest.mark.parametrize('data,num_results,expected_results', [((PEPTIDE_6, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3]), 6, [TEMPLATE_PEPTIDE_1, TEMPLATE_PEPTIDE_2, TEMPLATE_PEPTIDE_3, TEMPLATE_PEPTIDE_4, TEMPLATE_PEPTIDE_5, TEMPLATE_PEPTIDE_6])])
+def test_template_peptide_generator(data, num_results, expected_results):
+    generator = generators.TemplatePeptideGenerator()
+
+    template_peptides = generator.generate(data)
+
+    assert(len(template_peptides) == num_results)
+    template_peptides.sort(key=lambda x: x.kekule)
+    expected_results.sort(key=lambda x: x.kekule)
+    for template_peptide, expected_result in zip(template_peptides, expected_results):
+        print(template_peptide.kekule, expected_result.kekule)
+        assert(template_peptide == expected_result)

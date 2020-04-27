@@ -43,7 +43,9 @@ TEST_MONOMER_4 = {'binary': Chem.MolFromSmiles('NC(CC(=O)O)CC1=CC=CC2=N[NH]C(=O)
 TEST_MONOMER_5 = {'binary': Chem.MolFromSmiles('NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O').ToBinary(
 ), 'kekule': 'NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O', 'index': 141, 'backbone': {'_id': 'beta3', 'kekule': 'NCCC(=O)O'},
     'sidechain': 'af', 'connection': 'methyl', 'imported': False}
-
+TEST_MONOMER_6 = {'binary': Chem.MolFromSmiles('NCCCC[C@H](N)C(=O)O').ToBinary(), 'kekule': 'NCCCC[C@H](N)C(=O)O',
+                  'index': 22, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'}, 'sidechain': None,
+                  'connection': None, 'imported': True}
 
 TEST_PEPTIDE_1 = {'binary': Chem.MolFromSmiles(
     'NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1').ToBinary(),
@@ -91,11 +93,49 @@ TEST_PEPTIDE_4 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)
     {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True},
     {'_id': '98asfh', 'sidechain': 'af', 'proline': False}
 ]}
+TEST_PEPTIDE_5 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)N[C@@H](CCCCN)C(=O)O)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1').ToBinary(
+), 'kekule': 'COC1=CC=C2C(O[C@H]3C[C@@H](C(=O)N[C@@H](CCCCN)C(=O)O)N(C(=O)C(CC4=CC=CC5=N[NH]C(=O)N45)NC(=O)[C@@H]4C[C@H](OC5=CC(C6=CC=CC=C6)=NC6=CC(OC)=CC=C56)CN4C(=O)[C@@H]4C[C@H](OC5=CC=CC=C5)CN4)C3)=CC(C3=CC=CC=C3)=NC2=C1',
+    'has_cap': False,
+    'monomers': [
+    {'_id': 'ad98fh', 'sidechain': None, 'proline': True},
+    {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True},
+    {'_id': '98asfh', 'sidechain': 'af', 'proline': False},
+    {'_id': 'sdwd89cvh', 'sidechain': None, 'proline': True},
+    {'_id': '12fakwd', 'sidechain': None, 'proline': False}
+]}
 
-TEST_PEPTIDE_WITH_ID = deepcopy(TEST_PEPTIDE_1)
-TEST_PEPTIDE_WITH_ID['_id'] = 'aefoi249'
-TEST_PEPTIDE_WITH_ID.pop('binary')
+
+TEST_PEPTIDE_1_WITH_ID = deepcopy(TEST_PEPTIDE_1)
+TEST_PEPTIDE_5_WITH_ID = deepcopy(TEST_PEPTIDE_5)
+TEST_PEPTIDE_1_WITH_ID['_id'] = 'aefoi249'
+TEST_PEPTIDE_5_WITH_ID['_id'] = 'fasef00'
+TEST_PEPTIDE_1_WITH_ID.pop('binary')
+TEST_PEPTIDE_5_WITH_ID.pop('binary')
 TEST_TEMPLATE_PEPTIDE_1 = {'binary': Chem.MolFromSmiles('C/C=C/C1=CC=CC(CCC(=O)NC(CCC2=C3C=COC3=CS2)C(=O)NC(CCC2=CC=CC3=COC=C23)C(=O)NC(CCC2=CC=C(O)C=C2)C(=O)N2[C@H](C(=O)NC(C(=O)O)C(C)C)C[C@H]3C[C@H]32)=C1').ToBinary(),
                            'kekule': 'C/C=C/C1=CC=CC(CCC(=O)NC(CCC2=C3C=COC3=CS2)C(=O)NC(CCC2=CC=CC3=COC=C23)C(=O)NC(CCC2=CC=C(O)C=C2)C(=O)N2[C@H](C(=O)NC(C(=O)O)C(C)C)C[C@H]3C[C@H]32)=C1',
                            'template': 'temp1',
-                           'peptide': TEST_PEPTIDE_WITH_ID}
+                           'peptide': TEST_PEPTIDE_1_WITH_ID}
+TEST_TEMPLATE_PEPTIDE_2 = {'binary': Chem.MolFromSmiles('C/C=C/C1=CC=CC(CCC(=O)N2C[C@@H](OC3=CC=CC=C3)C[C@H]2C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)NC(CC2=CC=CC3=N[NH]C(=O)N23)C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)N[C@@H](CCCCN)C(=O)O)=C1').ToBinary(),
+                           'kekule': 'C/C=C/C1=CC=CC(CCC(=O)N2C[C@@H](OC3=CC=CC=C3)C[C@H]2C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)NC(CC2=CC=CC3=N[NH]C(=O)N23)C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)N[C@@H](CCCCN)C(=O)O)=C1',
+                           'template': 'temp1',
+                           'peptide': TEST_PEPTIDE_5_WITH_ID}
+TEST_TEMPLATE_PEPTIDE_3 = {'binary': Chem.MolFromSmiles('C/C=C/C1=CC=CC(CCC(=O)NCCCC[C@H](NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)C(CC2=CC=CC3=N[NH]C(=O)N23)NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)[C@@H]2C[C@H](OC3=CC=CC=C3)CN2)C(=O)O)=C1').ToBinary(),
+                           'kekule': 'C/C=C/C1=CC=CC(CCC(=O)NCCCC[C@H](NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)C(CC2=CC=CC3=N[NH]C(=O)N23)NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)[C@@H]2C[C@H](OC3=CC=CC=C3)CN2)C(=O)O)=C1',
+                           'template': 'temp1',
+                           'peptide': TEST_PEPTIDE_5_WITH_ID}
+TEST_TEMPLATE_PEPTIDE_4 = {'binary': Chem.MolFromSmiles('C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)C(=O)N2C[C@@H](OC3=CC=CC=C3)C[C@H]2C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)NC(CC2=CC=CC3=N[NH]C(=O)N23)C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)N[C@@H](CCCCN)C(=O)O)=C1').ToBinary(),
+                           'kekule': 'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)C(=O)N2C[C@@H](OC3=CC=CC=C3)C[C@H]2C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)NC(CC2=CC=CC3=N[NH]C(=O)N23)C(=O)N2C[C@@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)C[C@H]2C(=O)N[C@@H](CCCCN)C(=O)O)=C1',
+                           'template': 'temp2',
+                           'peptide': TEST_PEPTIDE_5_WITH_ID}
+TEST_TEMPLATE_PEPTIDE_5 = {'binary': Chem.MolFromSmiles('C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)C(=O)NCCCC[C@H](NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)C(CC2=CC=CC3=N[NH]C(=O)N23)NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)[C@@H]2C[C@H](OC3=CC=CC=C3)CN2)C(=O)O)=C1').ToBinary(),
+                           'kekule': 'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)C(=O)NCCCC[C@H](NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)C(CC2=CC=CC3=N[NH]C(=O)N23)NC(=O)[C@@H]2C[C@H](OC3=CC(C4=CC=CC=C4)=NC4=CC(OC)=CC=C34)CN2C(=O)[C@@H]2C[C@H](OC3=CC=CC=C3)CN2)C(=O)O)=C1',
+                           'template': 'temp2',
+                           'peptide': TEST_PEPTIDE_5_WITH_ID}
+TEST_TEMPLATE_PEPTIDE_6 = {'binary': Chem.MolFromSmiles('C#CCCC[C@@](C=O)(CC(=O)N1C[C@@H](OC2=CC=CC=C2)C[C@H]1C(=O)N1C[C@@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)C[C@H]1C(=O)NC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)N1C[C@@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)C[C@H]1C(=O)N[C@@H](CCCCN)C(=O)O)CC1=CC=CC(/C=C/C)=C1').ToBinary(),
+                           'kekule': 'C#CCCC[C@@](C=O)(CC(=O)N1C[C@@H](OC2=CC=CC=C2)C[C@H]1C(=O)N1C[C@@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)C[C@H]1C(=O)NC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)N1C[C@@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)C[C@H]1C(=O)N[C@@H](CCCCN)C(=O)O)CC1=CC=CC(/C=C/C)=C1',
+                           'template': 'temp3',
+                           'peptide': TEST_PEPTIDE_5_WITH_ID}
+TEST_TEMPLATE_PEPTIDE_7 = {'binary': Chem.MolFromSmiles('C#CCCC[C@@](C=O)(CC(=O)NCCCC[C@H](NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)C(CC1=CC=CC2=N[NH]C(=O)N12)NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1)C(=O)O)CC1=CC=CC(/C=C/C)=C1').ToBinary(),
+                           'kekule': 'C#CCCC[C@@](C=O)(CC(=O)NCCCC[C@H](NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)C(CC1=CC=CC2=N[NH]C(=O)N12)NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1)C(=O)O)CC1=CC=CC(/C=C/C)=C1',
+                           'template': 'temp3',
+                           'peptide': TEST_PEPTIDE_5_WITH_ID}

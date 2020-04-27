@@ -134,32 +134,30 @@ class PeptideGenerator():
         return Chem.MolFromSmiles(products.pop())
 
 
-# class TemplatePeptideGenerator:
-#     # any primary amine or proline n-terminus, but no guanidine
-#     ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*);!$([NH2]C(=[NH])[NH]*)]')
-#     # TEMPLATE_CARBON_MAP_NUM = molecules.ITemplateMol.OLIGOMERIZATION_MAP_NUM
-#     PEPTIDE_NITROGEN_MAP_NUM = 2
-#     MAP_NUMS = (TEMPLATE_CARBON_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
+class TemplatePeptideGenerator:
+    # any primary amine or proline n-terminus, but no guanidine
+    ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*);!$([NH2]C(=[NH])[NH]*)]')
+    PEPTIDE_NITROGEN_MAP_NUM = 2
+    MAP_NUMS = (models.Template.OLIGOMERIZATION_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
 
-#     def generate(self, args):
-#         """
-#         Method that takes a peptide molecule and combines it with each type of template molecule defined in molecules.py
-#         to form new template-peptide oligomers.
-#         """
+    def generate(self, args):
+        """
+        Method that takes a peptide molecule and combines it with each type of template molecule to form
+        template-peptide oligomers.
+        """
 
-#         template_peptides = []
-#         peptide, templates = args
+        peptide, templates = args
 
-#         # for each template and eligible nitrogen in peptide form a connection
-#         for template in templates:
-#             peptide_mol = peptide.mol
-#             for atom_idx in chain.from_iterable(peptide_mol.GetSubstructMatches(self.ELIGIBLE_NITROGENS)):
-#                 atom = peptide_mol.GetAtomWithIdx(atom_idx)
+        template_peptides = []
+        for template in templates:
+            peptide_mol = peptide.mol
+            for atom_idx in chain.from_iterable(peptide_mol.GetSubstructMatches(self.ELIGIBLE_NITROGENS)):
+                atom = peptide_mol.GetAtomWithIdx(atom_idx)
 
-#                 atom.SetAtomMapNum(self.PEPTIDE_NITROGEN_MAP_NUM)
-#                 template_peptide = utils.connect_mols(template.oligomerization_mol, peptide_mol, map_nums=self.MAP_NUMS)
-#                 atom.SetAtomMapNum(0)
+                atom.SetAtomMapNum(self.PEPTIDE_NITROGEN_MAP_NUM)
+                template_peptide = utils.connect_mols(template.mol, peptide_mol, map_nums=self.MAP_NUMS)
+                atom.SetAtomMapNum(0)
 
-#                 template_peptides.append(models.TemplatePeptide.from_mol(template_peptide, template, peptide))
+                template_peptides.append(models.TemplatePeptide.from_mol(template_peptide, template, peptide))
 
-#         return template_peptides
+        return template_peptides
