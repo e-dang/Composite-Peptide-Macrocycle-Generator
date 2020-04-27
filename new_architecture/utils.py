@@ -10,10 +10,13 @@ def get_maximum(data, func):
 
 
 def to_list(data):
+    if isinstance(data, list) or isinstance(data, tuple):
+        return data
+
     if isinstance(data, dict):
         return [data]
 
-    return data
+    return list(data)
 
 
 def has_atom_map_nums(mol):

@@ -26,10 +26,12 @@ def test_get_maximum_int(string_int_list_data):
     assert(utils.get_maximum(string_int_list_data, int) == 12)
 
 
-@pytest.mark.parametrize('data', [({'A': 1}), ([{'B': 2}])])
-def test_to_list(data):
+@pytest.mark.parametrize('data,length', [({'A': 1}, 1), ([{'A': 1}, {'B': 2}], 2), (map(lambda x: x, [{'A': 1}, {'B': 2}]), 2)])
+def test_to_list(data, length):
     ls_data = utils.to_list(data)
     assert(isinstance(ls_data, list))
+    assert(all(map(lambda x: isinstance(x, dict), ls_data)))
+    assert(len(ls_data) == length)
 
 
 @pytest.mark.parametrize('empty_list_data,func', [('', int), ('', len)], indirect=['empty_list_data'])
