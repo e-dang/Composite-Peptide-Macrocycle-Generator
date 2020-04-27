@@ -77,5 +77,15 @@ def get_atom_with_map_num_fail(mol, map_num):
     with pytest.raises(RuntimeError):
         atom = utils.get_atom_with_map_num(mol, map_num)
 
-# def test_remove_atom(mol):
-#     utils.remove_atom(mol)
+
+@pytest.mark.parametrize('mol,map_num,symbol', [(Chem.MolFromSmiles('[NH2:1][CH2:2][OH:3]'), 1, 'N'), (Chem.MolFromSmiles('[NH2:1][CH2:2][OH:3]'), 2, 'C'), (Chem.MolFromSmiles('[NH2:1][CH2:2][OH:3]'), 3, 'O')])
+def test_remove_atom(mol, map_num, symbol):
+    atom = utils.get_atom_with_map_num(mol, map_num)
+    prev_num_atoms = len(mol.GetAtoms())
+
+    mol = utils.remove_atom(mol, atom.GetIdx())
+
+    atoms = mol.GetAtoms()
+    assert(len(atoms) == prev_num_atoms - 1)
+    for atom in atoms:
+        assert(atom.GetSymbol() != symbol)

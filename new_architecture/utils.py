@@ -52,7 +52,7 @@ def get_atom_with_map_num(mol, map_num):
     raise RuntimeError(f'Atom map number {map_num} not present on molecule {Chem.MolToSmiles(mol)}')
 
 
-# def remove_atom(mol, atom):
-#     mol = Chem.RWMol(mol)
-#     mol.RemoveAtom(atom)
-#     return mol
+def remove_atom(mol, atom_idx):
+    mol = Chem.RWMol(mol)
+    mol.RemoveAtom(atom_idx)
+    return mol
