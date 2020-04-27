@@ -60,3 +60,22 @@ def test_clear_isotopes(mol):
     assert(Chem.MolToSmiles(mol) == 'CCC')
     for atom in mol.GetAtoms():
         assert(atom.GetIsotope() == 0)
+
+
+@pytest.mark.parametrize('mol,map_num,expected_results', [(Chem.MolFromSmiles('[NH2:1][CH2:2]C[OH:3]'), 1, ('N', 2)), (Chem.MolFromSmiles('[NH2:1][CH2:2]C[OH:3]'), 2, ('C', 2)), (Chem.MolFromSmiles('[NH2:1][CH2:2]C[OH:3]'), 3, ('O', 1))])
+def get_atom_with_map_num(mol, map_num, expected_results):
+    atom = utils.get_atom_with_map_num(mol, map_num)
+
+    symbol, num_hydrogens = expected_results
+
+    assert(atom.GetSymbol() == symbol)
+    assert(atom.GetTotalNumHs() == num_hydrogens)
+
+
+@pytest.mark.parametrize('mol,map_num', [(Chem.MolFromSmiles('[NH2:1][CH2:2]C[OH:3]'), 4)])
+def get_atom_with_map_num_fail(mol, map_num):
+    with pytest.raises(RuntimeError):
+        atom = utils.get_atom_with_map_num(mol, map_num)
+
+# def test_remove_atom(mol):
+#     utils.remove_atom(mol)

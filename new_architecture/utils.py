@@ -1,4 +1,5 @@
 import numpy as np
+from rdkit import Chem
 
 
 def get_maximum(data, func):
@@ -41,3 +42,17 @@ def clear_atom_map_nums(mol):
 def clear_isotopes(mol):
     for atom in mol.GetAtoms():
         atom.SetIsotope(0)
+
+
+def get_atom_with_map_num(mol, map_num):
+    for atom in mol.GetAtoms():
+        if atom.GetAtomMapNum() == map_num:
+            return atom
+
+    raise RuntimeError(f'Atom map number {map_num} not present on molecule {Chem.MolToSmiles(mol)}')
+
+
+# def remove_atom(mol, atom):
+#     mol = Chem.RWMol(mol)
+#     mol.RemoveAtom(atom)
+#     return mol
