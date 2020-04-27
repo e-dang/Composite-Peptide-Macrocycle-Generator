@@ -4,6 +4,7 @@ from macrocycles.exceptions import InvalidMolecule
 import new_architecture.utils as utils
 import macrocycles.exceptions as exceptions
 from itertools import chain
+
 SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')
 
@@ -165,8 +166,8 @@ class Monomer(AbstractMolecule):
     @classmethod
     def from_mol(cls, mol, backbone, sidechain, imported=False):
         Chem.Kekulize(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol), backbone.to_reduced_dict(),
-                   sidechain.shared_id, sidechain.connection, cls.is_proline(mol), imported)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol),
+                   backbone.to_reduced_dict(), sidechain.shared_id, sidechain.connection, cls.is_proline(mol), imported)
 
     @classmethod
     def from_dict(cls, data, _id=None):
@@ -182,6 +183,10 @@ class Monomer(AbstractMolecule):
     def is_proline(mol):
         return bool(AllChem.CalcNumAliphaticRings(mol) and mol.HasSubstructMatch(PROLINE_N_TERM))
 
+    @property
+    def backbone_mol(self):
+        return Chem.MolFromSmiles(self.backbone['kekule'])
+
     def to_dict(self):
         data = super().to_dict()
         data.pop('required')
@@ -194,6 +199,9 @@ class Peptide(AbstractMolecule):
         super().__init__(binary, kekule, _id)
         self.has_cap = has_cap
         self.monomers = monomers
+
+    def __eq__(self, other):
+        return self.kekule == other.kekule and self.has_cap == other.has_cap and self.monomers == other.monomers
 
     @classmethod
     def from_mol(cls, mol, has_cap, monomers):

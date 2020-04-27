@@ -269,6 +269,11 @@ def test_peptide_to_dict(peptide_from_dict):
     assert(peptide_from_dict.to_dict() == TEST_PEPTIDE_1)
 
 
+def test_peptide_eq(peptide_from_dict):
+    assert(peptide_from_dict == models.Peptide.from_dict(TEST_PEPTIDE_1, _id='shouldnt matter'))
+    assert(peptide_from_dict != models.Peptide.from_dict(TEST_PEPTIDE_2, _id='shouldnt matter'))
+
+
 def test_template_peptide_from_mol(template_peptide_from_mol):
     assert(template_peptide_from_mol._id == None)
     assert(template_peptide_from_mol.binary != None)
