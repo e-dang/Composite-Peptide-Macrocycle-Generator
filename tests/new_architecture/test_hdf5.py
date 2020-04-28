@@ -4,6 +4,7 @@ from copy import copy
 import pytest
 from rdkit import Chem
 
+import h5py
 import macrocycles.config as config
 import new_architecture.repository.hdf5 as hdf5
 from new_architecture.repository.repository import WholeRange
@@ -76,7 +77,7 @@ def test_hdf5_file_regular_open(filepath):
     assert(not file)
 
 
-def test_hdf5_context_manager(filepath):
+def test_hdf5_file_context_manager(filepath):
     with hdf5.HDF5File() as file:
         assert(os.path.exists(filepath))
         assert(file)
@@ -85,6 +86,17 @@ def test_hdf5_context_manager(filepath):
         assert(len(list(file.keys())) == 1)
 
     assert(not file)
+
+
+def test_hdf5_file_create_group(filepath):
+    group_name = 'test'
+    with hdf5.HDF5File() as file:
+        group1 = file.create_group(group_name)
+        group2 = file.create_group(group_name)
+
+        assert(isinstance(group1, h5py.Group))
+        assert(isinstance(group2, h5py.Group))
+        assert(group1.name == group2.name)
 
 
 def test_hdf5_initializer(initialize_repo):
@@ -233,3 +245,23 @@ def test_hdf5_remove(monomer_repo):
     locations = repo.find(group, key)
     assert(len(key) == 3)
     assert(len(locations) == 0)
+
+
+def test_hdf5_move(monomer_repo):
+    repo, _ids, group, filepath = monomer_repo
+    key = [_ids[0], _ids[3], _ids[4]]
+    dest_group = 'misc/monomers'
+
+    # assert remove operation worked
+    assert(repo.move(group, copy(key), dest_group))
+    with hdf5.HDF5File(filepath) as file:
+        assert(len(file[group]['0']) == 2)
+        assert(len(file[group]['1']) == 1)
+    locations = repo.find(group, key)
+    assert(len(key) == 3)
+    assert(len(locations) == 0)
+
+    # assert copy operation worked
+    locations = repo.find(dest_group, key)
+    assert(len(key) == 0)
+    assert(len(locations) == 1)

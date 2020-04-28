@@ -36,6 +36,12 @@ class HDF5File(h5py.File):
     def __del__(self):
         self.close()
 
+    def create_group(self, group, track_order=None):
+        if group in self:
+            return self[group]
+
+        return super().create_group(group, track_order=track_order)
+
 
 class HDF5Initializer:
     def __init__(self):
@@ -65,15 +71,11 @@ class HDF5Repository:
         serialized_data = serialize_chunk(data)
         max_bin_len = utils.get_maximum(serialized_data, len)
 
-        _ids = []
         with HDF5File() as file:
             dataset = self._create_dataset(file[group], len(serialized_data), str(max_bin_len))
-            for i, s_doc in enumerate(serialized_data):
-                dataset[i] = s_doc.encode(self.ENCODING)
-                _ids.append(str(uuid.uuid4()))
-                dataset.attrs[_ids[-1]] = i
+            ids = self._write(dataset, serialized_data, self._get_unique_ids(dataset))
 
-        return _ids
+        return ids
 
     def find(self, group, key):
         locations = defaultdict(list)
@@ -113,6 +115,18 @@ class HDF5Repository:
 
         return True
 
+    def move(self, src_group, key, dest_group):
+        ids, data = zip(*self.load(src_group, key))
+        data = serialize_chunk(data)
+        max_bin_len = utils.get_maximum(data, len)
+
+        with HDF5File() as file:
+            dataset = self._create_dataset(file.create_group(dest_group), len(ids), str(max_bin_len))
+            self._write(dataset, data, ids)
+            self.remove(src_group, key)
+
+        return True
+
     # def deactivate_records(self, group, key):
     #     _ids, data = zip(*self.load(group, key))
     #     data = serialize_chunk(data)
@@ -130,6 +144,21 @@ class HDF5Repository:
                 num_records += len(file[group][dataset])
 
         return num_records
+
+    def _write(self, dataset, data, ids):
+        used_ids = []
+        for i, (doc, _id) in enumerate(zip(data, ids)):
+            dataset[i] = doc.encode(self.ENCODING)
+            dataset.attrs[_id] = i
+            used_ids.append(_id)
+
+        return used_ids
+
+    def _get_unique_ids(self, dataset):
+        while True:
+            _id = str(uuid.uuid4())
+            if _id not in dataset.attrs:
+                yield _id
 
     def _create_dataset(self, group, rows, dlen):
         max_idx = utils.get_maximum(group, int)
