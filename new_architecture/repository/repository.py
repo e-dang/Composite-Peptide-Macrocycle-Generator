@@ -96,16 +96,27 @@ class AbstractRepository:
 
     def __init__(self, impl):
         self.impl = impl
+        self.failed_instances = []
 
     def load(self, key=WholeRange()):
         for _id, data in self.impl.load(self.CATEGORY, key):
             yield self.TYPE.from_dict(data, _id=_id)
 
     def save(self, data):
-        if not isinstance(random.choice(data), self.TYPE):
-            raise TypeError('Error! Repository - type mismatch')
+        return self.impl.save(self.CATEGORY, data)
 
-        return self.impl.save(self.CATEGORY, map(lambda x: x.to_dict(), data))
+    def get_num_records(self):
+        return self.impl.get_num_records(self.CATEGORY)
+
+    def _check_type(self, data):
+        for model in data:
+            if not isinstance(model, self.TYPE):
+                print(
+                    f'Type error! Repository of type {self.TYPE} cannot save model of type {type(model)}. The instance has '
+                    f'been skipped and saved in instance variable \'self.failed_instances\'.')
+                self.failed_instances.append(model)
+            else:
+                yield model.to_dict()
 
 
 class BackboneRepository(AbstractRepository):
@@ -115,6 +126,9 @@ class BackboneRepository(AbstractRepository):
     def __init__(self, impl):
         super().__init__(impl)
 
+    def save(self, data):
+        return super().save(self._check_type(data))
+
 
 class ConnectionRepository(AbstractRepository):
     TYPE = models.Connection
@@ -122,6 +136,9 @@ class ConnectionRepository(AbstractRepository):
 
     def __init__(self, impl):
         super().__init__(impl)
+
+    def save(self, data):
+        return super().save(self._check_type(data))
 
 
 class TemplateRepository(AbstractRepository):
@@ -131,6 +148,9 @@ class TemplateRepository(AbstractRepository):
     def __init__(self, impl):
         super().__init__(impl)
 
+    def save(self, data):
+        return super().save(self._check_type(data))
+
 
 class SidechainRepository(AbstractRepository):
     TYPE = models.Sidechain
@@ -138,6 +158,9 @@ class SidechainRepository(AbstractRepository):
 
     def __init__(self, impl):
         super().__init__(impl)
+
+    def save(self, data):
+        return super().save(self._check_type(data))
 
 
 class MonomerRepository(AbstractRepository):
@@ -147,6 +170,22 @@ class MonomerRepository(AbstractRepository):
     def __init__(self, impl):
         super().__init__(impl)
 
+    def save(self, data):
+        return super().save(self._attach_indices(self._check_type(data)))
+
+    def _attach_indices(self, data):
+        current_num_monomers = self.get_num_records()
+        for i, monomer in enumerate(data):
+            if monomer['index'] is None:
+                monomer['index'] = current_num_monomers + i
+                yield monomer
+            else:
+                print(
+                    f'Warning - A monomer with an index != None indicates that the monomer has already been saved to '
+                    f'the repository! Saving monomer in instance variable \'self.failed_instances\' kekule: '
+                    f'{monomer.kekule} index: {monomer.index}')
+                self.failed_instances.append(monomer)
+
 
 class PeptideRepository(AbstractRepository):
     TYPE = models.Peptide
@@ -155,6 +194,9 @@ class PeptideRepository(AbstractRepository):
     def __init__(self, impl):
         super().__init__(impl)
 
+    def save(self, data):
+        return super().save(self._check_type(data))
+
 
 class TemplatePeptideRepository(AbstractRepository):
     TYPE = models.TemplatePeptide
@@ -162,6 +204,9 @@ class TemplatePeptideRepository(AbstractRepository):
 
     def __init__(self, impl):
         super().__init__(impl)
+
+    def save(self, data):
+        return super().save(self._check_type(data))
 
 
 def repository_impl_from_string(impl):

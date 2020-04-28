@@ -43,8 +43,10 @@ def test_backbone_repository(repository_patch):
 
 def test_backbone_repository_fail(repository_patch):
     backbone_repo = repo.create_backbone_repository()
-    with pytest.raises(TypeError):
-        _ids = backbone_repo.save(['dne'])
+
+    _ids = backbone_repo.save(['dne'])
+
+    assert(len(backbone_repo.failed_instances) == 1)
 
 
 def test_connection_repository(repository_patch):
@@ -59,8 +61,10 @@ def test_connection_repository(repository_patch):
 
 def test_connection_repository_fail(repository_patch):
     connection_repo = repo.create_connection_repository()
-    with pytest.raises(TypeError):
-        _ids = connection_repo.save(['dne'])
+
+    _ids = connection_repo.save(['dne'])
+
+    assert(len(connection_repo.failed_instances) == 1)
 
 
 def test_template_repository(repository_patch):
@@ -77,8 +81,10 @@ def test_template_repository(repository_patch):
 
 def test_template_repository_fail(repository_patch):
     template_repo = repo.create_template_repository()
-    with pytest.raises(TypeError):
-        _ids = template_repo.save(['dne'])
+
+    _ids = template_repo.save(['dne'])
+
+    assert(len(template_repo.failed_instances) == 1)
 
 
 def test_sidechain_repository(repository_patch):
@@ -95,26 +101,36 @@ def test_sidechain_repository(repository_patch):
 
 def test_sidechain_repository_fail(repository_patch):
     sc_repo = repo.create_sidechain_repository()
-    with pytest.raises(TypeError):
-        _ids = sc_repo.save(['dne'])
+
+    _ids = sc_repo.save(['dne'])
+
+    assert(len(sc_repo.failed_instances) == 1)
 
 
 def test_monomer_repository(repository_patch):
+    monomers = [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3]
     monomer_repo = repo.create_monomer_repository()
-    _ids = monomer_repo.save(list(map(models.Monomer.from_dict, [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3])))
+    _ids = monomer_repo.save(list(map(models.Monomer.from_dict, monomers)))
     data = monomer_repo.load(_ids)
     data = utils.mols_to_dict(data)
 
-    assert(len(data) == 3)
-    assert(TEST_MONOMER_1 in data)
-    assert(TEST_MONOMER_2 in data)
-    assert(TEST_MONOMER_3 in data)
+    for i, monomer in enumerate(monomers):
+        monomer['index'] = i
+
+    monomers.sort(key=lambda x: x['index'])
+    data.sort(key=lambda x: x['index'])
+
+    assert(len(data) == len(monomers))
+    for doc, monomer in zip(data, monomers):
+        assert(doc == monomer)
 
 
 def test_monomer_repository_fail(repository_patch):
     monomer_repo = repo.create_monomer_repository()
-    with pytest.raises(TypeError):
-        _ids = monomer_repo.save(['dne'])
+
+    _ids = monomer_repo.save(['dne'])
+
+    assert(len(monomer_repo.failed_instances) == 1)
 
 
 def test_peptide_repository(repository_patch):
@@ -129,8 +145,10 @@ def test_peptide_repository(repository_patch):
 
 def test_peptide_repository_fail(repository_patch):
     peptide_repo = repo.create_peptide_repository()
-    with pytest.raises(TypeError):
-        _ids = peptide_repo.save(['dne'])
+
+    _ids = peptide_repo.save(['dne'])
+
+    assert(len(peptide_repo.failed_instances) == 1)
 
 
 def test_template_peptide_repository(repository_patch):
@@ -145,5 +163,7 @@ def test_template_peptide_repository(repository_patch):
 
 def test_template_peptide_repository_fail(repository_patch):
     template_peptide_repo = repo.create_template_peptide_repository()
-    with pytest.raises(TypeError):
-        _ids = template_peptide_repo.save(['dne'])
+
+    _ids = template_peptide_repo.save(['dne'])
+
+    assert(len(template_peptide_repo.failed_instances) == 1)
