@@ -285,3 +285,26 @@ def test_hdf5_deactivate_records(monomer_repo):
     locations = repo.find(dest_group, key)
     assert(len(key) == 0)
     assert(len(locations) == 1)
+
+
+def test_hdf5_activate_records(monomer_repo):
+    repo, _ids, group, filepath = monomer_repo
+    key = [_ids[0], _ids[3], _ids[4]]
+    dest_group = 'inactives/monomers'
+    repo.deactivate_records(group, copy(key))
+
+    # assert remove operation worked
+    assert(repo.activate_records(group, copy(key)))
+    with hdf5.HDF5File(filepath) as file:
+        with pytest.raises(KeyError):
+            file[dest_group]['0']
+            file[dest_group]['1']
+        assert(len(file[group]) == 3)
+    locations = repo.find(dest_group, key)
+    assert(len(key) == 3)
+    assert(len(locations) == 0)
+
+    # assert copy operation worked
+    locations = repo.find(group, key)
+    assert(len(key) == 0)
+    assert(len(locations) == 1)

@@ -99,20 +99,25 @@ class HDF5Repository:
                 dataset = file[path]
                 indices = np.delete(np.arange(len(dataset)), indices)
 
-                # remove values
-                data = dataset[indices]
-                dataset[:len(data)] = data
-                dataset.resize((len(data),))
+                if len(indices) != 0:
+                    self._remove_values(dataset, indices)
+                    self._remove_ids(dataset, indices)
+                    # # remove values
+                    # data = dataset[indices]
+                    # dataset[:len(data)] = data
+                    # dataset.resize((len(data),))
 
-                # remove ids
-                items = list(filter(lambda x: x[1] in indices, dataset.attrs.items()))
-                items.sort(key=lambda x: x[1])
-                ids, _ = zip(*items)
-                for new_idx, _id in enumerate(ids):
-                    dataset.attrs[_id] = new_idx
+                    # # remove ids
+                    # items = list(filter(lambda x: x[1] in indices, dataset.attrs.items()))
+                    # items.sort(key=lambda x: x[1])
+                    # ids, _ = zip(*items)
+                    # for new_idx, _id in enumerate(ids):
+                    #     dataset.attrs[_id] = new_idx
 
-                for _id in set(dataset.attrs.keys()).difference(ids):
-                    del dataset.attrs[_id]
+                    # for _id in set(dataset.attrs.keys()).difference(ids):
+                    #     del dataset.attrs[_id]
+                else:
+                    del file[path]
 
         return True
 
@@ -131,6 +136,9 @@ class HDF5Repository:
     def deactivate_records(self, group, key):
         return self.move(group, key, '/'.join(['inactives', group]))
 
+    def activate_records(self, group, key):
+        return self.move('/'.join(['inactives', group]), key, group)
+
     def get_num_records(self, group):
         num_records = 0
         with HDF5File() as file:
@@ -147,6 +155,21 @@ class HDF5Repository:
             used_ids.append(_id)
 
         return used_ids
+
+    def _remove_values(self, dataset, indices):
+        data = dataset[indices]
+        dataset[:len(data)] = data
+        dataset.resize((len(data),))
+
+    def _remove_ids(self, dataset, indices):
+        items = list(filter(lambda x: x[1] in indices, dataset.attrs.items()))
+        items.sort(key=lambda x: x[1])
+        ids, _ = zip(*items)
+        for new_idx, _id in enumerate(ids):
+            dataset.attrs[_id] = new_idx
+
+        for _id in set(dataset.attrs.keys()).difference(ids):
+            del dataset.attrs[_id]
 
     def _get_unique_ids(self, dataset):
         while True:
