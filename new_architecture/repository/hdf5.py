@@ -168,8 +168,7 @@ class HDF5Repository:
         max_idx = utils.get_maximum(group, int)
         max_idx = -1 if max_idx is None else max_idx
         return group.create_dataset(str(max_idx + 1), (rows,), maxshape=(None,), chunks=True, dtype='S' + dlen,
-                                    compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS,
-                                    track_order=True)
+                                    compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
 
     def _load_range(self, group, key):
         with HDF5File() as file:
@@ -177,7 +176,8 @@ class HDF5Repository:
             for dataset in file[group]:
                 dataset = file[group][dataset]
                 if key in Range(range_index, range_index + len(dataset)):
-                    for _id, idx in dataset.attrs.items():
+                    # items must be sorted manually until track_order argument is fixed in h5py
+                    for _id, idx in sorted(dataset.attrs.items(), key=lambda x: x[1]):
                         if range_index in key:
                             yield (_id, deserialize(dataset[idx].decode(self.ENCODING)))
                         range_index += 1
