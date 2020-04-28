@@ -31,30 +31,23 @@ class DiscreteDataChunk(Range):
     def __contains__(self, number):
         return number in self.indices
 
-# class ContinuousDataChunk(Range):
 
-#     def __init__(self, total_num_data, total_num_jobs, job_num):
-#         self.calc_chunk_size(total_num_data, total_num_jobs)
-#         super().__init__(self.calc_start(job_num), self.calc_end(total_num_data, job_num))
+class BatchedDataChunk(Range):
 
-#     def __eq__(self, number):
-#         if self.start <= number < self.end:
-#             return True
-#         elif self.end <= number:
-#             raise StopIteration
+    def __init__(self, total_num_data, total_num_jobs, job_num):
+        self.calc_chunk_size(total_num_data, total_num_jobs)
+        super().__init__(self.calc_start(job_num), self.calc_end(total_num_data, job_num))
 
-#         return False
+    def calc_chunk_size(self, total_num_data, total_num_jobs):
+        self.chunk_size = math.ceil(total_num_data / total_num_jobs)
 
-#     def calc_chunk_size(self, total_num_data, total_num_jobs):
-#         self.chunk_size = math.ceil(total_num_data / total_num_jobs)
+    def calc_start(self, job_num):
+        return self.chunk_size * (job_num - 1)
 
-#     def calc_start(self, job_num):
-#         return self.chunk_size * (job_num - 1)
+    def calc_end(self, total_num_data, job_num):
+        end = self.chunk_size * job_num
 
-#     def calc_end(self, total_num_data, job_num):
-#         end = self.chunk_size * job_num
+        if end > total_num_data:
+            end = total_num_data
 
-#         if end > total_num_data:
-#             end = total_num_data
-
-#         return end
+        return end

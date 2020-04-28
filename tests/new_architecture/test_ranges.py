@@ -26,3 +26,12 @@ def test_discrete_data_chunk(test_min, test_max, static_range, expected):
     data_chunk = ranges.DiscreteDataChunk([test_min, int_avg, test_max])
     assert((data_chunk in static_range) == expected)
     assert(int_avg in data_chunk)
+
+
+@pytest.mark.parametrize('total_num_data,total_num_jobs,job_num,static_range,expected_start,expected_end,expected_result', [(2, 1, 1, '', 0, 2, False), (10, 2, 1, '', 0, 5, False), (12, 2, 1, '', 0, 6, True), (12, 6, 4, '', 6, 8, True), (14, 2, 2, '', 7, 14, True), (20, 2, 2, '', 10, 20, False)], indirect=['static_range'])
+def test_batched_data_chunk(total_num_data, total_num_jobs, job_num, static_range, expected_start, expected_end, expected_result):
+    data_chunk = ranges.BatchedDataChunk(total_num_data, total_num_jobs, job_num)
+    assert(data_chunk.start == expected_start)
+    assert(data_chunk.end == expected_end)
+    assert((data_chunk in static_range) == expected_result)
+    assert((static_range in data_chunk) == expected_result)
