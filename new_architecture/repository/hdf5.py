@@ -102,20 +102,6 @@ class HDF5Repository:
                 if len(indices) != 0:
                     self._remove_values(dataset, indices)
                     self._remove_ids(dataset, indices)
-                    # # remove values
-                    # data = dataset[indices]
-                    # dataset[:len(data)] = data
-                    # dataset.resize((len(data),))
-
-                    # # remove ids
-                    # items = list(filter(lambda x: x[1] in indices, dataset.attrs.items()))
-                    # items.sort(key=lambda x: x[1])
-                    # ids, _ = zip(*items)
-                    # for new_idx, _id in enumerate(ids):
-                    #     dataset.attrs[_id] = new_idx
-
-                    # for _id in set(dataset.attrs.keys()).difference(ids):
-                    #     del dataset.attrs[_id]
                 else:
                     del file[path]
 
