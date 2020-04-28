@@ -40,8 +40,6 @@ def test_reqiosqm_exporter(export_path_patch):
 
     with open(export_filepath, 'r') as file:
         lines = list(file.readlines())
-        print(lines, sidechains, monomers)
-        print(len(lines), len(sidechains), len(monomers))
         assert(len(lines) == len(sidechains) + len(monomers))
         for line in lines:
             kekule = line.split(' ')[-1].strip('\n')
