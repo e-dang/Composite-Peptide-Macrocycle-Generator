@@ -40,6 +40,7 @@ class HDF5File(h5py.File):
         if group in self:
             return self[group]
 
+        print(f'Created group {group}')
         return super().create_group(group, track_order=track_order)
 
 
@@ -127,15 +128,8 @@ class HDF5Repository:
 
         return True
 
-    # def deactivate_records(self, group, key):
-    #     _ids, data = zip(*self.load(group, key))
-    #     data = serialize_chunk(data)
-    #     max_bin_len = utils.get_maximum(data, len)
-
-    #     with HDF5File() as file:
-    #         dataset = self._create_dataset(file['inactives'][group], len(_ids), str(max_bin_len))
-    #         # self._write(data, _ids)
-    #         self.remove(group, key)
+    def deactivate_records(self, group, key):
+        return self.move(group, key, '/'.join(['inactives', group]))
 
     def get_num_records(self, group):
         num_records = 0
