@@ -7,6 +7,7 @@ import numpy as np
 
 import macrocycles.config as config
 import new_architecture.utils as utils
+from new_architecture.ranges import Range
 
 
 def serialize(data):
@@ -166,17 +167,22 @@ class HDF5Repository:
     def _create_dataset(self, group, rows, dlen):
         max_idx = utils.get_maximum(group, int)
         max_idx = -1 if max_idx is None else max_idx
-        return group.create_dataset(str(max_idx + 1), (rows,), maxshape=(None,), chunks=True, dtype='S' + dlen, compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
+        return group.create_dataset(str(max_idx + 1), (rows,), maxshape=(None,), chunks=True, dtype='S' + dlen,
+                                    compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS,
+                                    track_order=True)
 
     def _load_range(self, group, key):
         with HDF5File() as file:
-            range_index = 1
+            range_index = 0
             for dataset in file[group]:
                 dataset = file[group][dataset]
-                for _id, idx in dataset.attrs.items():
-                    if range_index in key:
-                        yield (_id, deserialize(dataset[idx].decode(self.ENCODING)))
-                    range_index += 1
+                if key in Range(range_index, range_index + len(dataset)):
+                    for _id, idx in dataset.attrs.items():
+                        if range_index in key:
+                            yield (_id, deserialize(dataset[idx].decode(self.ENCODING)))
+                        range_index += 1
+                else:
+                    range_index += len(dataset)
 
     def _load_ids(self, group, key):
         with HDF5File() as file:

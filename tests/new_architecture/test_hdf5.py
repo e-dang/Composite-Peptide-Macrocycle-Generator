@@ -7,10 +7,9 @@ from rdkit import Chem
 import h5py
 import macrocycles.config as config
 import new_architecture.repository.hdf5 as hdf5
-from new_architecture.repository.repository import WholeRange
+import new_architecture.ranges as ranges
 from tests.new_architecture.data.mols import *
 
-GROUP = 'sidechains'
 TEST_DICT = {'A': 1, 'B': True, 'C': 1.0, 'D': b'test_bin_string',
              'E': 'test_string', 'F': Chem.MolFromSmiles('CCC').ToBinary()}
 TEST_LIST = [TEST_DICT, TEST_DICT, TEST_DICT]
@@ -32,12 +31,26 @@ def initialize_repo(filepath):
 
 
 @pytest.fixture
+def sidechain_repo(initialize_repo):
+    _, filepath = initialize_repo
+    group = 'sidechains'
+    dataset_1 = [TEST_SIDECHAIN_1, TEST_SIDECHAIN_2]
+    dataset_2 = [TEST_SIDECHAIN_3, TEST_SIDECHAIN_4]
+    repo = hdf5.HDF5Repository()
+    _ids = repo.save(group, dataset_1)
+    _ids.extend(repo.save(group, dataset_2))
+    yield repo, _ids, group, dataset_1, dataset_2, filepath
+
+
+@pytest.fixture
 def monomer_repo(initialize_repo):
     _, filepath = initialize_repo
     group = 'monomers'
+    dataset_1 = [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3]
+    dataset_2 = [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6]
     repo = hdf5.HDF5Repository()
-    _ids = repo.save(group, [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3])
-    _ids.extend(repo.save(group, [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6]))
+    _ids = repo.save(group, dataset_1)
+    _ids.extend(repo.save(group, dataset_2))
     yield repo, _ids, group, filepath
 
 
@@ -107,96 +120,97 @@ def test_hdf5_initializer(initialize_repo):
 
 def test_hdf5_repository_save_load_range_single(initialize_repo):
     _, filepath = initialize_repo
+    group = 'sidechains'
     repo = hdf5.HDF5Repository()
-    repo.save('sidechains', TEST_SIDECHAIN_1)
+    repo.save(group, TEST_SIDECHAIN_1)
 
     with hdf5.HDF5File(filepath) as file:
-        assert(list(file[GROUP].keys()) == ['0'])
-        assert(file[GROUP]['0'].size == (1,))
+        assert(list(file[group].keys()) == ['0'])
+        assert(file[group]['0'].size == (1,))
 
-    _, data = zip(*list(repo.load(GROUP, WholeRange())))
+    _, data = zip(*list(repo.load(group, ranges.WholeRange())))
     assert(len(data) == 1)
     assert(data[0] == TEST_SIDECHAIN_1)
 
 
 def test_hdf5_repository_save_load_ids_single(initialize_repo):
     _, filepath = initialize_repo
+    group = 'sidechains'
     repo = hdf5.HDF5Repository()
-    _ids = repo.save('sidechains', TEST_SIDECHAIN_1)
+    _ids = repo.save(group, TEST_SIDECHAIN_1)
 
     with hdf5.HDF5File(filepath) as file:
-        assert(list(file[GROUP].keys()) == ['0'])
-        assert(file[GROUP]['0'].size == (1,))
+        assert(list(file[group].keys()) == ['0'])
+        assert(file[group]['0'].size == (1,))
 
-    _, data = zip(*list(repo.load(GROUP, _ids)))
+    _, data = zip(*list(repo.load(group, _ids)))
     assert(len(data) == 1)
     assert(data[0] == TEST_SIDECHAIN_1)
 
 
-def test_hdf5_repository_save_load_range_multi(initialize_repo):
-    _, filepath = initialize_repo
-    repo = hdf5.HDF5Repository()
-    repo.save('sidechains', [TEST_SIDECHAIN_1, TEST_SIDECHAIN_2])
+def test_hdf5_repository_save_load_range_multi(sidechain_repo):
+    repo, _ids, group, dataset_1, dataset_2, filepath = sidechain_repo
+    test_dataset = sorted(dataset_1 + dataset_2, key=lambda x: x['kekule'])
 
     with hdf5.HDF5File(filepath) as file:
-        assert(list(file[GROUP].keys()) == ['0'])
-        assert(file[GROUP]['0'].size == (2,))
+        assert(list(file[group].keys()) == ['0', '1'])
+        assert(len(file[group]['0']) == 2)
+        assert(len(file[group]['1']) == 2)
 
-    _, data = zip(*list(repo.load(GROUP, WholeRange())))
+    _, data = zip(*list(repo.load(group, ranges.WholeRange())))
+    data = sorted(list(data), key=lambda x: x['kekule'])
+    assert(len(data) == 4)
+    for doc, test_doc in zip(data, test_dataset):
+        assert(doc == test_doc)
+
+
+def test_hdf5_repository_save_load_discrete_chunk_multi(sidechain_repo):
+    repo, _ids, group, dataset_1, dataset_2, filepath = sidechain_repo
+    test_dataset = sorted([dataset_1[0], dataset_2[1]], key=lambda x: x['kekule'])
+
+    with hdf5.HDF5File(filepath) as file:
+        assert(list(file[group].keys()) == ['0', '1'])
+        assert(len(file[group]['0']) == 2)
+        assert(len(file[group]['1']) == 2)
+
+    _, data = zip(*list(repo.load(group, ranges.DiscreteDataChunk([0, 3]))))
     data = sorted(list(data), key=lambda x: x['kekule'])
     assert(len(data) == 2)
-    assert(data[0] == TEST_SIDECHAIN_1)
-    assert(data[1] == TEST_SIDECHAIN_2)
+    for doc, test_doc in zip(data, test_dataset):
+        assert(doc == test_doc)
 
 
 def test_hdf5_repository_save_load_ids_multi(initialize_repo):
     _, filepath = initialize_repo
+    group = 'sidechains'
     repo = hdf5.HDF5Repository()
-    _ids = repo.save('sidechains', [TEST_SIDECHAIN_1, TEST_SIDECHAIN_2])
+    _ids = repo.save(group, [TEST_SIDECHAIN_1, TEST_SIDECHAIN_2])
 
     with hdf5.HDF5File(filepath) as file:
-        assert(list(file[GROUP].keys()) == ['0'])
-        assert(file[GROUP]['0'].size == (2,))
+        assert(list(file[group].keys()) == ['0'])
+        assert(file[group]['0'].size == (2,))
 
-    _, data = zip(*list(repo.load(GROUP, _ids)))
+    _, data = zip(*list(repo.load(group, _ids)))
     data = sorted(list(data), key=lambda x: x['kekule'])
     assert(len(data) == 2)
     assert(data[0] == TEST_SIDECHAIN_1)
     assert(data[1] == TEST_SIDECHAIN_2)
 
 
-def test_hdf5_repository_save_load_range_multi_separate(initialize_repo):
-    _, filepath = initialize_repo
-    repo = hdf5.HDF5Repository()
-    repo.save('sidechains', TEST_SIDECHAIN_1)
-    repo.save('sidechains', TEST_SIDECHAIN_2)
+def test_hdf5_repository_save_load_ids_multi_separate(sidechain_repo):
+    repo, _ids, group, dataset_1, dataset_2, filepath = sidechain_repo
+    test_dataset = sorted(dataset_1 + dataset_2, key=lambda x: x['kekule'])
 
     with hdf5.HDF5File(filepath) as file:
-        assert(list(file[GROUP].keys()) == ['0', '1'])
-        assert(file[GROUP]['0'].size == (1,))
-        assert(file[GROUP]['1'].size == (1,))
+        assert(list(file[group].keys()) == ['0', '1'])
+        assert(len(file[group]['0']) == 2)
+        assert(len(file[group]['1']) == 2)
 
-    _, data = zip(*list(repo.load(GROUP, WholeRange())))
-    assert(len(data) == 2)
-    assert(data[0] == TEST_SIDECHAIN_1)
-    assert(data[1] == TEST_SIDECHAIN_2)
-
-
-def test_hdf5_repository_save_load_ids_multi_separate(initialize_repo):
-    _, filepath = initialize_repo
-    repo = hdf5.HDF5Repository()
-    _ids = repo.save('sidechains', TEST_SIDECHAIN_1)
-    _ids.extend(repo.save('sidechains', TEST_SIDECHAIN_2))
-
-    with hdf5.HDF5File(filepath) as file:
-        assert(list(file[GROUP].keys()) == ['0', '1'])
-        assert(file[GROUP]['0'].size == (1,))
-        assert(file[GROUP]['1'].size == (1,))
-
-    _, data = zip(*list(repo.load(GROUP, _ids)))
-    assert(len(data) == 2)
-    assert(data[0] == TEST_SIDECHAIN_1)
-    assert(data[1] == TEST_SIDECHAIN_2)
+    _, data = zip(*list(repo.load(group, _ids)))
+    data = sorted(list(data), key=lambda x: x['kekule'])
+    assert(len(data) == 4)
+    for doc, test_doc in zip(data, test_dataset):
+        assert(doc == test_doc)
 
 
 @pytest.mark.parametrize('dataset1,dataset2,expected_result,initialize_repo', [([TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3], [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6], 6, ''), ([], [], 0, '')], indirect=['initialize_repo'])
