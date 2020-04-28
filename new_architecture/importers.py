@@ -9,6 +9,7 @@ from rdkit import Chem
 import macrocycles.config as config
 import new_architecture.models as models
 import new_architecture.repository.repository as repo
+from new_architecture.io_formats import json_load
 
 
 class JsonImporter:
@@ -18,9 +19,8 @@ class JsonImporter:
     def load(self, data_type):
 
         for filepath in self._assemble_filepaths(data_type):
-            with open(filepath, 'r') as file:
-                for doc in json.load(file):
-                    yield doc
+            for doc in json_load(filepath):
+                yield doc
 
     def _assemble_filepaths(self, data_type):
         return glob.glob(os.path.join(self.search_dir, data_type + '*.json'))
