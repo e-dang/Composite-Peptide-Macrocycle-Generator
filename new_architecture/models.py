@@ -71,7 +71,7 @@ class Backbone(AbstractMolecule):
         return True
 
     def to_reduced_dict(self):
-        data = self.__dict__
+        data = deepcopy(self.__dict__)
         data.pop('binary')
         data.pop('mapped_kekule')
         return data

@@ -138,7 +138,7 @@ def test_monomer_importer(json_importer, independent_importers):
     kekules = [doc['kekule'] for doc in monomer_docs]
     backbones = [mol.to_reduced_dict() for mol in backbone_data]
 
-    assert(len(monomer_data) == 2)
+    assert(len(monomer_data) == 3)
     for mol in monomer_data:
         rdkit_mol = mol.mol
         assert(mol._id != None)
