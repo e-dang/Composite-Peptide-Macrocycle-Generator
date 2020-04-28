@@ -12,3 +12,10 @@ def static_range():
 def test_range(test_min, test_max, static_range, expected):
     dynamic_range = ranges.Range(test_min, test_max)
     assert((dynamic_range in static_range) == expected)
+    assert((static_range in dynamic_range) == expected)
+
+
+def test_whole_range(static_range):
+    whole_range = ranges.WholeRange()
+    assert(static_range in whole_range)
+    assert(whole_range in static_range)
