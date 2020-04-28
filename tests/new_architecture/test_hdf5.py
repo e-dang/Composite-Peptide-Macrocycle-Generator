@@ -182,3 +182,19 @@ def test_hdf5_get_num_records(dataset1, dataset2, expected_result, initialize_re
     _ids.extend(repo.save('monomers', dataset2))
 
     assert(repo.get_num_records('monomers') == expected_result)
+
+
+def test_hdf5_find(initialize_repo):
+    _, filepath = initialize_repo
+    repo = hdf5.HDF5Repository()
+    _ids = repo.save('monomers', [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3])
+    _ids.extend(repo.save('monomers', [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6]))
+
+    locations = repo.find('monomers', [_ids[0], _ids[3], _ids[4]])
+    values = sorted(list(locations.values()))
+    for value in values:
+        value.sort()
+
+    assert(len(locations) == 2)
+    assert(sorted(list(locations.keys())) == ['0', '1'])
+    assert(values == [[0], [0, 1]])

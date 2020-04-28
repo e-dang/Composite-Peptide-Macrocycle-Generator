@@ -1,5 +1,6 @@
 import pickle
 import uuid
+from collections import defaultdict
 
 import h5py
 
@@ -72,6 +73,38 @@ class HDF5Repository:
                 dataset.attrs[_ids[-1]] = i
 
         return _ids
+
+    # def remove(self, group, key):
+    #     locations = self.find(group, key)
+    #     with HDF5File() as file:
+    #         for path, indices in locations.items():
+    #             dataset = file[path]
+    #             del dataset[indices]
+    #             dataset.resize(len(dataset))
+    #             # self._create_dataset(dataset.parent, len(dataset), dataset.dtype)
+
+    #     return True
+
+    def find(self, group, key):
+        locations = defaultdict(list)
+        with HDF5File() as file:
+            for dataset_name in file[group]:
+                dataset = file[group][dataset_name]
+                for _id, idx in dataset.attrs.items():
+                    if _id in key:
+                        locations[dataset_name].append(idx)
+
+        return locations
+
+    # def deactivate_records(self, group, key):
+    #     _ids, data = zip(*self.load(group, key))
+    #     data = serialize_chunk(data)
+    #     max_bin_len = utils.get_maximum(data, len)
+
+    #     with HDF5File() as file:
+    #         dataset = self._create_dataset(file['inactives'][group], len(_ids), str(max_bin_len))
+    #         # self._write(data, _ids)
+    #         self.remove(group, key)
 
     def get_num_records(self, group):
         num_records = 0
