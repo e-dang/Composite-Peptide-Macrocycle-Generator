@@ -76,7 +76,10 @@ class SidechainImporter:
 
         data = []
         for sidechain in self.loader.load(self.saver.CATEGORY):
-            sidechain = self._match_connection(sidechain)
+            if sidechain['connection'] not in self.connections:
+                print(f'Skipping sidechain with unrecognized connection. Sidechain - {sidechain}')
+                continue
+
             sidechain['binary'] = Chem.MolFromSmiles(sidechain['kekule']).ToBinary()
             sidechain['shared_id'] = str(uuid.uuid4())
             data.append(models.Sidechain.from_dict(sidechain))
@@ -84,23 +87,15 @@ class SidechainImporter:
         return self.saver.save(data)
 
     def _load_connections(self):
-        self.connections = {}
+        self.connections = set()
         for connection in repo.create_connection_repository().load():
-            self.connections[connection.kekule] = connection._id
+            self.connections.add(connection.kekule)
 
     def _check_connections(self):
         if len(self.connections) == 0:
             raise RuntimeError(
                 'No connection molecules were found in the repository! Connections must be imported before sidechains '
                 'can be imported.')
-
-    def _match_connection(self, sidechain):
-        try:
-            sidechain['connection'] = self.connections[sidechain['connection']]
-        except KeyError:
-            raise KeyError(f'Unrecognized connection specified in imported sidechain: {sidechain}')
-        else:
-            return sidechain
 
 
 class MonomerImporter:

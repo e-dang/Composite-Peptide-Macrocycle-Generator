@@ -20,13 +20,13 @@ TEST_TEMPLATE_3 = {'binary': Chem.MolFromSmiles(
 
 
 TEST_SIDECHAIN_1 = {'binary': Chem.MolFromSmiles('CC1=CC=C(O)C=C1').ToBinary(
-), 'kekule': 'CC1=CC=C(O)C=C1', 'connection': 'methyl', 'shared_id': 'a'}
+), 'kekule': 'CC1=CC=C(O)C=C1', 'connection': 'C', 'shared_id': 'a'}
 TEST_SIDECHAIN_2 = {'binary': Chem.MolFromSmiles('CC1=COC2=NC(=O)[NH]C=C12').ToBinary(
-), 'kekule': 'CC1=COC2=NC(=O)[NH]C=C12', 'connection': 'methyl', 'shared_id': 's'}
+), 'kekule': 'CC1=COC2=NC(=O)[NH]C=C12', 'connection': 'C', 'shared_id': 's'}
 TEST_SIDECHAIN_3 = {'binary': Chem.MolFromSmiles('CC1=CC(=O)C2=C([NH]1)SC=C2').ToBinary(
-), 'kekule': 'CC1=CC(=O)C2=C([NH]1)SC=C2', 'connection': 'methyl', 'shared_id': 'q'}
+), 'kekule': 'CC1=CC(=O)C2=C([NH]1)SC=C2', 'connection': 'C', 'shared_id': 'q'}
 TEST_SIDECHAIN_4 = {'binary': Chem.MolFromSmiles('CC1=CC=CC2=N[NH]C(=O)N12').ToBinary(
-), 'kekule': 'CC1=CC=CC2=N[NH]C(=O)N12', 'connection': 'methyl', 'shared_id': 'af'}
+), 'kekule': 'CC1=CC=CC2=N[NH]C(=O)N12', 'connection': 'C', 'shared_id': 'af'}
 
 TEST_MONOMER_1 = {'binary': Chem.MolFromSmiles('O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1').ToBinary(
 ), 'kekule': 'O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1', 'index': None, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'},
@@ -36,13 +36,13 @@ TEST_MONOMER_2 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@@H]3CN[C@H](C(=O
     'sidechain': None, 'connection': None, 'imported': True}
 TEST_MONOMER_3 = {'binary': Chem.MolFromSmiles('NC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O').ToBinary(
 ), 'kekule': 'NC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O', 'index': None, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'},
-    'sidechain': 'af', 'connection': 'methyl', 'imported': False}
+    'sidechain': 'af', 'connection': 'C', 'imported': False}
 TEST_MONOMER_4 = {'binary': Chem.MolFromSmiles('NC(CC(=O)O)CC1=CC=CC2=N[NH]C(=O)N12').ToBinary(
 ), 'kekule': 'NC(CC(=O)O)CC1=CC=CC2=N[NH]C(=O)N12', 'index': None, 'backbone': {'_id': 'beta2', 'kekule': 'NCCC(=O)O'},
-    'sidechain': 'af', 'connection': 'methyl', 'imported': False}
+    'sidechain': 'af', 'connection': 'C', 'imported': False}
 TEST_MONOMER_5 = {'binary': Chem.MolFromSmiles('NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O').ToBinary(
 ), 'kekule': 'NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O', 'index': None, 'backbone': {'_id': 'beta3', 'kekule': 'NCCC(=O)O'},
-    'sidechain': 'af', 'connection': 'methyl', 'imported': False}
+    'sidechain': 'af', 'connection': 'C', 'imported': False}
 TEST_MONOMER_6 = {'binary': Chem.MolFromSmiles('NCCCC[C@H](N)C(=O)O').ToBinary(), 'kekule': 'NCCCC[C@H](N)C(=O)O',
                   'index': None, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'}, 'sidechain': None,
                   'connection': None, 'imported': True}

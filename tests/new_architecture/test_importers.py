@@ -115,14 +115,14 @@ def test_sidechain_importer(json_importer, independent_importers):
     sidechain_docs = json_importer.load(sidechain_importer.saver.CATEGORY)
     connection_data = list(connection_repo.load())
     kekules = [doc['kekule'] for doc in sidechain_docs]
-    connection_ids = [mol._id for mol in connection_data]
+    connections = [mol.kekule for mol in connection_data]
 
     assert(len(sidechain_data) == 2)
     for mol in sidechain_data:
         assert(mol._id != None)
         assert(mol.shared_id != None)
         assert(mol.kekule in kekules)
-        assert(mol.connection in connection_ids)
+        assert(mol.connection in connections)
         kekules.remove(mol.kekule)
 
 

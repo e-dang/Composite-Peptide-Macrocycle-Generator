@@ -48,7 +48,7 @@ def sidechain_from_dict():
 
 @pytest.fixture()
 def monomer_from_mol():
-    return models.Monomer.from_mol(Chem.MolFromSmiles('NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O'), models.Backbone.from_dict(TEST_BACKBONE_3, _id='beta3'), models.Sidechain.from_mol(Chem.MolFromSmiles('CC1=CC=CC2=N[NH]C(=O)N12'), models.Connection.from_dict(TEST_CONNECTION_1, _id='ethyl'), 'af'))
+    return models.Monomer.from_mol(Chem.MolFromSmiles('NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O'), models.Backbone.from_dict(TEST_BACKBONE_3, _id='beta3'), models.Sidechain.from_mol(Chem.MolFromSmiles('CC1=CC=CC2=N[NH]C(=O)N12'), models.Connection.from_dict(TEST_CONNECTION_1, _id='methyl'), 'af'))
 
 
 @pytest.fixture()
@@ -168,7 +168,7 @@ def test_sidechain_from_mol(sidechain_from_mol):
     assert(sidechain_from_mol._id == None)
     assert(sidechain_from_mol.binary != None)
     assert(sidechain_from_mol.kekule == 'CC1=CC(=O)C2=C([NH]1)SC=C2')
-    assert(sidechain_from_mol.connection == 'ethyl')
+    assert(sidechain_from_mol.connection == 'C')
     assert(sidechain_from_mol.shared_id == 'q')
     assert(isinstance(sidechain_from_mol.attachment_point, int))
 
@@ -182,7 +182,7 @@ def test_sidechain_from_dict(sidechain_from_dict):
     assert(sidechain_from_dict._id == '12498dfhjwu')
     assert(sidechain_from_dict.binary != None)
     assert(sidechain_from_dict.kekule == 'CC1=CC(=O)C2=C([NH]1)SC=C2')
-    assert(sidechain_from_dict.connection == 'methyl')
+    assert(sidechain_from_dict.connection == 'C')
     assert(sidechain_from_dict.shared_id == 'q')
     assert(isinstance(sidechain_from_dict.attachment_point, int))
 
@@ -226,7 +226,7 @@ def test_monomer_from_mol(monomer_from_mol):
     assert(monomer_from_mol.backbone['_id'] == 'beta3')
     assert(monomer_from_mol.backbone['kekule'] == 'NCCC(=O)O')
     assert(monomer_from_mol.sidechain == 'af')
-    assert(monomer_from_mol.connection == 'ethyl')
+    assert(monomer_from_mol.connection == 'C')
     assert(monomer_from_mol.proline == False)
     assert(monomer_from_mol.imported == False)
 

@@ -138,7 +138,7 @@ class Sidechain(AbstractMolecule):
         Chem.SanitizeMol(mol)
         Chem.Kekulize(mol)
         attachment_point = cls.validate(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), attachment_point, connection._id, shared_id)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), attachment_point, connection.kekule, shared_id)
 
     @classmethod
     def from_dict(cls, data, _id=None):
@@ -273,3 +273,15 @@ class Macrocycle(AbstractMolecule):
     def from_dict(cls, data, _id=None):
         return cls(data['binary'], data['kekule'], data['modifications'], data['has_cap'],
                    data['template_peptide'], data['template'], data['reactions'], _id=_id)
+
+
+# class RegioSQMPrediction:
+#     def __init__(self, predictions, reacting_mol, solvent, cutoff):
+#         self.predictions = predictions
+#         self.reacting_mol = reacting_mol
+#         self.solvent = solvent
+#         self.cutoff = cutoff
+
+#     @classmethod
+#     def from_dict(cls, data):
+#         return cls(data['predictions'], data['reacting_mol'], data['solvent'], data['cutoff'])
