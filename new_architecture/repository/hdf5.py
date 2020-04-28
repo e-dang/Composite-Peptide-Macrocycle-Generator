@@ -3,6 +3,7 @@ import uuid
 from collections import defaultdict
 
 import h5py
+import numpy as np
 
 import macrocycles.config as config
 import new_architecture.utils as utils
@@ -74,27 +75,43 @@ class HDF5Repository:
 
         return _ids
 
-    # def remove(self, group, key):
-    #     locations = self.find(group, key)
-    #     with HDF5File() as file:
-    #         for path, indices in locations.items():
-    #             dataset = file[path]
-    #             del dataset[indices]
-    #             dataset.resize(len(dataset))
-    #             # self._create_dataset(dataset.parent, len(dataset), dataset.dtype)
-
-    #     return True
-
     def find(self, group, key):
         locations = defaultdict(list)
         with HDF5File() as file:
-            for dataset_name in file[group]:
-                dataset = file[group][dataset_name]
+            for dataset in file[group]:
+                dataset = file[group][dataset]
                 for _id, idx in dataset.attrs.items():
                     if _id in key:
-                        locations[dataset_name].append(idx)
+                        locations[dataset.name].append(idx)
+                        key.remove(_id)
+                if dataset.name in locations:
+                    locations[dataset.name].sort()
 
         return locations
+
+    def remove(self, group, key):
+        locations = self.find(group, key)
+        with HDF5File() as file:
+            for path, indices in locations.items():
+                dataset = file[path]
+                indices = np.delete(np.arange(len(dataset)), indices)
+
+                # remove values
+                data = dataset[indices]
+                dataset[:len(data)] = data
+                dataset.resize((len(data),))
+
+                # remove ids
+                items = list(filter(lambda x: x[1] in indices, dataset.attrs.items()))
+                items.sort(key=lambda x: x[1])
+                ids, _ = zip(*items)
+                for new_idx, _id in enumerate(ids):
+                    dataset.attrs[_id] = new_idx
+
+                for _id in set(dataset.attrs.keys()).difference(ids):
+                    del dataset.attrs[_id]
+
+        return True
 
     # def deactivate_records(self, group, key):
     #     _ids, data = zip(*self.load(group, key))
@@ -117,7 +134,7 @@ class HDF5Repository:
     def _create_dataset(self, group, rows, dlen):
         max_idx = utils.get_maximum(group, int)
         max_idx = -1 if max_idx is None else max_idx
-        return group.create_dataset(str(max_idx + 1), (rows,), dtype='S' + dlen, compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
+        return group.create_dataset(str(max_idx + 1), (rows,), maxshape=(None,), chunks=True, dtype='S' + dlen, compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
 
     def _load_range(self, group, key):
         with HDF5File() as file:

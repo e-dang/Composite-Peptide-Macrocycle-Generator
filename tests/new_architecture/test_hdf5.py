@@ -1,10 +1,13 @@
-import pytest
 import os
+from copy import copy
+
+import pytest
+from rdkit import Chem
+
+import macrocycles.config as config
 import new_architecture.repository.hdf5 as hdf5
 from new_architecture.repository.repository import WholeRange
-import macrocycles.config as config
 from tests.new_architecture.data.mols import *
-from rdkit import Chem
 
 GROUP = 'sidechains'
 TEST_DICT = {'A': 1, 'B': True, 'C': 1.0, 'D': b'test_bin_string',
@@ -12,7 +15,7 @@ TEST_DICT = {'A': 1, 'B': True, 'C': 1.0, 'D': b'test_bin_string',
 TEST_LIST = [TEST_DICT, TEST_DICT, TEST_DICT]
 
 
-@pytest.fixture()
+@pytest.fixture
 def filepath(monkeypatch):
     fp = os.path.join(config.PROJECT_DIR, 'tests', 'new_architecture', 'data', 'test_file.hdf5')
     monkeypatch.setattr(hdf5.config, "HDF5_FILEPATH", fp)
@@ -20,11 +23,21 @@ def filepath(monkeypatch):
     os.remove(fp)
 
 
-@pytest.fixture()
+@pytest.fixture
 def initialize_repo(filepath):
     initializer = hdf5.HDF5Initializer()
     initializer.initialize()
     yield (initializer, filepath)
+
+
+@pytest.fixture
+def monomer_repo(initialize_repo):
+    _, filepath = initialize_repo
+    group = 'monomers'
+    repo = hdf5.HDF5Repository()
+    _ids = repo.save(group, [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3])
+    _ids.extend(repo.save(group, [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6]))
+    yield repo, _ids, group, filepath
 
 
 def test_serialize_deserialize():
@@ -176,7 +189,6 @@ def test_hdf5_repository_save_load_ids_multi_separate(initialize_repo):
 
 @pytest.mark.parametrize('dataset1,dataset2,expected_result,initialize_repo', [([TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3], [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6], 6, ''), ([], [], 0, '')], indirect=['initialize_repo'])
 def test_hdf5_get_num_records(dataset1, dataset2, expected_result, initialize_repo):
-    _, filepath = initialize_repo
     repo = hdf5.HDF5Repository()
     _ids = repo.save('monomers', dataset1)
     _ids.extend(repo.save('monomers', dataset2))
@@ -184,17 +196,40 @@ def test_hdf5_get_num_records(dataset1, dataset2, expected_result, initialize_re
     assert(repo.get_num_records('monomers') == expected_result)
 
 
-def test_hdf5_find(initialize_repo):
-    _, filepath = initialize_repo
-    repo = hdf5.HDF5Repository()
-    _ids = repo.save('monomers', [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3])
-    _ids.extend(repo.save('monomers', [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6]))
+def test_hdf5_find(monomer_repo):
+    repo, _ids, group, _ = monomer_repo
 
-    locations = repo.find('monomers', [_ids[0], _ids[3], _ids[4]])
+    key = [_ids[0], _ids[3], _ids[4]]
+    locations = repo.find(group, key)
     values = sorted(list(locations.values()))
     for value in values:
         value.sort()
 
+    assert(len(key) == 0)
     assert(len(locations) == 2)
-    assert(sorted(list(locations.keys())) == ['0', '1'])
+    assert(sorted(list(locations.keys())) == ['/' + group + '/0', '/' + group + '/1'])
     assert(values == [[0], [0, 1]])
+
+
+def test_hdf5_find_fail(monomer_repo):
+    repo, _ids, group, _ = monomer_repo
+
+    key = ['dne']
+    locations = repo.find(group, key)
+
+    assert(len(key) == 1)
+    assert(len(locations) == 0)
+
+
+def test_hdf5_remove(monomer_repo):
+    repo, _ids, group, filepath = monomer_repo
+    key = [_ids[0], _ids[3], _ids[4]]
+
+    assert(repo.remove(group, copy(key)))
+    with hdf5.HDF5File(filepath) as file:
+        assert(len(file[group]['0']) == 2)
+        assert(len(file[group]['1']) == 1)
+
+    locations = repo.find(group, key)
+    assert(len(key) == 3)
+    assert(len(locations) == 0)
