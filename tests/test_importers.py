@@ -10,6 +10,7 @@ import cpmg.importers as importers
 import cpmg.repository as repo
 import cpmg.exporters as exporters
 from cpmg.models import PROLINE_N_TERM
+from data.mols import *
 
 
 @pytest.fixture()
@@ -172,6 +173,22 @@ def test_regiosqm_prediction_importer(mol_importers):
         assert(prediction.reacting_mol in ('CC1=CC=C[NH]1', 'CC1=CC=C(O)C=C1',
                                            'O=C(O)[C@@H]1C[C@H](OC2=CC=NC3=C2SC=C3)CN1'))
         assert(prediction.predictions in ([3, 6], [2, 3, 4], [15]))
+
+
+def test_pka_prediction_importer(mol_importers):
+    pka_importer = importers.pKaPredictionImporter()
+
+    ids = pka_importer.import_data()
+
+    pka_repo = repo.create_pka_repository()
+    pka_data = list(pka_repo.load(ids))
+
+    test_data = [TEST_PKA_PREDICTION_1, TEST_PKA_PREDICTION_2, TEST_PKA_PREDICTION_3]
+    assert(len(pka_data) == 3)
+    for prediction in pka_data:
+        print(prediction.to_dict())
+
+        assert(prediction.to_dict() in test_data)
 
 
 def test_create_importers(hdf5_repository):

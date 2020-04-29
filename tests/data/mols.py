@@ -149,9 +149,12 @@ TEST_REGIOSQM_PREDICTION_2 = {'predictions': [2, 3, 4],
                               'solvent': 'nitromethane',
                               'cutoff': '3.0'}
 
-TEST_PKA_PREDICTION_1 = {'predictions': {5: 9.3},
-                         'reacting_mol': 'CC1=CC=C(O)C=C1',
+TEST_PKA_PREDICTION_1 = {'predictions': {'4': 9.3},
+                         'reacting_mol': 'OC1=CC=CC=C1',
                          'solvent': 'water'}
-TEST_PKA_PREDICTION_2 = {'predictions': {3: 11.3, 7: 10.3},
-                         'reacting_mol': 'CC1=C[NH]C2=C1C(=O)[NH]C=N2',
+TEST_PKA_PREDICTION_2 = {'predictions': {'2': 11.3, '7': 10.3},
+                         'reacting_mol': 'O=C1[NH]C=NC2=C1C=C[NH]2',
+                         'solvent': 'water'}
+TEST_PKA_PREDICTION_3 = {'predictions': {'4': 16.3},
+                         'reacting_mol': 'C1=C[NH]C=C1',
                          'solvent': 'water'}

@@ -2,14 +2,16 @@ import glob
 import os
 import uuid
 from collections import namedtuple
+from copy import deepcopy
 
 from rdkit import Chem
 
 import cpmg.config as config
 import cpmg.models as models
 import cpmg.repository as repo
+import cpmg.utils as utils
 from cpmg.exceptions import InvalidPrediction
-from cpmg.io_formats import load_json, load_text, load_csv
+from cpmg.io_formats import load_csv, load_json, load_text
 
 
 class JsonImporter:
@@ -148,7 +150,7 @@ class RegioSQMPredictionImporter:
             elif row % 3 == 1:
                 predictions = [int(text[j]) for j in range(0, len(text), 2)]
             else:
-                self._check_prediction(idx, predictions)
+                self._check_predictions(idx, predictions)
                 data.append(models.RegioSQMPrediction.from_dict({'predictions': predictions,
                                                                  'reacting_mol': self.idx_to_smiles[idx],
                                                                  'solvent': self.solvent,
@@ -161,7 +163,7 @@ class RegioSQMPredictionImporter:
             idx, smiles = line.split(' ')
             self.idx_to_smiles[idx] = smiles.strip('\n')
 
-    def _check_prediction(self, idx, prediction):
+    def _check_predictions(self, idx, prediction):
         reacting_mol = Chem.MolFromSmiles(self.idx_to_smiles[idx])
         Chem.Kekulize(reacting_mol)
         for atom_idx in prediction:
@@ -169,6 +171,57 @@ class RegioSQMPredictionImporter:
             if atom.GetSymbol() != 'C' or atom.GetTotalNumHs() <= 0 or not atom.GetIsAromatic():
                 raise InvalidPrediction(
                     'RegioSQM predictions must correspond to aromatic carbon atoms with at least one hydrogen.')
+
+
+class pKaPredictionImporter:
+    def __init__(self, solvent='water'):
+        self.saver = repo.create_pka_repository()
+        self.solvent = solvent
+
+    def import_data(self):
+
+        data = []
+        for row in load_text(os.path.join(config.IMPORT_DIR, 'pkas.txt')):
+            smiles, pkas = row.split(';')
+            smiles = smiles.strip(' ')
+            pkas = list(map(float, pkas.strip('\n').strip(' ').split(',')))
+
+            # atom map numbers can change the ordering of atoms in unpredictable ways, thus we must do this VERY
+            # annoying round about way of mapping the predictions to the correct heteroatoms on the sidechains used to
+            # create reactions
+            mol_w_map_nums = Chem.MolFromSmiles(smiles.strip(' '))
+            mol = deepcopy(mol_w_map_nums)
+            utils.clear_atom_map_nums(mol)
+            Chem.Kekulize(mol_w_map_nums)
+            Chem.Kekulize(mol)
+
+            # map atom indexes and pkas to each other in sidechain_w_map_nums using atom map numbers
+            pka_map = {}
+            for atom in mol_w_map_nums.GetAtoms():
+                map_num = atom.GetAtomMapNum()
+                if map_num:
+                    pka_map[map_num - 1] = (atom.GetIdx(), pkas[map_num - 1])
+            map_list = [pka_map[i] for i in sorted(pka_map)]
+
+            # match the pkas to the heteroatoms on properly ordered sidechain
+            for match in mol.GetSubstructMatches(mol_w_map_nums):
+                heteroatom_pkas = {str(match[atom_idx]): pka for atom_idx, pka in map_list}
+
+            # check because canonicalization of smiles strings might not be consistent
+            self._check_predictions(mol, heteroatom_pkas)
+
+            # format data
+            data.append(models.pKaPrediction.from_dict({'predictions': heteroatom_pkas,
+                                                        'reacting_mol': Chem.MolToSmiles(mol, kekuleSmiles=True),
+                                                        'solvent': self.solvent}))
+
+        return self.saver.save(data)
+
+    def _check_predictions(self, reacting_mol, predictions):
+        for atom_idx, _ in predictions.items():
+            atom = reacting_mol.GetAtomWithIdx(int(atom_idx))
+            if atom.GetSymbol() not in ('N', 'O', 'S') or atom.GetTotalNumHs() <= 0:
+                raise InvalidPrediction('pKa predictions must correspond to heteroatoms with at least 1 hydrogen')
 
 
 def create_importers(data_format_importer=JsonImporter()):
