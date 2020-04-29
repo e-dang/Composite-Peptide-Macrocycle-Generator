@@ -144,6 +144,14 @@ class RegioSQMRepository(AbstractRepository):
         return super().save(self._check_type(data))
 
 
+class pKaRepository(AbstractRepository):
+    TYPE = models.pKaPrediction
+    CATEGORY = 'pka'
+
+    def save(self, data):
+        return super().save(self._check_type(data))
+
+
 def repository_impl_from_string(impl):
     if impl == HDF5:
         return HDF5Repository()
@@ -175,6 +183,7 @@ create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
 create_template_peptide_repository = get_repository(TemplatePeptideRepository)
 create_regiosqm_repository = get_repository(RegioSQMRepository)
+create_pka_repository = get_repository(pKaRepository)
 
 # class SaveRequest:
 #     def __init__(self, data, data_type, peptide_length=None, job_num=None):

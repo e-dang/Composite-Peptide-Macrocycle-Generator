@@ -148,3 +148,10 @@ TEST_REGIOSQM_PREDICTION_2 = {'predictions': [2, 3, 4],
                               'reacting_mol': 'CC1=CC=C[NH]1',
                               'solvent': 'nitromethane',
                               'cutoff': '3.0'}
+
+TEST_PKA_PREDICTION_1 = {'predictions': {5: 9.3},
+                         'reacting_mol': 'CC1=CC=C(O)C=C1',
+                         'solvent': 'water'}
+TEST_PKA_PREDICTION_2 = {'predictions': {3: 11.3, 7: 10.3},
+                         'reacting_mol': 'CC1=C[NH]C2=C1C(=O)[NH]C=N2',
+                         'solvent': 'water'}
