@@ -6,5 +6,9 @@
     {
         "kekule": "CCC1=CC=C[NH]1",
         "connection": "CC"
+    },
+    {
+        "kekule": "CC1=CC=C[NH]1",
+        "connection": "C"
     }
 ]

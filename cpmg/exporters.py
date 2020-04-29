@@ -1,5 +1,5 @@
 import cpmg.repository as repo
-from cpmg.io_formats import text_save
+from cpmg.io_formats import save_text
 import cpmg.config as config
 
 
@@ -15,4 +15,4 @@ class RegioSQMExporter:
         data.extend(list(filter(lambda x: x.required, self.monomer_repo.load())))
         data = [str(i) + ' ' + mol.kekule + '\n' for i, mol in enumerate(data)]
 
-        text_save(data, filepath)
+        save_text(data, filepath)

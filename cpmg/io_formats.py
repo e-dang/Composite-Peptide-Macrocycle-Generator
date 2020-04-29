@@ -1,22 +1,28 @@
 import json
+import csv
 
 
-def text_load(filepath):
+def load_text(filepath):
     with open(filepath, 'r') as file:
         return file.readlines()
 
 
-def text_save(data, filepath):
+def save_text(data, filepath):
     with open(filepath, 'w') as file:
         for line in data:
             file.write(line)
 
 
-def json_load(filepath):
+def load_json(filepath):
     with open(filepath, 'r') as file:
         return json.load(file)
 
 
-def json_save(data, filepath):
+def save_json(data, filepath):
     with open(filepath, 'w') as file:
         json.dump(data, file)
+
+
+def load_csv(filepath):
+    with open(filepath, 'r') as file:
+        return list(csv.reader(file, delimiter=','))

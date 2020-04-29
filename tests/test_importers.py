@@ -8,6 +8,7 @@ import cpmg.config as config
 import cpmg.exceptions as exceptions
 import cpmg.importers as importers
 import cpmg.repository as repo
+import cpmg.exporters as exporters
 from cpmg.models import PROLINE_N_TERM
 
 
@@ -24,6 +25,14 @@ def independent_importers(json_importer):
     connection_importer.import_data()
     backbone_importer.import_data()
     template_importer.import_data()
+
+
+@pytest.fixture()
+def mol_importers(json_importer, independent_importers):
+    sidechain_importer = importers.SidechainImporter(json_importer)
+    monomer_importer = importers.MonomerImporter(json_importer)
+    sidechain_importer.import_data()
+    monomer_importer.import_data()
 
 
 def test_json_importer_assemble_filepaths(json_importer):
@@ -109,7 +118,7 @@ def test_sidechain_importer(json_importer, independent_importers):
     kekules = [doc['kekule'] for doc in sidechain_docs]
     connections = [mol.kekule for mol in connection_data]
 
-    assert(len(sidechain_data) == 2)
+    assert(len(sidechain_data) == 3)
     for mol in sidechain_data:
         assert(mol._id != None)
         assert(mol.shared_id != None)
@@ -130,7 +139,7 @@ def test_monomer_importer(json_importer, independent_importers):
     kekules = [doc['kekule'] for doc in monomer_docs]
     backbones = [mol.to_reduced_dict() for mol in backbone_data]
 
-    assert(len(monomer_data) == 3)
+    assert(len(monomer_data) == 4)
     for mol in monomer_data:
         rdkit_mol = mol.mol
         assert(mol._id != None)
@@ -143,6 +152,26 @@ def test_monomer_importer(json_importer, independent_importers):
         assert(mol.imported == True)
         assert(mol.kekule in kekules)
         kekules.remove(mol.kekule)
+
+
+def test_regiosqm_prediction_importer(mol_importers):
+    exporter = exporters.RegioSQMExporter()
+    exporter.export_regiosqm_smiles_file()
+
+    regiosqm_importer = importers.RegioSQMPredictionImporter()
+
+    ids = regiosqm_importer.import_data()
+
+    regiosqm_repo = repo.create_regiosqm_repository()
+    regiosqm_data = list(regiosqm_repo.load(ids))
+
+    assert(len(regiosqm_data) == 3)
+    for prediction in regiosqm_data:
+        assert(prediction.solvent == 'nitromethane')
+        assert(prediction.cutoff == 3.0)
+        assert(prediction.reacting_mol in ('CC1=CC=C[NH]1', 'CC1=CC=C(O)C=C1',
+                                           'O=C(O)[C@@H]1C[C@H](OC2=CC=NC3=C2SC=C3)CN1'))
+        assert(prediction.predictions in ([3, 6], [2, 3, 4], [15]))
 
 
 def test_create_importers(hdf5_repository):

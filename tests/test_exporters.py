@@ -7,7 +7,7 @@ from rdkit.Chem import AllChem
 import conftest
 import cpmg.config as config
 import cpmg.exporters as exporters
-from cpmg.io_formats import json_load
+from cpmg.io_formats import load_json
 
 
 @pytest.fixture()
@@ -28,8 +28,8 @@ def test_reqiosqm_exporter(import_paths):
 
     exporter.export_regiosqm_smiles_file()
 
-    sidechains = list(filter(lambda x: x['connection'] == 'C', json_load(sidechain_filepath)))
-    monomers = list(filter(is_required, json_load(monomer_filepath)))
+    sidechains = list(filter(lambda x: x['connection'] == 'C', load_json(sidechain_filepath)))
+    monomers = list(filter(is_required, load_json(monomer_filepath)))
     kekules = [doc['kekule'] for doc in sidechains + monomers]
 
     with open(config.REGIOSQM_SMILES_FILEPATH, 'r') as file:

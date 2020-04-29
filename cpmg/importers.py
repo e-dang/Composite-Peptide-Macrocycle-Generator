@@ -8,14 +8,15 @@ from rdkit import Chem
 import cpmg.config as config
 import cpmg.models as models
 import cpmg.repository as repo
-from cpmg.io_formats import json_load
+from cpmg.exceptions import InvalidPrediction
+from cpmg.io_formats import load_json, load_text, load_csv
 
 
 class JsonImporter:
     def load(self, data_type):
 
         for filepath in self._assemble_filepaths(data_type):
-            for doc in json_load(filepath):
+            for doc in load_json(filepath):
                 yield doc
 
     def _assemble_filepaths(self, data_type):
@@ -128,6 +129,46 @@ class MonomerImporter:
             return self.backbones[backbone]
         except KeyError:
             raise KeyError(f'Unrecognized backbone specified in imported monomers: {backbone}')
+
+
+class RegioSQMPredictionImporter:
+
+    def __init__(self, solvent='nitromethane', cutoff=3.0):
+        self.saver = repo.create_regiosqm_repository()
+        self.solvent = solvent
+        self.cutoff = cutoff
+        self._hash_mols()
+
+    def import_data(self):
+
+        data = []
+        for row, text in enumerate(load_csv(os.path.join(config.IMPORT_DIR, 'regiosqm.csv'))):
+            if row % 3 == 0:
+                idx = text[0]
+            elif row % 3 == 1:
+                predictions = [int(text[j]) for j in range(0, len(text), 2)]
+            else:
+                self._check_prediction(idx, predictions)
+                data.append(models.RegioSQMPrediction.from_dict({'predictions': predictions,
+                                                                 'reacting_mol': self.idx_to_smiles[idx],
+                                                                 'solvent': self.solvent,
+                                                                 'cutoff': self.cutoff}))
+        return self.saver.save(data)
+
+    def _hash_mols(self):
+        self.idx_to_smiles = {}
+        for line in load_text(config.REGIOSQM_SMILES_FILEPATH):
+            idx, smiles = line.split(' ')
+            self.idx_to_smiles[idx] = smiles.strip('\n')
+
+    def _check_prediction(self, idx, prediction):
+        reacting_mol = Chem.MolFromSmiles(self.idx_to_smiles[idx])
+        Chem.Kekulize(reacting_mol)
+        for atom_idx in prediction:
+            atom = reacting_mol.GetAtomWithIdx(atom_idx)
+            if atom.GetSymbol() != 'C' or atom.GetTotalNumHs() <= 0 or not atom.GetIsAromatic():
+                raise InvalidPrediction(
+                    'RegioSQM predictions must correspond to aromatic carbon atoms with at least one hydrogen.')
 
 
 def create_importers(data_format_importer=JsonImporter()):
