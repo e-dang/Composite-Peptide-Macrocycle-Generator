@@ -1,5 +1,4 @@
 import glob
-import json
 import os
 import uuid
 from collections import namedtuple

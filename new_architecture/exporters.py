@@ -11,7 +11,7 @@ class RegioSQMExporter:
     def export_regiosqm_smiles_file(self, filepath=None):
         filepath = config.REGIOSQM_SMILES_FILEPATH if filepath is None else filepath
 
-        data = list(filter(lambda x: x.connection != 'C', self.sidechain_repo.load()))
+        data = list(filter(lambda x: x.connection == 'C', self.sidechain_repo.load()))
         data.extend(list(filter(lambda x: x.required, self.monomer_repo.load())))
         data = [str(i) + ' ' + mol.kekule + '\n' for i, mol in enumerate(data)]
 

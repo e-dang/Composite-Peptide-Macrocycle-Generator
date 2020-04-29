@@ -34,7 +34,7 @@ def test_reqiosqm_exporter(export_path_patch):
 
     exporter.export_regiosqm_smiles_file()
 
-    sidechains = list(filter(lambda x: x['connection'] != 'C', json_load(sidechain_filepath)))
+    sidechains = list(filter(lambda x: x['connection'] == 'C', json_load(sidechain_filepath)))
     monomers = list(filter(is_required, json_load(monomer_filepath)))
     kekules = [doc['kekule'] for doc in sidechains + monomers]
 
