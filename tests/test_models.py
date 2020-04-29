@@ -86,6 +86,11 @@ def regiosqm_prediction_from_dict():
     return models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id='acj8efg8')
 
 
+@pytest.fixture()
+def pka_prediction_from_dict():
+    return models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id='af9uf9qao')
+
+
 def test_backbone_from_mol(backbone_from_mol):
     assert(backbone_from_mol._id == None)
     assert(backbone_from_mol.binary != None)
@@ -360,3 +365,13 @@ def test_regiosqm_prediction_from_dict(regiosqm_prediction_from_dict):
 
 def test_regiosqm_prediction_to_dict(regiosqm_prediction_from_dict):
     assert(regiosqm_prediction_from_dict.to_dict() == TEST_REGIOSQM_PREDICTION_1)
+
+
+def test_pka_prediction_from_dict(pka_prediction_from_dict):
+    assert(pka_prediction_from_dict.predictions == {5: 9.3})
+    assert(pka_prediction_from_dict.reacting_mol == 'CC1=CC=C(O)C=C1')
+    assert(pka_prediction_from_dict.solvent == 'water')
+
+
+def test_pka_prediction_to_dict(pka_prediction_from_dict):
+    assert(pka_prediction_from_dict.to_dict() == TEST_PKA_PREDICTION_1)

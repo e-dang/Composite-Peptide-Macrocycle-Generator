@@ -297,3 +297,12 @@ class RegioSQMPrediction(AbstractPrediction):
     @classmethod
     def from_dict(cls, data, _id=None):
         return cls(data['predictions'], data['reacting_mol'], data['solvent'], data['cutoff'], _id=_id)
+
+
+class pKaPrediction(AbstractPrediction):
+    def __init__(self, predictions, reacting_mol, solvent, _id=None):
+        super().__init__(predictions, reacting_mol, solvent, _id)
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return cls(data['predictions'], data['reacting_mol'], data['solvent'], _id=_id)
