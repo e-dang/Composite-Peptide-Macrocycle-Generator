@@ -133,6 +133,17 @@ class TemplatePeptideRepository(AbstractRepository):
         return super().save(self._check_type(data))
 
 
+class RegioSQMRepository(AbstractRepository):
+    TYPE = models.RegioSQMPrediction
+    CATEGORY = 'regiosqm'
+
+    def __init__(self, impl):
+        super().__init__(impl)
+
+    def save(self, data):
+        return super().save(self._check_type(data))
+
+
 def repository_impl_from_string(impl):
     if impl == HDF5:
         return HDF5Repository()
@@ -163,6 +174,7 @@ create_sidechain_repository = get_repository(SidechainRepository)
 create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
 create_template_peptide_repository = get_repository(TemplatePeptideRepository)
+create_regiosqm_repository = get_repository(RegioSQMRepository)
 
 # class SaveRequest:
 #     def __init__(self, data, data_type, peptide_length=None, job_num=None):
