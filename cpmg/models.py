@@ -1,10 +1,11 @@
+from copy import deepcopy
+from itertools import chain
+
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from macrocycles.exceptions import InvalidMolecule
-import new_architecture.utils as utils
-import macrocycles.exceptions as exceptions
-from itertools import chain
-from copy import deepcopy
+
+import cpmg.exceptions as exceptions
+import cpmg.utils as utils
 
 SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')

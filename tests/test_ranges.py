@@ -1,5 +1,5 @@
 import pytest
-import new_architecture.ranges as ranges
+import cpmg.ranges as ranges
 
 
 @pytest.fixture

@@ -1,6 +1,7 @@
 import pytest
 from rdkit import Chem
-import new_architecture.utils as utils
+
+import cpmg.utils as utils
 
 
 @pytest.fixture

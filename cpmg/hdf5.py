@@ -5,9 +5,9 @@ from collections import defaultdict
 import h5py
 import numpy as np
 
-import macrocycles.config as config
-import new_architecture.utils as utils
-from new_architecture.ranges import Range
+import cpmg.config as config
+import cpmg.utils as utils
+from cpmg.ranges import Range
 
 
 def serialize(data):
@@ -28,7 +28,7 @@ def deserialize_chunk(data):
 
 class HDF5File(h5py.File):
     def __init__(self, filepath=None, mode='a'):
-        self.filepath = config.HDF5_FILEPATH if filepath is None else filepath
+        self.filepath = filepath or config.HDF5_FILEPATH
         super().__init__(self.filepath, mode, libver='latest')
 
     def __enter__(self):

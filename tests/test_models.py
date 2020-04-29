@@ -1,9 +1,10 @@
 import pytest
-import new_architecture.models as models
-import new_architecture.utils as utils
 from rdkit import Chem
-from tests.new_architecture.data.mols import *
-import macrocycles.exceptions as exceptions
+
+import cpmg.exceptions as exceptions
+import cpmg.models as models
+import cpmg.utils as utils
+from data.mols import *
 
 
 @pytest.fixture()

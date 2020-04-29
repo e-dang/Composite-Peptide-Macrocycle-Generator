@@ -1,9 +1,11 @@
-import new_architecture.models as models
-import new_architecture.utils as temp_utils
-import macrocycles.utils as utils
-from rdkit import Chem
 from itertools import chain
+
+from rdkit import Chem
 from rdkit.Chem import AllChem
+
+import cpmg.models as models
+import cpmg.utils as temp_utils
+import macrocycles.utils as utils
 
 
 class SidechainModifier:

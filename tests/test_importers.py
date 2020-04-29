@@ -3,29 +3,21 @@ import os
 import pytest
 from rdkit.Chem import AllChem
 
-import macrocycles.config as config
-import new_architecture.importers as importers
-import new_architecture.repository.repository as repo
-from new_architecture.models import PROLINE_N_TERM
-from tests.new_architecture.test_hdf5 import filepath, initialize_repo
-from tests.new_architecture.test_repository import repository_patch
-import macrocycles.exceptions as exceptions
+import conftest
+import cpmg.config as config
+import cpmg.exceptions as exceptions
+import cpmg.importers as importers
+import cpmg.repository as repo
+from cpmg.models import PROLINE_N_TERM
 
 
-@pytest.fixture
-def import_path_patch(monkeypatch):
-    filepath = os.path.join(config.PROJECT_DIR, 'tests', 'new_architecture', 'data')
-    monkeypatch.setattr(importers.config, 'DATA_DIR', filepath)
-    yield filepath
-
-
-@pytest.fixture
-def json_importer(import_path_patch):
+@pytest.fixture()
+def json_importer(hdf5_repository):
     yield importers.JsonImporter()
 
 
-@pytest.fixture
-def independent_importers(json_importer, repository_patch):
+@pytest.fixture()
+def independent_importers(json_importer):
     connection_importer = importers.ConnectionImporter(json_importer)
     backbone_importer = importers.BackboneImporter(json_importer)
     template_importer = importers.TemplateImporter(json_importer)
@@ -38,8 +30,8 @@ def test_json_importer_assemble_filepaths(json_importer):
     filepaths = json_importer._assemble_filepaths('test_type')
 
     assert(len(filepaths) == 2)
-    assert(filepaths[0] == os.path.join(json_importer.search_dir, 'test_type1.json'))
-    assert(filepaths[1] == os.path.join(json_importer.search_dir, 'test_type2.json'))
+    assert(filepaths[0] == os.path.join(config.IMPORT_DIR, 'test_type1.json'))
+    assert(filepaths[1] == os.path.join(config.IMPORT_DIR, 'test_type2.json'))
 
 
 def test_json_importer_load(json_importer):
@@ -50,7 +42,7 @@ def test_json_importer_load(json_importer):
     assert(docs[1] == {'B': 2})
 
 
-def test_connection_importer(json_importer, repository_patch):
+def test_connection_importer(json_importer):
     connection_importer = importers.ConnectionImporter(json_importer)
     ids = connection_importer.import_data()
 
@@ -66,7 +58,7 @@ def test_connection_importer(json_importer, repository_patch):
         kekules.remove(mol.kekule)
 
 
-def test_backbone_importer(json_importer, repository_patch):
+def test_backbone_importer(json_importer):
     backbone_importer = importers.BackboneImporter(json_importer)
     ids = backbone_importer.import_data()
 
@@ -82,14 +74,14 @@ def test_backbone_importer(json_importer, repository_patch):
         kekules.remove(mol.kekule)
 
 
-def test_backbone_importer_fail(monkeypatch, json_importer, repository_patch):
+def test_backbone_importer_fail(monkeypatch, json_importer):
     monkeypatch.setattr(importers.repo.BackboneRepository, 'CATEGORY', 'invalid_backbones')
     backbone_importer = importers.BackboneImporter(json_importer)
     with pytest.raises(exceptions.InvalidMolecule):
         ids = backbone_importer.import_data()
 
 
-def test_template_importer(json_importer, repository_patch):
+def test_template_importer(json_importer):
     template_importer = importers.TemplateImporter(json_importer)
     ids = template_importer.import_data()
 
@@ -149,9 +141,11 @@ def test_monomer_importer(json_importer, independent_importers):
         assert(mol.proline == bool(AllChem.CalcNumAliphaticRings(
             rdkit_mol) and rdkit_mol.HasSubstructMatch(PROLINE_N_TERM)))
         assert(mol.imported == True)
+        assert(mol.kekule in kekules)
+        kekules.remove(mol.kekule)
 
 
-def test_create_importers(json_importer, repository_patch):
+def test_create_importers(hdf5_repository):
     instances = importers.create_importers()
     types = list(map(type, instances))
     assert(len(instances) == 5)

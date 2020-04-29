@@ -1,11 +1,7 @@
-import math
-from collections import deque
-import new_architecture.models as models
-from new_architecture.repository.hdf5 import HDF5Repository, HDF5Initializer
-import macrocycles.config as config
-from new_architecture.ranges import WholeRange
-import random
-
+import cpmg.config as config
+import cpmg.models as models
+from cpmg.hdf5 import HDF5Initializer, HDF5Repository
+from cpmg.ranges import WholeRange
 
 HDF5 = 'hdf5'
 
@@ -144,7 +140,8 @@ def repository_impl_from_string(impl):
         raise ValueError('Unrecognized repository implementation!')
 
 
-def create_repository_initializer(impl=config.DATA_FORMAT):
+def create_repository_initializer(impl=None):
+    impl = impl or config.DATA_FORMAT
     if impl == HDF5:
         return RepositoryInitializer(HDF5Initializer())
     else:
@@ -152,7 +149,8 @@ def create_repository_initializer(impl=config.DATA_FORMAT):
 
 
 def get_repository(repository):
-    def repository_closure(impl=config.DATA_FORMAT):
+    def repository_closure(impl=None):
+        impl = impl or config.DATA_FORMAT
         return repository(repository_impl_from_string(impl))
 
     return repository_closure

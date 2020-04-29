@@ -5,16 +5,13 @@ from collections import namedtuple
 
 from rdkit import Chem
 
-import macrocycles.config as config
-import new_architecture.models as models
-import new_architecture.repository.repository as repo
-from new_architecture.io_formats import json_load
+import cpmg.config as config
+import cpmg.models as models
+import cpmg.repository as repo
+from cpmg.io_formats import json_load
 
 
 class JsonImporter:
-    def __init__(self):
-        self.search_dir = os.path.join(config.DATA_DIR, 'imports')
-
     def load(self, data_type):
 
         for filepath in self._assemble_filepaths(data_type):
@@ -22,7 +19,7 @@ class JsonImporter:
                 yield doc
 
     def _assemble_filepaths(self, data_type):
-        return glob.glob(os.path.join(self.search_dir, data_type + '*.json'))
+        return glob.glob(os.path.join(config.IMPORT_DIR, data_type + '*.json'))
 
 
 class ConnectionImporter:

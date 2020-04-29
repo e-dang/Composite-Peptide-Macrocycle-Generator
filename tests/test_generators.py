@@ -1,8 +1,10 @@
-import pytest
-import new_architecture.generators as generators
-import new_architecture.models as models
-from tests.new_architecture.data.mols import *
 from copy import deepcopy
+
+import pytest
+
+import cpmg.generators as generators
+import cpmg.models as models
+from data.mols import *
 
 TEMPLATE_1 = models.Template.from_dict(TEST_TEMPLATE_1, _id='temp1')
 TEMPLATE_2 = models.Template.from_dict(TEST_TEMPLATE_2, _id='temp2')

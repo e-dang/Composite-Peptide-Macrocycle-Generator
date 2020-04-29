@@ -1,6 +1,6 @@
-import new_architecture.repository.repository as repo
-from new_architecture.io_formats import text_save
-import macrocycles.config as config
+import cpmg.repository as repo
+from cpmg.io_formats import text_save
+import cpmg.config as config
 
 
 class RegioSQMExporter:
@@ -9,7 +9,7 @@ class RegioSQMExporter:
         self.monomer_repo = repo.create_monomer_repository()
 
     def export_regiosqm_smiles_file(self, filepath=None):
-        filepath = config.REGIOSQM_SMILES_FILEPATH if filepath is None else filepath
+        filepath = filepath or config.REGIOSQM_SMILES_FILEPATH
 
         data = list(filter(lambda x: x.connection == 'C', self.sidechain_repo.load()))
         data.extend(list(filter(lambda x: x.required, self.monomer_repo.load())))

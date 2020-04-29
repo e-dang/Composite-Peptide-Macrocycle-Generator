@@ -1,5 +1,5 @@
-from new_architecture.repository.repository import create_repository_initializer
-from new_architecture.importers import create_importers
+from cpmg.repository import create_repository_initializer
+from cpmg.importers import create_importers
 
 
 class CPMGInitializer:
