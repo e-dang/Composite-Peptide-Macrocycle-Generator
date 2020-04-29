@@ -59,6 +59,23 @@ class HDF5Initializer:
 class HDF5Repository:
     ENCODING = 'ascii'
 
+    def __repr__(self):
+        def recursive_print(obj, level):
+            spacing = '  ' * level
+            if level == 0:
+                print(obj.name + ' - ' + str(len(obj)))
+            else:
+                print(spacing + obj.name.split('/')[-1] + ' - ' + str(len(obj)))
+            if isinstance(obj, h5py.Dataset):
+                return
+            else:
+                for sub_obj in obj:
+                    recursive_print(obj[sub_obj], level + 1)
+
+        file = HDF5File()
+        recursive_print(file, 0)
+        return ''
+
     def load(self, group, key):
         if isinstance(key, list) and isinstance(key[0], str):
             return self._load_ids(group, key)
@@ -145,7 +162,7 @@ class HDF5Repository:
 
     def _remove_values(self, dataset, indices):
         data = dataset[indices]
-        dataset[:len(data)] = data
+        dataset[: len(data)] = data
         dataset.resize((len(data),))
 
     def _remove_ids(self, dataset, indices):

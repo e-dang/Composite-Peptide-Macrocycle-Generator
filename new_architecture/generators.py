@@ -51,6 +51,8 @@ class PeptideGenerator():
     MONOMER_NITROGEN_MAP_NUM = 1
     PEPTIDE_CARBON_MAP_NUM = 2
     MAP_NUMS = (MONOMER_NITROGEN_MAP_NUM, PEPTIDE_CARBON_MAP_NUM)
+
+    # this reaction only works for alpha amino acids by design
     DECARBOXYLATE = AllChem.ReactionFromSmarts('[*:1]NC([*:2])C(=O)[OH]>>[*:1]NC([*:2])')
 
     def __init__(self, peptide_length):
