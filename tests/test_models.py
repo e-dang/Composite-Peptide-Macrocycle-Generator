@@ -81,6 +81,11 @@ def template_peptide_from_dict():
 # def macrocycle_from_mol():
     # return models.Macrocycle.from_mol(Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O'), 'm', models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='afji923'), mode)
 
+@pytest.fixture()
+def regiosqm_prediction_from_dict():
+    return models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id='acj8efg8')
+
+
 def test_backbone_from_mol(backbone_from_mol):
     assert(backbone_from_mol._id == None)
     assert(backbone_from_mol.binary != None)
@@ -346,3 +351,12 @@ def test_template_peptide_eq(template_peptide_from_dict):
 
 # def test_macrocycle_to_dict(macrocycle_from_dict):
 #     assert(macrocycle_from_dict.to_dict() == TEST_MACROCYCLE_1)
+
+def test_regiosqm_prediction_from_dict(regiosqm_prediction_from_dict):
+    assert(regiosqm_prediction_from_dict.predictions == [3, 6])
+    assert(regiosqm_prediction_from_dict.reacting_mol == 'CC1=CC=C(O)C=C1')
+    assert(regiosqm_prediction_from_dict.solvent == 'nitromethane')
+
+
+def test_regiosqm_prediction_to_dict(regiosqm_prediction_from_dict):
+    assert(regiosqm_prediction_from_dict.to_dict() == TEST_REGIOSQM_PREDICTION_1)

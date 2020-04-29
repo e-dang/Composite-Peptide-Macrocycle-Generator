@@ -22,7 +22,7 @@ class AbstractMolecule:
         return Chem.Mol(self.binary)
 
     def to_dict(self):
-        data = self.__dict__
+        data = deepcopy(self.__dict__)
         data.pop('_id')
         return data
 
@@ -276,13 +276,24 @@ class Macrocycle(AbstractMolecule):
                    data['template_peptide'], data['template'], data['reactions'], _id=_id)
 
 
-# class RegioSQMPrediction:
-#     def __init__(self, predictions, reacting_mol, solvent, cutoff):
-#         self.predictions = predictions
-#         self.reacting_mol = reacting_mol
-#         self.solvent = solvent
-#         self.cutoff = cutoff
+class AbstractPrediction:
+    def __init__(self, predictions, reacting_mol, solvent, _id):
+        self._id = _id
+        self.predictions = predictions
+        self.reacting_mol = reacting_mol
+        self.solvent = solvent
 
-#     @classmethod
-#     def from_dict(cls, data):
-#         return cls(data['predictions'], data['reacting_mol'], data['solvent'], data['cutoff'])
+    def to_dict(self):
+        data = deepcopy(self.__dict__)
+        data.pop('_id')
+        return data
+
+
+class RegioSQMPrediction(AbstractPrediction):
+    def __init__(self, predictions, reacting_mol, solvent, cutoff, _id=None):
+        super().__init__(predictions, reacting_mol, solvent, _id)
+        self.cutoff = cutoff
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return cls(data['predictions'], data['reacting_mol'], data['solvent'], data['cutoff'], _id=_id)

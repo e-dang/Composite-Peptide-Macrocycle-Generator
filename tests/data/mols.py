@@ -139,3 +139,12 @@ TEST_TEMPLATE_PEPTIDE_7 = {'binary': Chem.MolFromSmiles('C#CCCC[C@@](C=O)(CC(=O)
                            'kekule': 'C#CCCC[C@@](C=O)(CC(=O)NCCCC[C@H](NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)C(CC1=CC=CC2=N[NH]C(=O)N12)NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1)C(=O)O)CC1=CC=CC(/C=C/C)=C1',
                            'template': 'temp3',
                            'peptide': TEST_PEPTIDE_5_WITH_ID}
+
+TEST_REGIOSQM_PREDICTION_1 = {'predictions': [3, 6],
+                              'reacting_mol': 'CC1=CC=C(O)C=C1',
+                              'solvent': 'nitromethane',
+                              'cutoff': '3.0'}
+TEST_REGIOSQM_PREDICTION_2 = {'predictions': [2, 3, 4],
+                              'reacting_mol': 'CC1=CC=C[NH]1',
+                              'solvent': 'nitromethane',
+                              'cutoff': '3.0'}
