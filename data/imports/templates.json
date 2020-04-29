@@ -1,0 +1,14 @@
+[
+    {
+        "kekule": "CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1",
+        "mapped_kekule": "C/C=C/C1=CC(CC[CH:1]=O)=CC=C1"
+    },
+    {
+        "kekule": "CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1",
+        "mapped_kekule": "C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:1]=O)=C1"
+    },
+    {
+        "kekule": "C#CCCC[C@@](C=O)(CC(=O)ON1C(=O)CCC1=O)CC1=CC(/C=C/COC(=O)OC(C)(C)C)=CC=C1",
+        "mapped_kekule": "C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:1]=O"
+    }
+]
