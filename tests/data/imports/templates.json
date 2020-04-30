@@ -5,6 +5,7 @@
         "friedel_crafts_kekule": "[*:201]/C=C/[CH3:200]",
         "tsuji_trost_kekule": "[*:201]/C=C/[CH3:200]",
         "pictet_spangler_kekule": null,
+        "template_pictet_spangler_kekule": null,
         "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]"
     },
     {
@@ -13,6 +14,7 @@
         "friedel_crafts_kekule": "[*:201]/C=C/[CH3:200]",
         "tsuji_trost_kekule": "[*:201]/C=C/[CH3:200]",
         "pictet_spangler_kekule": "[O:300]=[CH1:301]C[C@H](C[*:201])[CH1:1]=O",
+        "template_pictet_spangler_kekule": null,
         "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]"
     },
     {
@@ -21,6 +23,7 @@
         "friedel_crafts_kekule": "[*:201]/C=C/[CH3:200]",
         "tsuji_trost_kekule": "[*:201]/C=C/[CH3:200]",
         "pictet_spangler_kekule": "C#CCCC[C@](C[*:201])(C[CH1:1]=O)[CH1:301]=[O:300]",
+        "template_pictet_spangler_kekule": "C#CCCC[C@@]([CH1:301]=[O:300])(CC(=O)[NH1:302][*:201])CC1=[CH1:200]C=CC([*:202])=C1",
         "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]"
     }
 ]

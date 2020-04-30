@@ -92,35 +92,41 @@ class Template(AbstractMolecule):
     OLIGOMERIZATION_MAP_NUM = 1
     EAS_MAP_NUM = 200
     WC_MAP_NUM_1 = 201
+    WC_MAP_NUM_2 = 202
     PS_OXYGEN_MAP_NUM = 300
     PS_CARBON_MAP_NUM = 301
+    TEMPLATE_PS_NITROGEN_MAP_NUM = 302
 
     def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule,
-                 pictet_spangler_kekule, pyrroloindoline_kekule, _id=None):
+                 pictet_spangler_kekule, template_pictet_spangler_kekule, pyrroloindoline_kekule, _id=None):
         super().__init__(binary, kekule, _id)
         self.oligomerization_kekule = oligomerization_kekule
         self.friedel_crafts_kekule = friedel_crafts_kekule
         self.tsuji_trost_kekule = tsuji_trost_kekule
         self.pictet_spangler_kekule = pictet_spangler_kekule
+        self.template_pictet_spangler_kekule = template_pictet_spangler_kekule
         self.pyrroloindoline_kekule = pyrroloindoline_kekule
 
     @classmethod
     def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule,
-                 pyrroloindoline_kekule):
+                 template_pictet_spangler_kekule, pyrroloindoline_kekule):
         cls.validate({'oligomerization_kekule': oligomerization_kekule,
                       'friedel_crafts_kekule': friedel_crafts_kekule,
                       'tsuji_trost_kekule': tsuji_trost_kekule,
                       'pictet_spangler_kekule': pictet_spangler_kekule,
+                      'template_pictet_spangler_kekule': template_pictet_spangler_kekule,
                       'pyrroloindoline_kekule': pyrroloindoline_kekule})
         Chem.Kekulize(mol)
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), oligomerization_kekule,
-                   friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule, pyrroloindoline_kekule)
+                   friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule, template_pictet_spangler_kekule,
+                   pyrroloindoline_kekule)
 
     @classmethod
     def from_dict(cls, data, _id=None):
         cls.validate(data)
         return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'],
-                   data['tsuji_trost_kekule'], data['pictet_spangler_kekule'], data['pyrroloindoline_kekule'], _id=_id)
+                   data['tsuji_trost_kekule'], data['pictet_spangler_kekule'], data['template_pictet_spangler_kekule'],
+                   data['pyrroloindoline_kekule'], _id=_id)
 
     @staticmethod
     def validate(data):
@@ -133,6 +139,9 @@ class Template(AbstractMolecule):
                 Template.validate_tsuji_trost_mol(Chem.MolFromSmiles(data['tsuji_trost_kekule']))
             if data['pictet_spangler_kekule'] is not None:
                 Template.validate_pictet_spangler_mol(Chem.MolFromSmiles(data['pictet_spangler_kekule']))
+            if data['template_pictet_spangler_kekule'] is not None:
+                Template.validate_template_pictet_spangler_mol(
+                    Chem.MolFromSmiles(data['template_pictet_spangler_kekule']))
             if data['pyrroloindoline_kekule'] is not None:
                 Template.validate_pyrroloindoline_mol(Chem.MolFromSmiles(data['pyrroloindoline_kekule']))
         except ValueError as err:
@@ -176,6 +185,19 @@ class Template(AbstractMolecule):
         return True
 
     @staticmethod
+    def validate_template_pictet_spangler_mol(mol):
+        _, map_nums = zip(*utils.get_atom_map_nums(mol))
+        if Template.EAS_MAP_NUM not in map_nums \
+                or Template.WC_MAP_NUM_1 not in map_nums \
+                or Template.WC_MAP_NUM_2 not in map_nums \
+                or Template.PS_OXYGEN_MAP_NUM not in map_nums \
+                or Template.PS_CARBON_MAP_NUM not in map_nums \
+                or Template.TEMPLATE_PS_NITROGEN_MAP_NUM not in map_nums:
+            raise ValueError(f'Template molecule is missing pictet spangler atom map numbers!')
+
+        return True
+
+    @staticmethod
     def validate_pyrroloindoline_mol(mol):
         _, map_nums = zip(*utils.get_atom_map_nums(mol))
         if Template.EAS_MAP_NUM not in map_nums or Template.WC_MAP_NUM_1 not in map_nums:
@@ -198,6 +220,10 @@ class Template(AbstractMolecule):
     @property
     def pictet_spangler_mol(self):
         return Chem.MolFromSmiles(self.pictet_spangler_kekule) if self.pictet_spangler_kekule is not None else None
+
+    @property
+    def template_pictet_spangler_mol(self):
+        return Chem.MolFromSmiles(self.template_pictet_spangler_kekule) if self.template_pictet_spangler_kekule is not None else None
 
     @property
     def pyrroloindoline_mol(self):

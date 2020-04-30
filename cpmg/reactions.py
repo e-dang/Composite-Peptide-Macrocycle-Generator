@@ -9,6 +9,15 @@ import macrocycles.utils as utils
 from cpmg.exceptions import InvalidMolecule
 
 
+def create_reaction_smarts(reactants, products):
+    smarts = []
+    reactants = [Chem.MolToSmiles(reactant) for reactant in reactants]
+    for product in products:
+        smarts.append('(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product))
+
+    return smarts
+
+
 class InterMolecularReaction:
     NUCLEOPHILE_EAS_MAP_NUM = 50
     NUCLEOPHILE_WC_MAP_NUM = 51
@@ -18,14 +27,14 @@ class InterMolecularReaction:
     C_TERM_WILDCARD_MAP_NUM = 103
 
     def generate(self, reacting_mol, template, reacting_atom, model):
-        self.initialize(reacting_mol, template, model)
+        self._initialize(reacting_mol, template, model)
         self._validate_reacting_atom(reacting_atom)
         self._validate_template()
         self._create_reactants()
         self._create_product()
-        return self._create_reaction_smarts()
+        return create_reaction_smarts(self.reactants, self.products)
 
-    def initialize(self, reacting_mol, template, model):
+    def _initialize(self, reacting_mol, template, model):
         self.model = model
         self.reacting_mol = reacting_mol
         self._get_template_mol(template)
@@ -46,14 +55,6 @@ class InterMolecularReaction:
 
     def _create_product(self):
         pass
-
-    def _create_reaction_smarts(self):
-        smarts = []
-        reactants = [Chem.MolToSmiles(reactant) for reactant in self.reactants]
-        for product in self.products:
-            smarts.append('(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product))
-
-        return smarts
 
     def _tag_sidechain_connection_atom(self, change_to_wildcard=True):
 
@@ -363,3 +364,61 @@ class Pyrroloindoline(InterMolecularReaction):
             map_nums = (self.TEMPLATE_EAS_MAP_NUM, self.NUCLEOPHILE_EAS_MAP_NUM)
             self.products.append(utils.connect_mols(reactant, self.template,
                                                     map_nums=map_nums, clear_map_nums=False, stereo=stereo2))
+
+
+class IntraMolecularReaction:
+    def generate(self, reacting_mol):
+        self._initialize(reacting_mol)
+        self._create_product()
+        return create_reaction_smarts([self.reacting_mol], self.products)
+
+    def _initialize(self, reacting_mol):
+        self.reacting_mol = reacting_mol
+        self.products = []
+
+    def _create_product(self):
+        pass
+
+
+class TemplatePictetSpangler(IntraMolecularReaction):
+
+    STEREOCHEMISTRY = 'CCW'
+    ALDEHYDE_O_MAP_NUM = models.Template.PS_OXYGEN_MAP_NUM
+    ALDEHYDE_C_MAP_NUM = models.Template.PS_CARBON_MAP_NUM
+    EAS_MAP_NUM = models.Template.EAS_MAP_NUM
+    NITROGEN_MAP_NUM = models.Template.TEMPLATE_PS_NITROGEN_MAP_NUM
+
+    def _initialize(self, reacting_mol):
+        super()._initialize(reacting_mol)
+
+        try:
+            self.reacting_mol = reacting_mol.template_pictet_spangler_mol
+        except AttributeError:
+            raise InvalidMolecule(
+                'The reacting mol must be a template with a valid template pictet spangler mol property!')
+
+    def _create_product(self):
+        # copy of template that turns into product
+        template = Chem.RWMol(self.reacting_mol)
+
+        # reset atom map number on the INSTANCE VARIABLE template
+        for atom in self.reacting_mol.GetAtoms():
+            if atom.GetAtomMapNum() == self.ALDEHYDE_O_MAP_NUM:
+                atom.SetAtomMapNum(0)
+                break
+
+        # remove oxygen from unmasked aldehyde on LOCAL VARIABLE template
+        for atom in list(template.GetAtoms()):
+            if atom.GetAtomMapNum() == self.ALDEHYDE_O_MAP_NUM:
+                template.RemoveAtom(atom.GetIdx())
+            elif atom.GetAtomMapNum() == self.ALDEHYDE_C_MAP_NUM:
+                atom.SetNumExplicitHs(atom.GetTotalNumHs() + 2)
+
+        # create bond between the peptide nitrogen atom and the aldehyde carbon
+        map_nums = (self.NITROGEN_MAP_NUM, self.ALDEHYDE_C_MAP_NUM)
+        template = utils.connect_mols(template, map_nums=map_nums, clear_map_nums=False)
+
+        # create bond between reacting atom and the aldehyde carbon
+        map_nums = (self.ALDEHYDE_C_MAP_NUM, self.EAS_MAP_NUM)
+        self.products.append(utils.connect_mols(template, map_nums=map_nums,
+                                                stereo=self.STEREOCHEMISTRY, clear_map_nums=False))

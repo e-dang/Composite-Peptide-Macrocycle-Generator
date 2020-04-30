@@ -23,6 +23,7 @@ PS_RESULT_SMARTS_1 = [f'(O=[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERIZATION_MAP_
 PS_RESULT_SMARTS_2 = [f'(C#CCCC[C@@](C[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERIZATION_MAP_NUM}](=O)[NH:{rxns.PictetSpangler.BACKBONE_NITROGEN_MAP_NUM}]C(Cc1[nH]cc[cH:{rxns.PictetSpangler.NUCLEOPHILE_EAS_MAP_NUM}]1)[*:{rxns.PictetSpangler.C_TERM_WILDCARD_MAP_NUM}])(C[*:{models.Template.WC_MAP_NUM_1}])[CH:{rxns.PictetSpangler.TEMPLATE_ALDEHYDE_C_MAP_NUM}]=O)>>C#CCCC[C@]1(C[*:{models.Template.WC_MAP_NUM_1}])C[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERIZATION_MAP_NUM}](=O)[N:{rxns.PictetSpangler.BACKBONE_NITROGEN_MAP_NUM}]2C([*:{rxns.PictetSpangler.C_TERM_WILDCARD_MAP_NUM}])Cc3[nH]cc[c:{rxns.PictetSpangler.NUCLEOPHILE_EAS_MAP_NUM}]3[C:{rxns.PictetSpangler.TEMPLATE_ALDEHYDE_C_MAP_NUM}]12']
 PYR_RESULT_SMARTS_1 = [f'(c1ccc2c(c1)[nH][cH:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}][c:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]2CC([NH:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}].C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}])>>C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH2:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}][C@:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]12CC([*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}])[N:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}]([*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[C@@H:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}]1Nc1ccccc12',
                        f'(c1ccc2c(c1)[nH][cH:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}][c:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]2CC([NH:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}].C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}])>>C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH2:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}][C@@:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]12CC([*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}])[N:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}]([*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[C@H:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}]1Nc1ccccc12']
+TPS_RESULTS_SMARTS_1 = [f'(C#CCCC[C@@](CC(=O)[NH:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}][*:{models.Template.WC_MAP_NUM_1}])(Cc1cc([*:{models.Template.WC_MAP_NUM_2}])cc[cH:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1)[CH:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]=O)>>C#CCCC[C@]12CC(=O)[N:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}]([*:{models.Template.WC_MAP_NUM_1}])[C@H:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]1[c:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1ccc([*:{models.Template.WC_MAP_NUM_2}])cc1C2']
 
 
 @pytest.mark.parametrize('model_mol,template,atom_idx,expected', [(SIDECHAIN_1, TEMPLATE_1, 3, FC_RESULT_SMARTS_1),
@@ -106,6 +107,15 @@ def test_pictet_spangler_fail(model_mol, template, atom_idx):
 
     with pytest.raises(InvalidMolecule):
         _ = reaction.generate(reacting_mol, template, reacting_atom, model_mol)
+
+
+@pytest.mark.parametrize('model_mol,expected', [(TEMPLATE_3, TPS_RESULTS_SMARTS_1)])
+def test_template_pictet_spangler(model_mol, expected):
+    reaction = rxns.TemplatePictetSpangler()
+
+    rxn_smarts = reaction.generate(model_mol)
+
+    assert(rxn_smarts == expected)
 
 
 @pytest.mark.parametrize('model_mol,template,atom_idx,expected', [(SIDECHAIN_3, TEMPLATE_1, 1, PYR_RESULT_SMARTS_1),
