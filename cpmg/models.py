@@ -86,6 +86,8 @@ class Connection(AbstractMolecule):
 
 class Template(AbstractMolecule):
     OLIGOMERIZATION_MAP_NUM = 1
+    FRIEDEL_CRAFTS_EAS_MAP_NUM = 200
+    FRIEDEL_CRAFTS_WC_MAP_NUM = 201
 
     def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, _id=None):
         super().__init__(binary, kekule, _id)
@@ -93,26 +95,41 @@ class Template(AbstractMolecule):
         self.friedel_crafts_kekule = friedel_crafts_kekule
 
     @classmethod
-    def from_mol(cls, mol, full_kekule, friedel_crafts_kekule):
+    def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule):
+        cls.validate({'oligomerization_kekule': oligomerization_kekule, 'friedel_crafts_kekule': friedel_crafts_kekule})
         Chem.Kekulize(mol)
-        cls.validate(mol)
-        return cls(mol.ToBinary(), full_kekule, Chem.MolToSmiles(mol, kekuleSmiles=True), friedel_crafts_kekule)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), oligomerization_kekule, friedel_crafts_kekule)
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        cls.validate(Chem.Mol(data['binary']))
+        cls.validate(data)
         return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'], _id=_id)
 
     @staticmethod
-    def validate(mol):
+    def validate(data):
         try:
-            _, map_nums = zip(*utils.get_atom_map_nums(mol))
-            if Template.OLIGOMERIZATION_MAP_NUM not in map_nums:
-                raise ValueError(f'Template molecule is missing oligomerization atom map number!')
+            Template.validate_oligomerization_mol(Chem.MolFromSmiles(data['oligomerization_kekule']))
+            Template.validate_friedel_crafts_mol(Chem.MolFromSmiles(data['friedel_crafts_kekule']))
         except ValueError as err:
             raise exceptions.InvalidMolecule(str(err))
 
         return True
+
+    @staticmethod
+    def validate_oligomerization_mol(mol):
+        _, map_nums = zip(*utils.get_atom_map_nums(mol))
+        if Template.OLIGOMERIZATION_MAP_NUM not in map_nums:
+            raise ValueError(f'Template molecule is missing oligomerization atom map number!')
+
+    @staticmethod
+    def validate_friedel_crafts_mol(mol):
+        _, map_nums = zip(*utils.get_atom_map_nums(mol))
+        if Template.FRIEDEL_CRAFTS_EAS_MAP_NUM not in map_nums or Template.FRIEDEL_CRAFTS_WC_MAP_NUM not in map_nums:
+            raise ValueError(f'Template molecule is missing friedel crafts atom map numbers!')
+
+    @property
+    def oligomerization_mol(self):
+        return Chem.MolFromSmiles(self.oligomerization_kekule)
 
     @property
     def friedel_crafts_mol(self):

@@ -31,11 +31,11 @@ def connection_from_dict():
 
 @pytest.fixture()
 def template_from_mol():
-    full_kekule = 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
-    oligomerization_kekule = 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1'
-    friedel_crafts_kekule = '[*:50]/C=C/[CH3:2]'
-    template = models.Template.from_mol(Chem.MolFromSmiles(oligomerization_kekule), full_kekule, friedel_crafts_kekule)
-    return template, full_kekule, oligomerization_kekule, friedel_crafts_kekule
+    kekule = 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
+    oligomerization_kekule = f'C/C=C/C1=CC(CC[CH:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O)=CC=C1'
+    friedel_crafts_kekule = f'[*:{models.Template.FRIEDEL_CRAFTS_WC_MAP_NUM}]/C=C/[CH3:{models.Template.FRIEDEL_CRAFTS_EAS_MAP_NUM}]'
+    template = models.Template.from_mol(Chem.MolFromSmiles(kekule), oligomerization_kekule, friedel_crafts_kekule)
+    return template, kekule, oligomerization_kekule, friedel_crafts_kekule
 
 
 @pytest.fixture(params=[TEST_TEMPLATE_1, TEST_TEMPLATE_2, TEST_TEMPLATE_3])
@@ -176,23 +176,33 @@ def test_connection_to_dict(connection_from_dict):
     assert(connection_from_dict.to_dict() == TEST_CONNECTION_1)
 
 
-@pytest.mark.parametrize('template', [(Chem.MolFromSmiles('C/C=C/C1=CC(CC[CH:1]=O)=CC=C1')), (Chem.MolFromSmiles('C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:1]=O)=C1')), (Chem.MolFromSmiles('C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:1]=O'))])
+@pytest.mark.parametrize('template', [({'oligomerization_kekule': 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1',
+                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'}),
+                                      ({'oligomerization_kekule': 'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:1]=O)=C1',
+                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'}),
+                                      ({'oligomerization_kekule': 'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:1]=O',
+                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'})])
 def test_template_validate(template):
     assert(models.Template.validate(template))
 
 
-@pytest.mark.parametrize('template', [(Chem.MolFromSmiles('CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1')), (Chem.MolFromSmiles('CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1'))])
+@pytest.mark.parametrize('template', [({'oligomerization_kekule': 'C/C=C/C1=CC(CCC=O)=CC=C1',
+                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'}),
+                                      ({'oligomerization_kekule': 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1',
+                                          'friedel_crafts_kekule': '[*:201]/C=C/C'}),
+                                      ({'oligomerization_kekule': 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1',
+                                          'friedel_crafts_kekule': '*/C=C/[CH3:200]'})])
 def test_validate_template_fail(template):
     with pytest.raises(exceptions.InvalidMolecule):
         models.Template.validate(template)
 
 
 def test_template_from_mol(template_from_mol):
-    template, full_kekule, oligomerization_kekule, friedel_crafts_kekule = template_from_mol
+    template, kekule, oligomerization_kekule, friedel_crafts_kekule = template_from_mol
     assert(template._id == None)
     assert(template.binary != None)
     assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
-    assert(template.kekule == full_kekule)
+    assert(template.kekule == kekule)
     assert(template.oligomerization_kekule == oligomerization_kekule)
     assert(template.friedel_crafts_kekule == friedel_crafts_kekule)
 
