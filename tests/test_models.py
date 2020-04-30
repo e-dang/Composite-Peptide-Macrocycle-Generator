@@ -114,11 +114,11 @@ def regiosqm_prediction_from_dict(request):
     return prediction, request.param, _id
 
 
-@pytest.fixture()
-def pka_prediction_from_dict():
+@pytest.fixture(params=[TEST_PKA_PREDICTION_1, TEST_PKA_PREDICTION_2, TEST_PKA_PREDICTION_3])
+def pka_prediction_from_dict(request):
     _id = str(uuid.uuid4())
-    prediction = models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id=_id)
-    return prediction, TEST_PKA_PREDICTION_1, _id
+    prediction = models.pKaPrediction.from_dict(request.param, _id=_id)
+    return prediction, request.param, _id
 
 
 def test_backbone_from_mol(backbone_from_mol):
