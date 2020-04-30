@@ -1,3 +1,4 @@
+from copy import deepcopy
 from itertools import chain
 
 from rdkit import Chem
@@ -29,7 +30,7 @@ class InterMolecularReaction:
         self.reacting_mol = reacting_mol
         self._get_template_mol(template)
         self.reactants = []
-        self.product = None
+        self.products = []
 
     def _get_template_mol(self, template):
         pass
@@ -47,12 +48,16 @@ class InterMolecularReaction:
         pass
 
     def _create_reaction_smarts(self):
+        smarts = []
         reactants = [Chem.MolToSmiles(reactant) for reactant in self.reactants]
-        return '(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(self.product)
+        for product in self.products:
+            smarts.append('(' + '.'.join(reactants) + ')>>' + Chem.MolToSmiles(product))
+
+        return smarts
 
     def _tag_sidechain_connection_atom(self, change_to_wildcard=True):
 
-        matches = self.reacting_mol.GetSubstructMatches(Chem.MolFromSmarts('[CH3]'))
+        matches = self.reacting_mol.GetSubstructMatches(models.METHYL)
         for atom_idx in chain.from_iterable(matches):
             atom = self.reacting_mol.GetAtomWithIdx(atom_idx)
             if atom.GetIsotope() == 13:  # isotope labeling for methyl carbons that arent candidate attachments
@@ -64,9 +69,6 @@ class InterMolecularReaction:
 
     def _tag_monomer_connection_atom(self):
 
-        n_term_patt1 = Chem.MolFromSmarts('[NH2]')  # regular amino acid backbone type
-        n_term_patt2 = Chem.MolFromSmarts('[NH;R]')  # proline backbone type
-        c_term_patt = Chem.MolFromSmarts('C(=O)[OH]')
         n_term_replacement1 = Chem.MolFromSmarts(
             f'[NH1:{self.BACKBONE_NITROGEN_MAP_NUM}][*:{self.N_TERM_WILDCARD_MAP_NUM}]')
         n_term_replacement2 = Chem.MolFromSmarts(
@@ -75,9 +77,9 @@ class InterMolecularReaction:
             f'[C:{self.BACKBONE_CARBOXYL_MAP_NUM}](=O)[*:{self.C_TERM_WILDCARD_MAP_NUM}]')
 
         # if nucleophile doesnt have the specified pattern, ReplaceSubstracts() returns the mol unmodified
-        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, n_term_patt1, n_term_replacement1)[0]
-        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, n_term_patt2, n_term_replacement2)[0]
-        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, c_term_patt, c_term_replacement)[0]
+        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, models.N_TERM, n_term_replacement1)[0]
+        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, models.PROLINE_N_TERM, n_term_replacement2)[0]
+        self.reacting_mol = AllChem.ReplaceSubstructs(self.reacting_mol, models.CARBOXYL, c_term_replacement)[0]
 
     def _create_monomer(self):
         """
@@ -90,15 +92,13 @@ class InterMolecularReaction:
         """
 
         # get modified backbone
-        backbone = Chem.MolFromSmarts('N[CH2:1]C(=O)O')
-        carboxyl = Chem.MolFromSmarts('C(=O)O')
+        backbone = Chem.MolFromSmarts('N[CH2:1]C(=O)[OH]')
         replacement = Chem.MolFromSmarts(f'[*:{self.C_TERM_WILDCARD_MAP_NUM}]')
-        backbone = AllChem.ReplaceSubstructs(backbone, carboxyl, replacement)[0]
+        backbone = AllChem.ReplaceSubstructs(backbone, models.CARBOXYL, replacement)[0]
         Chem.SanitizeMol(backbone)
-        print(Chem.MolToSmiles(backbone))
 
         # tag n-terminus nitrogen for oligomerization
-        for atom_idx in chain.from_iterable(backbone.GetSubstructMatches(Chem.MolFromSmarts('[NH2]'))):
+        for atom_idx in chain.from_iterable(backbone.GetSubstructMatches(models.N_TERM)):
             atom = backbone.GetAtomWithIdx(atom_idx)
             if atom.GetSymbol() == 'N':
                 atom.SetAtomMapNum(self.BACKBONE_NITROGEN_MAP_NUM)
@@ -143,7 +143,7 @@ class FriedelCrafts(InterMolecularReaction):
                 f'The nucleophile needs to be an instance of a sidechain or a monomer!')
 
     def _create_product(self):
-        self.product = utils.connect_mols(*self.reactants, map_nums=self.MAP_NUMS, clear_map_nums=False)
+        self.products = [utils.connect_mols(*self.reactants, map_nums=self.MAP_NUMS, clear_map_nums=False)]
 
 
 class TsujiTrost(InterMolecularReaction):
@@ -178,7 +178,7 @@ class TsujiTrost(InterMolecularReaction):
                 f'The nucleophile needs to be an instance of a sidechain or a monomer!')
 
     def _create_product(self):
-        self.product = utils.connect_mols(*self.reactants, map_nums=self.MAP_NUMS, clear_map_nums=False)
+        self.products = [utils.connect_mols(*self.reactants, map_nums=self.MAP_NUMS, clear_map_nums=False)]
 
 
 class PictetSpangler(InterMolecularReaction):
@@ -271,4 +271,95 @@ class PictetSpangler(InterMolecularReaction):
 
         # create bond between peptide nitrogen and unmasked aldehyde carbon
         map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.TEMPLATE_ALDEHYDE_C_MAP_NUM)
-        self.product = utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)
+        self.products = [utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False)]
+
+
+class Pyrroloindoline(InterMolecularReaction):
+    REQUIRED_SUBSTRUCT = Chem.MolFromSmarts('C=CC')
+    INDOLE = Chem.MolFromSmarts('*c1c[nH]c2ccccc12')
+    STEREOCHEMISTRIES = [('CCW', 'CCW'), ('CW', 'CW')]
+    ADJ_CARBON_MAP_NUM = 7
+    SIDECHAIN_OLIGOMERIZATION_MAP_NUM = InterMolecularReaction.NUCLEOPHILE_WC_MAP_NUM
+    TEMPLATE_EAS_MAP_NUM = models.Template.EAS_MAP_NUM
+    BACKBONE_OLIGOMERIZATION_MAP_NUM = models.Backbone.MAP_NUM
+
+    def _get_template_mol(self, template):
+        self.template = template.pyrroloindoline_mol
+
+    def _validate_reacting_atom(self, atom):
+        self._tag_sidechain_connection_atom(change_to_wildcard=False)
+
+        num_neighbors_hydrogens = [neighbor.GetTotalNumHs() for neighbor in atom.GetNeighbors()]
+        connection_atom = self._get_connection_atom()
+        connection_atom_neighbors = [neighbor.GetIdx() for neighbor in connection_atom.GetNeighbors()]
+
+        # reaction initiated at carbon that is the attachment point to amino acid backbone, which contains no hydrogens
+        if atom.GetTotalNumHs() != 0 \
+                or atom.GetSymbol() != 'C' \
+                or 1 not in num_neighbors_hydrogens \
+                or atom.GetIdx() not in connection_atom_neighbors:
+            raise InvalidMolecule('The reacting atom of a pyrroloindoline reaction must be an aromatic carbon with no'
+                                  ' hydrogens, adjacent to the connecting atom between the sidechain and backbone, and'
+                                  ' with a neighbor that has exactly one hydrogen.')
+
+    def _get_connection_atom(self):
+        self._validate_reacting_mol()
+        for atom in self.reacting_mol.GetAtoms():
+            if atom.GetAtomMapNum() == self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM:
+                return atom
+
+    def _validate_template(self):
+        if self.template is None or not self.template.GetSubstructMatch(self.REQUIRED_SUBSTRUCT):
+            raise InvalidMolecule(
+                'The template molecule must contain a "C=CC" substructure for a pyrroloindoline reaction!')
+
+    def _validate_reacting_mol(self):
+        reacting_mol = Chem.MolFromSmiles(Chem.MolToSmiles(self.reacting_mol))
+        if not reacting_mol.GetSubstructMatch(self.INDOLE) or not isinstance(self.model, models.Sidechain):
+            raise InvalidMolecule(
+                'The reacting molecule in a pyrroloindoline reaction must be a sidechain containing an indole!')
+
+    def _create_reactants(self):
+        monomer = self._create_monomer()
+
+        # attach a methyl to n-terminus so reaction matches indole at any position in peptide chain
+        extra_atom = Chem.MolFromSmarts(f'[CH4:{self.N_TERM_WILDCARD_MAP_NUM}]')
+        map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.N_TERM_WILDCARD_MAP_NUM)
+        self.monomer = utils.connect_mols(monomer, extra_atom, map_nums=map_nums, clear_map_nums=False)
+
+        for atom in self.monomer.GetAtoms():
+            if atom.GetAtomMapNum() == self.N_TERM_WILDCARD_MAP_NUM:  # change methyl to wildcard
+                utils.atom_to_wildcard(atom)
+            elif atom.GetAtomMapNum() == self.NUCLEOPHILE_EAS_MAP_NUM:  # tag carbon adjacent to reacting atom
+                for neighbor in atom.GetNeighbors():
+                    if neighbor.GetTotalNumHs() == 1 and neighbor.GetIsAromatic():
+                        neighbor.SetAtomMapNum(self.ADJ_CARBON_MAP_NUM)
+
+        self.reactants = [self.monomer, self.template]
+
+    def _create_product(self):
+
+        # copy of monomer that will be changed into product
+        monomer = deepcopy(self.monomer)
+
+        for atom in monomer.GetAtoms():
+            if atom.GetAtomMapNum() == self.NUCLEOPHILE_EAS_MAP_NUM:
+                eas_atom = atom
+            elif atom.GetAtomMapNum() == self.ADJ_CARBON_MAP_NUM:
+                adj_atom = atom
+
+        # bond between eas_atom (i.e. the reacting atom) and adj_atom becomes single bond
+        bond = monomer.GetBondBetweenAtoms(eas_atom.GetIdx(), adj_atom.GetIdx())
+        bond.SetBondType(Chem.BondType.SINGLE)
+        eas_atom.SetNumExplicitHs(eas_atom.GetTotalNumHs() + 1)
+        adj_atom.SetNumExplicitHs(adj_atom.GetTotalNumHs() + 1)
+
+        for stereo1, stereo2 in self.STEREOCHEMISTRIES:
+            # merge backbone nitrogen to adjacent carbon
+            map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.ADJ_CARBON_MAP_NUM)
+            reactant = utils.connect_mols(monomer, map_nums=map_nums, clear_map_nums=False, stereo=stereo1)
+
+            # merge template with monomer
+            map_nums = (self.TEMPLATE_EAS_MAP_NUM, self.NUCLEOPHILE_EAS_MAP_NUM)
+            self.products.append(utils.connect_mols(reactant, self.template,
+                                                    map_nums=map_nums, clear_map_nums=False, stereo=stereo2))

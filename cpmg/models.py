@@ -133,6 +133,8 @@ class Template(AbstractMolecule):
                 Template.validate_tsuji_trost_mol(Chem.MolFromSmiles(data['tsuji_trost_kekule']))
             if data['pictet_spangler_kekule'] is not None:
                 Template.validate_pictet_spangler_mol(Chem.MolFromSmiles(data['pictet_spangler_kekule']))
+            if data['pyrroloindoline_kekule'] is not None:
+                Template.validate_pyrroloindoline_mol(Chem.MolFromSmiles(data['pyrroloindoline_kekule']))
         except ValueError as err:
             raise exceptions.InvalidMolecule(str(err))
 
@@ -187,19 +189,19 @@ class Template(AbstractMolecule):
 
     @property
     def friedel_crafts_mol(self):
-        return Chem.MolFromSmiles(self.friedel_crafts_kekule)
+        return Chem.MolFromSmiles(self.friedel_crafts_kekule) if self.friedel_crafts_kekule is not None else None
 
     @property
     def tsuji_trost_mol(self):
-        return Chem.MolFromSmiles(self.tsuji_trost_kekule)
+        return Chem.MolFromSmiles(self.tsuji_trost_kekule) if self.tsuji_trost_kekule is not None else None
 
     @property
     def pictet_spangler_mol(self):
-        return Chem.MolFromSmiles(self.pictet_spangler_kekule)
+        return Chem.MolFromSmiles(self.pictet_spangler_kekule) if self.pictet_spangler_kekule is not None else None
 
     @property
     def pyrroloindoline_mol(self):
-        return Chem.MolFromSmiles(self.pyrroloindoline_kekule)
+        return Chem.MolFromSmiles(self.pyrroloindoline_kekule) if self.pyrroloindoline_kekule is not None else None
 
 
 class Sidechain(AbstractMolecule):
