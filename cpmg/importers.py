@@ -58,7 +58,7 @@ class TemplateImporter:
     def import_data(self):
         data = []
         for template in self.loader.load(self.saver.CATEGORY):
-            template['binary'] = Chem.MolFromSmiles(template['mapped_kekule']).ToBinary()
+            template['binary'] = Chem.MolFromSmiles(template['oligomerization_kekule']).ToBinary()
             data.append(models.Template.from_dict(template))
 
         return self.saver.save(data)

@@ -87,20 +87,21 @@ class Connection(AbstractMolecule):
 class Template(AbstractMolecule):
     OLIGOMERIZATION_MAP_NUM = 1
 
-    def __init__(self, binary, kekule, mapped_kekule, _id=None):
+    def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, _id=None):
         super().__init__(binary, kekule, _id)
-        self.mapped_kekule = mapped_kekule
+        self.oligomerization_kekule = oligomerization_kekule
+        self.friedel_crafts_kekule = friedel_crafts_kekule
 
     @classmethod
-    def from_mol(cls, mol, full_kekule):
+    def from_mol(cls, mol, full_kekule, friedel_crafts_kekule):
         Chem.Kekulize(mol)
         cls.validate(mol)
-        return cls(mol.ToBinary(), full_kekule, Chem.MolToSmiles(mol, kekuleSmiles=True))
+        return cls(mol.ToBinary(), full_kekule, Chem.MolToSmiles(mol, kekuleSmiles=True), friedel_crafts_kekule)
 
     @classmethod
     def from_dict(cls, data, _id=None):
         cls.validate(Chem.Mol(data['binary']))
-        return cls(data['binary'], data['kekule'], data['mapped_kekule'], _id=_id)
+        return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'], _id=_id)
 
     @staticmethod
     def validate(mol):
@@ -112,6 +113,10 @@ class Template(AbstractMolecule):
             raise exceptions.InvalidMolecule(str(err))
 
         return True
+
+    @property
+    def friedel_crafts_mol(self):
+        return Chem.MolFromSmiles(self.friedel_crafts_kekule)
 
 
 class Sidechain(AbstractMolecule):
