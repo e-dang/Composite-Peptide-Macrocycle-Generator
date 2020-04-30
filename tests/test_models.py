@@ -36,9 +36,12 @@ def template_from_mol():
     friedel_crafts_kekule = f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'
     tsuji_trost_kekule = f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'
     pictet_spangler_kekule = f'[O:{models.Template.PS_OXYGEN_MAP_NUM}]=[CH1:{models.Template.PS_CARBON_MAP_NUM}]C[C@H](C[*:{models.Template.WC_MAP_NUM_1}])[CH1:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O'
+    pyrroloindoline_kekule = f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'
     template = models.Template.from_mol(Chem.MolFromSmiles(
-        kekule), oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule)
-    return template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule
+        kekule), oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule,
+        pyrroloindoline_kekule)
+    return (template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule,
+            pyrroloindoline_kekule)
 
 
 @pytest.fixture(params=[TEST_TEMPLATE_1, TEST_TEMPLATE_2, TEST_TEMPLATE_3])
@@ -200,7 +203,13 @@ def test_connection_to_dict(connection_from_dict):
                                            (models.Template.validate_pictet_spangler_mol,
                                             Chem.MolFromSmiles(TEST_TEMPLATE_2['pictet_spangler_kekule'])),
                                            (models.Template.validate_pictet_spangler_mol,
-                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['pictet_spangler_kekule']))])
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['pictet_spangler_kekule'])),
+                                           (models.Template.validate_pyrroloindoline_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['pyrroloindoline_kekule'])),
+                                           (models.Template.validate_pyrroloindoline_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['pyrroloindoline_kekule'])),
+                                           (models.Template.validate_pyrroloindoline_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['pyrroloindoline_kekule']))])
 def test_template_validate(func, template):
     assert(func(template))
 
@@ -228,6 +237,12 @@ def test_template_validate(func, template):
                                            (models.Template.validate_pictet_spangler_mol,
                                             Chem.MolFromSmiles(TEST_TEMPLATE_2['kekule'])),
                                            (models.Template.validate_pictet_spangler_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['kekule'])),
+                                           (models.Template.validate_pyrroloindoline_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['kekule'])),
+                                           (models.Template.validate_pyrroloindoline_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['kekule'])),
+                                           (models.Template.validate_pyrroloindoline_mol,
                                             Chem.MolFromSmiles(TEST_TEMPLATE_3['kekule']))])
 def test_template_validate_fail(func, template):
     with pytest.raises(ValueError):
@@ -235,7 +250,7 @@ def test_template_validate_fail(func, template):
 
 
 def test_template_from_mol(template_from_mol):
-    template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule = template_from_mol
+    template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule, pyrroloindoline_kekule = template_from_mol
     assert(template._id == None)
     assert(template.binary != None)
     assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
@@ -244,6 +259,7 @@ def test_template_from_mol(template_from_mol):
     assert(template.friedel_crafts_kekule == friedel_crafts_kekule)
     assert(template.tsuji_trost_kekule == tsuji_trost_kekule)
     assert(template.pictet_spangler_kekule == pictet_spangler_kekule)
+    assert(template.pyrroloindoline_kekule == pyrroloindoline_kekule)
     assert(len(template.__dict__) - 1 == len(template_from_mol))  # -1 for binary field
 
 
@@ -257,6 +273,7 @@ def test_template_from_dict(template_from_dict):
     assert(template.friedel_crafts_kekule == template_dict['friedel_crafts_kekule'])
     assert(template.tsuji_trost_kekule == template_dict['tsuji_trost_kekule'])
     assert(template.pictet_spangler_kekule == template_dict['pictet_spangler_kekule'])
+    assert(template.pyrroloindoline_kekule == template_dict['pyrroloindoline_kekule'])
     assert(len(template.__dict__) - 1 == len(template_dict))
 
 

@@ -8,7 +8,11 @@ import cpmg.exceptions as exceptions
 import cpmg.utils as utils
 
 SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
+METHYL = Chem.MolFromSmarts('[CH3]')
+CARBOXYL = Chem.MolFromSmarts('C(=O)[OH]')
+N_TERM = Chem.MolFromSmarts('[NH2]')
 PROLINE_N_TERM = Chem.MolFromSmarts('[NH;R]')
+ALPHA_BACKBONE = Chem.MolFromSmarts('NCC(=O)O')
 
 
 class AbstractMolecule:
@@ -92,28 +96,31 @@ class Template(AbstractMolecule):
     PS_CARBON_MAP_NUM = 301
 
     def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule,
-                 pictet_spangler_kekule, _id=None):
+                 pictet_spangler_kekule, pyrroloindoline_kekule, _id=None):
         super().__init__(binary, kekule, _id)
         self.oligomerization_kekule = oligomerization_kekule
         self.friedel_crafts_kekule = friedel_crafts_kekule
         self.tsuji_trost_kekule = tsuji_trost_kekule
         self.pictet_spangler_kekule = pictet_spangler_kekule
+        self.pyrroloindoline_kekule = pyrroloindoline_kekule
 
     @classmethod
-    def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule):
+    def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule,
+                 pyrroloindoline_kekule):
         cls.validate({'oligomerization_kekule': oligomerization_kekule,
                       'friedel_crafts_kekule': friedel_crafts_kekule,
                       'tsuji_trost_kekule': tsuji_trost_kekule,
-                      'pictet_spangler_kekule': pictet_spangler_kekule})
+                      'pictet_spangler_kekule': pictet_spangler_kekule,
+                      'pyrroloindoline_kekule': pyrroloindoline_kekule})
         Chem.Kekulize(mol)
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), oligomerization_kekule,
-                   friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule)
+                   friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule, pyrroloindoline_kekule)
 
     @classmethod
     def from_dict(cls, data, _id=None):
         cls.validate(data)
         return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'],
-                   data['tsuji_trost_kekule'], data['pictet_spangler_kekule'], _id=_id)
+                   data['tsuji_trost_kekule'], data['pictet_spangler_kekule'], data['pyrroloindoline_kekule'], _id=_id)
 
     @staticmethod
     def validate(data):
@@ -166,6 +173,14 @@ class Template(AbstractMolecule):
 
         return True
 
+    @staticmethod
+    def validate_pyrroloindoline_mol(mol):
+        _, map_nums = zip(*utils.get_atom_map_nums(mol))
+        if Template.EAS_MAP_NUM not in map_nums or Template.WC_MAP_NUM_1 not in map_nums:
+            raise ValueError(f'Template molecule is missing pyrroloindoline atom map numbers!')
+
+        return True
+
     @property
     def oligomerization_mol(self):
         return Chem.MolFromSmiles(self.oligomerization_kekule)
@@ -181,6 +196,10 @@ class Template(AbstractMolecule):
     @property
     def pictet_spangler_mol(self):
         return Chem.MolFromSmiles(self.pictet_spangler_kekule)
+
+    @property
+    def pyrroloindoline_mol(self):
+        return Chem.MolFromSmiles(self.pyrroloindoline_kekule)
 
 
 class Sidechain(AbstractMolecule):

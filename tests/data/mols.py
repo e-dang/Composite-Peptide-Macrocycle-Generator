@@ -21,21 +21,24 @@ TEST_TEMPLATE_1 = {'binary': Chem.MolFromSmiles(
     'oligomerization_kekule': f'C/C=C/C1=CC(CC[CH:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O)=CC=C1',
     'friedel_crafts_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]',
     'tsuji_trost_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]',
-    'pictet_spangler_kekule': None}
+    'pictet_spangler_kekule': None,
+    'pyrroloindoline_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'}
 TEST_TEMPLATE_2 = {'binary': Chem.MolFromSmiles(
     'CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1').ToBinary(),
     'kekule': 'CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1',
     'oligomerization_kekule': f'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O)=C1',
     'friedel_crafts_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]',
     'tsuji_trost_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]',
-    'pictet_spangler_kekule': f'[O:{models.Template.PS_OXYGEN_MAP_NUM}]=[CH1:{models.Template.PS_CARBON_MAP_NUM}]C[C@H](C[*:{models.Template.WC_MAP_NUM_1}])[CH1:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O'}
+    'pictet_spangler_kekule': f'[O:{models.Template.PS_OXYGEN_MAP_NUM}]=[CH1:{models.Template.PS_CARBON_MAP_NUM}]C[C@H](C[*:{models.Template.WC_MAP_NUM_1}])[CH1:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O',
+    'pyrroloindoline_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'}
 TEST_TEMPLATE_3 = {'binary': Chem.MolFromSmiles(
     'C#CCCC[C@@](Cc1cc(/C=C/COC(OC(C)(C)C)=O)ccc1)(C=O)CC(ON2C(CCC2=O)=O)=O').ToBinary(),
     'kekule': 'C#CCCC[C@@](Cc1cc(/C=C/COC(OC(C)(C)C)=O)ccc1)(C=O)CC(ON2C(CCC2=O)=O)=O',
     'oligomerization_kekule': f'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O',
     'friedel_crafts_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]',
     'tsuji_trost_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]',
-    'pictet_spangler_kekule': f'C#CCCC[C@](C[*:{models.Template.WC_MAP_NUM_1}])(C[CH1:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O)[CH1:{models.Template.PS_CARBON_MAP_NUM}]=[O:{models.Template.PS_OXYGEN_MAP_NUM}]'}
+    'pictet_spangler_kekule': f'C#CCCC[C@](C[*:{models.Template.WC_MAP_NUM_1}])(C[CH1:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O)[CH1:{models.Template.PS_CARBON_MAP_NUM}]=[O:{models.Template.PS_OXYGEN_MAP_NUM}]',
+    'pyrroloindoline_kekule': f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'}
 
 
 TEST_SIDECHAIN_1 = {'binary': Chem.MolFromSmiles('CC1=CC=C(O)C=C1').ToBinary(
