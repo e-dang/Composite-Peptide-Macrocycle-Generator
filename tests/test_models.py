@@ -107,11 +107,11 @@ def reaction_from_dict():
     return reaction, TEST_REACTION_1, _id
 
 
-@pytest.fixture()
-def regiosqm_prediction_from_dict():
+@pytest.fixture(params=[TEST_REGIOSQM_PREDICTION_1, TEST_REGIOSQM_PREDICTION_2])
+def regiosqm_prediction_from_dict(request):
     _id = str(uuid.uuid4())
-    prediction = models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id=_id)
-    return prediction, TEST_REGIOSQM_PREDICTION_1, _id
+    prediction = models.RegioSQMPrediction.from_dict(request.param, _id=_id)
+    return prediction, request.param, _id
 
 
 @pytest.fixture()
