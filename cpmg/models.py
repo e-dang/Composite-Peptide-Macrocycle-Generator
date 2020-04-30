@@ -88,33 +88,44 @@ class Template(AbstractMolecule):
     OLIGOMERIZATION_MAP_NUM = 1
     EAS_MAP_NUM = 200
     WC_MAP_NUM_1 = 201
+    PS_OXYGEN_MAP_NUM = 300
+    PS_CARBON_MAP_NUM = 301
 
-    def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, _id=None):
+    def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule,
+                 pictet_spangler_kekule, _id=None):
         super().__init__(binary, kekule, _id)
         self.oligomerization_kekule = oligomerization_kekule
         self.friedel_crafts_kekule = friedel_crafts_kekule
         self.tsuji_trost_kekule = tsuji_trost_kekule
+        self.pictet_spangler_kekule = pictet_spangler_kekule
 
     @classmethod
-    def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule):
+    def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule):
         cls.validate({'oligomerization_kekule': oligomerization_kekule,
                       'friedel_crafts_kekule': friedel_crafts_kekule,
-                      'tsuji_trost_kekule': tsuji_trost_kekule})
+                      'tsuji_trost_kekule': tsuji_trost_kekule,
+                      'pictet_spangler_kekule': pictet_spangler_kekule})
         Chem.Kekulize(mol)
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), oligomerization_kekule,
-                   friedel_crafts_kekule, tsuji_trost_kekule)
+                   friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule)
 
     @classmethod
     def from_dict(cls, data, _id=None):
         cls.validate(data)
         return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'],
-                   data['tsuji_trost_kekule'], _id=_id)
+                   data['tsuji_trost_kekule'], data['pictet_spangler_kekule'], _id=_id)
 
     @staticmethod
     def validate(data):
         try:
-            Template.validate_oligomerization_mol(Chem.MolFromSmiles(data['oligomerization_kekule']))
-            Template.validate_friedel_crafts_mol(Chem.MolFromSmiles(data['friedel_crafts_kekule']))
+            if data['oligomerization_kekule'] is not None:
+                Template.validate_oligomerization_mol(Chem.MolFromSmiles(data['oligomerization_kekule']))
+            if data['friedel_crafts_kekule'] is not None:
+                Template.validate_friedel_crafts_mol(Chem.MolFromSmiles(data['friedel_crafts_kekule']))
+            if data['tsuji_trost_kekule'] is not None:
+                Template.validate_tsuji_trost_mol(Chem.MolFromSmiles(data['tsuji_trost_kekule']))
+            if data['pictet_spangler_kekule'] is not None:
+                Template.validate_pictet_spangler_mol(Chem.MolFromSmiles(data['pictet_spangler_kekule']))
         except ValueError as err:
             raise exceptions.InvalidMolecule(str(err))
 
@@ -126,17 +137,34 @@ class Template(AbstractMolecule):
         if Template.OLIGOMERIZATION_MAP_NUM not in map_nums:
             raise ValueError(f'Template molecule is missing oligomerization atom map number!')
 
+        return True
+
     @staticmethod
     def validate_friedel_crafts_mol(mol):
         _, map_nums = zip(*utils.get_atom_map_nums(mol))
         if Template.EAS_MAP_NUM not in map_nums or Template.WC_MAP_NUM_1 not in map_nums:
             raise ValueError(f'Template molecule is missing friedel crafts atom map numbers!')
 
+        return True
+
     @staticmethod
     def validate_tsuji_trost_mol(mol):
         _, map_nums = zip(*utils.get_atom_map_nums(mol))
         if Template.EAS_MAP_NUM not in map_nums or Template.WC_MAP_NUM_1 not in map_nums:
-            raise ValueError(f'Template molecule is missing tsuji_trost atom map numbers!')
+            raise ValueError(f'Template molecule is missing tsuji trost atom map numbers!')
+
+        return True
+
+    @staticmethod
+    def validate_pictet_spangler_mol(mol):
+        _, map_nums = zip(*utils.get_atom_map_nums(mol))
+        if Template.OLIGOMERIZATION_MAP_NUM not in map_nums \
+                or Template.WC_MAP_NUM_1 not in map_nums \
+                or Template.PS_OXYGEN_MAP_NUM not in map_nums \
+                or Template.PS_CARBON_MAP_NUM not in map_nums:
+            raise ValueError(f'Template molecule is missing pictet spangler atom map numbers!')
+
+        return True
 
     @property
     def oligomerization_mol(self):
@@ -149,6 +177,10 @@ class Template(AbstractMolecule):
     @property
     def tsuji_trost_mol(self):
         return Chem.MolFromSmiles(self.tsuji_trost_kekule)
+
+    @property
+    def pictet_spangler_mol(self):
+        return Chem.MolFromSmiles(self.pictet_spangler_kekule)
 
 
 class Sidechain(AbstractMolecule):

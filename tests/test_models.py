@@ -35,9 +35,10 @@ def template_from_mol():
     oligomerization_kekule = f'C/C=C/C1=CC(CC[CH:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O)=CC=C1'
     friedel_crafts_kekule = f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'
     tsuji_trost_kekule = f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'
+    pictet_spangler_kekule = f'[O:{models.Template.PS_OXYGEN_MAP_NUM}]=[CH1:{models.Template.PS_CARBON_MAP_NUM}]C[C@H](C[*:{models.Template.WC_MAP_NUM_1}])[CH1:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O'
     template = models.Template.from_mol(Chem.MolFromSmiles(
-        kekule), oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule)
-    return template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule
+        kekule), oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule)
+    return template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule
 
 
 @pytest.fixture(params=[TEST_TEMPLATE_1, TEST_TEMPLATE_2, TEST_TEMPLATE_3])
@@ -178,35 +179,71 @@ def test_connection_to_dict(connection_from_dict):
     assert(connection_from_dict.to_dict() == TEST_CONNECTION_1)
 
 
-@pytest.mark.parametrize('template', [({'oligomerization_kekule': 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1',
-                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'}),
-                                      ({'oligomerization_kekule': 'C/C=C/C1=CC=C(F)C(C[C@@H](CC=O)[CH:1]=O)=C1',
-                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'}),
-                                      ({'oligomerization_kekule': 'C#CCCC[C@](C=O)(CC1=CC=CC(/C=C/C)=C1)C[CH:1]=O',
-                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'})])
-def test_template_validate(template):
-    assert(models.Template.validate(template))
+@pytest.mark.parametrize('func,template', [(models.Template.validate_oligomerization_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['oligomerization_kekule'])),
+                                           (models.Template.validate_oligomerization_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['oligomerization_kekule'])),
+                                           (models.Template.validate_oligomerization_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['oligomerization_kekule'])),
+                                           (models.Template.validate_friedel_crafts_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['friedel_crafts_kekule'])),
+                                           (models.Template.validate_friedel_crafts_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['friedel_crafts_kekule'])),
+                                           (models.Template.validate_friedel_crafts_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['friedel_crafts_kekule'])),
+                                           (models.Template.validate_tsuji_trost_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['tsuji_trost_kekule'])),
+                                           (models.Template.validate_tsuji_trost_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['tsuji_trost_kekule'])),
+                                           (models.Template.validate_tsuji_trost_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['tsuji_trost_kekule'])),
+                                           (models.Template.validate_pictet_spangler_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['pictet_spangler_kekule'])),
+                                           (models.Template.validate_pictet_spangler_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['pictet_spangler_kekule']))])
+def test_template_validate(func, template):
+    assert(func(template))
 
 
-@pytest.mark.parametrize('template', [({'oligomerization_kekule': 'C/C=C/C1=CC(CCC=O)=CC=C1',
-                                        'friedel_crafts_kekule': '[*:201]/C=C/[CH3:200]'}),
-                                      ({'oligomerization_kekule': 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1',
-                                          'friedel_crafts_kekule': '[*:201]/C=C/C'}),
-                                      ({'oligomerization_kekule': 'C/C=C/C1=CC(CC[CH:1]=O)=CC=C1',
-                                          'friedel_crafts_kekule': '*/C=C/[CH3:200]'})])
-def test_validate_template_fail(template):
-    with pytest.raises(exceptions.InvalidMolecule):
-        models.Template.validate(template)
+@pytest.mark.parametrize('func,template', [(models.Template.validate_oligomerization_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['kekule'])),
+                                           (models.Template.validate_oligomerization_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['kekule'])),
+                                           (models.Template.validate_oligomerization_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['kekule'])),
+                                           (models.Template.validate_friedel_crafts_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['kekule'])),
+                                           (models.Template.validate_friedel_crafts_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['kekule'])),
+                                           (models.Template.validate_friedel_crafts_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['kekule'])),
+                                           (models.Template.validate_tsuji_trost_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['kekule'])),
+                                           (models.Template.validate_tsuji_trost_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['kekule'])),
+                                           (models.Template.validate_tsuji_trost_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['kekule'])),
+                                           (models.Template.validate_pictet_spangler_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_1['kekule'])),
+                                           (models.Template.validate_pictet_spangler_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_2['kekule'])),
+                                           (models.Template.validate_pictet_spangler_mol,
+                                            Chem.MolFromSmiles(TEST_TEMPLATE_3['kekule']))])
+def test_template_validate_fail(func, template):
+    with pytest.raises(ValueError):
+        func(template)
 
 
 def test_template_from_mol(template_from_mol):
-    template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule = template_from_mol
+    template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule = template_from_mol
     assert(template._id == None)
     assert(template.binary != None)
     assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
     assert(template.kekule == kekule)
     assert(template.oligomerization_kekule == oligomerization_kekule)
     assert(template.friedel_crafts_kekule == friedel_crafts_kekule)
+    assert(template.tsuji_trost_kekule == tsuji_trost_kekule)
+    assert(template.pictet_spangler_kekule == pictet_spangler_kekule)
     assert(len(template.__dict__) - 1 == len(template_from_mol))  # -1 for binary field
 
 
@@ -217,6 +254,9 @@ def test_template_from_dict(template_from_dict):
     assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
     assert(template.kekule == template_dict['kekule'])
     assert(template.oligomerization_kekule == template_dict['oligomerization_kekule'])
+    assert(template.friedel_crafts_kekule == template_dict['friedel_crafts_kekule'])
+    assert(template.tsuji_trost_kekule == template_dict['tsuji_trost_kekule'])
+    assert(template.pictet_spangler_kekule == template_dict['pictet_spangler_kekule'])
     assert(len(template.__dict__) - 1 == len(template_dict))
 
 
