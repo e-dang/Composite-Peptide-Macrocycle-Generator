@@ -33,9 +33,11 @@ def connection_from_dict():
 def template_from_mol():
     kekule = 'CC(C)(C)OC(=O)OC/C=C/C1=CC(CCC(=O)ON2C(=O)CCC2=O)=CC=C1'
     oligomerization_kekule = f'C/C=C/C1=CC(CC[CH:{models.Template.OLIGOMERIZATION_MAP_NUM}]=O)=CC=C1'
-    friedel_crafts_kekule = f'[*:{models.Template.FRIEDEL_CRAFTS_WC_MAP_NUM}]/C=C/[CH3:{models.Template.FRIEDEL_CRAFTS_EAS_MAP_NUM}]'
-    template = models.Template.from_mol(Chem.MolFromSmiles(kekule), oligomerization_kekule, friedel_crafts_kekule)
-    return template, kekule, oligomerization_kekule, friedel_crafts_kekule
+    friedel_crafts_kekule = f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'
+    tsuji_trost_kekule = f'[*:{models.Template.WC_MAP_NUM_1}]/C=C/[CH3:{models.Template.EAS_MAP_NUM}]'
+    template = models.Template.from_mol(Chem.MolFromSmiles(
+        kekule), oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule)
+    return template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule
 
 
 @pytest.fixture(params=[TEST_TEMPLATE_1, TEST_TEMPLATE_2, TEST_TEMPLATE_3])
@@ -198,13 +200,14 @@ def test_validate_template_fail(template):
 
 
 def test_template_from_mol(template_from_mol):
-    template, kekule, oligomerization_kekule, friedel_crafts_kekule = template_from_mol
+    template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule = template_from_mol
     assert(template._id == None)
     assert(template.binary != None)
     assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
     assert(template.kekule == kekule)
     assert(template.oligomerization_kekule == oligomerization_kekule)
     assert(template.friedel_crafts_kekule == friedel_crafts_kekule)
+    assert(len(template.__dict__) - 1 == len(template_from_mol))  # -1 for binary field
 
 
 def test_template_from_dict(template_from_dict):
@@ -214,6 +217,7 @@ def test_template_from_dict(template_from_dict):
     assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
     assert(template.kekule == template_dict['kekule'])
     assert(template.oligomerization_kekule == template_dict['oligomerization_kekule'])
+    assert(len(template.__dict__) - 1 == len(template_dict))
 
 
 def test_template_to_dict(template_from_dict):

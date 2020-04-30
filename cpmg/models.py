@@ -86,24 +86,29 @@ class Connection(AbstractMolecule):
 
 class Template(AbstractMolecule):
     OLIGOMERIZATION_MAP_NUM = 1
-    FRIEDEL_CRAFTS_EAS_MAP_NUM = 200
-    FRIEDEL_CRAFTS_WC_MAP_NUM = 201
+    EAS_MAP_NUM = 200
+    WC_MAP_NUM_1 = 201
 
-    def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, _id=None):
+    def __init__(self, binary, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, _id=None):
         super().__init__(binary, kekule, _id)
         self.oligomerization_kekule = oligomerization_kekule
         self.friedel_crafts_kekule = friedel_crafts_kekule
+        self.tsuji_trost_kekule = tsuji_trost_kekule
 
     @classmethod
-    def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule):
-        cls.validate({'oligomerization_kekule': oligomerization_kekule, 'friedel_crafts_kekule': friedel_crafts_kekule})
+    def from_mol(cls, mol, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule):
+        cls.validate({'oligomerization_kekule': oligomerization_kekule,
+                      'friedel_crafts_kekule': friedel_crafts_kekule,
+                      'tsuji_trost_kekule': tsuji_trost_kekule})
         Chem.Kekulize(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), oligomerization_kekule, friedel_crafts_kekule)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), oligomerization_kekule,
+                   friedel_crafts_kekule, tsuji_trost_kekule)
 
     @classmethod
     def from_dict(cls, data, _id=None):
         cls.validate(data)
-        return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'], _id=_id)
+        return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'],
+                   data['tsuji_trost_kekule'], _id=_id)
 
     @staticmethod
     def validate(data):
@@ -124,8 +129,14 @@ class Template(AbstractMolecule):
     @staticmethod
     def validate_friedel_crafts_mol(mol):
         _, map_nums = zip(*utils.get_atom_map_nums(mol))
-        if Template.FRIEDEL_CRAFTS_EAS_MAP_NUM not in map_nums or Template.FRIEDEL_CRAFTS_WC_MAP_NUM not in map_nums:
+        if Template.EAS_MAP_NUM not in map_nums or Template.WC_MAP_NUM_1 not in map_nums:
             raise ValueError(f'Template molecule is missing friedel crafts atom map numbers!')
+
+    @staticmethod
+    def validate_tsuji_trost_mol(mol):
+        _, map_nums = zip(*utils.get_atom_map_nums(mol))
+        if Template.EAS_MAP_NUM not in map_nums or Template.WC_MAP_NUM_1 not in map_nums:
+            raise ValueError(f'Template molecule is missing tsuji_trost atom map numbers!')
 
     @property
     def oligomerization_mol(self):
@@ -134,6 +145,10 @@ class Template(AbstractMolecule):
     @property
     def friedel_crafts_mol(self):
         return Chem.MolFromSmiles(self.friedel_crafts_kekule)
+
+    @property
+    def tsuji_trost_mol(self):
+        return Chem.MolFromSmiles(self.tsuji_trost_kekule)
 
 
 class Sidechain(AbstractMolecule):

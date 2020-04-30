@@ -9,6 +9,8 @@ from cpmg.exceptions import InvalidMolecule
 
 
 class InterMolecularReaction:
+    NUCLEOPHILE_EAS_MAP_NUM = 1
+    NUCLEOPHILE_WC_MAP_NUM = 2
     BACKBONE_NITROGEN_MAP_NUM = 100
     BACKBONE_CARBOXYL_MAP_NUM = 101
     N_TERM_WILDCARD_MAP_NUM = 102
@@ -80,18 +82,13 @@ class InterMolecularReaction:
 
 class FriedelCrafts(InterMolecularReaction):
     REQUIRED_SUBSTRUCT = Chem.MolFromSmarts('C=CC')
-    NUCLEOPHILE_EAS_MAP_NUM = 1
-    NUCLEOPHILE_WC_MAP_NUM = 2
-    TEMPLATE_EAS_MAP_NUM = models.Template.FRIEDEL_CRAFTS_EAS_MAP_NUM
-    MAP_NUMS = (NUCLEOPHILE_EAS_MAP_NUM, TEMPLATE_EAS_MAP_NUM)
+    MAP_NUMS = (InterMolecularReaction.NUCLEOPHILE_EAS_MAP_NUM, models.Template.EAS_MAP_NUM)
 
     def _get_template_mol(self, template):
         self.template = template.friedel_crafts_mol
 
     def _validate_reacting_atom(self, atom):
-        if atom.GetSymbol() != 'C' \
-                or atom.GetTotalNumHs() == 0 \
-                or not atom.GetIsAromatic():
+        if atom.GetSymbol() != 'C' or atom.GetTotalNumHs() == 0 or not atom.GetIsAromatic():
             raise InvalidMolecule(
                 'The nucleophilic reacting atom must be an aromatic carbon with at least one hydrogen for a friedel crafts reaction!')
 
@@ -99,6 +96,41 @@ class FriedelCrafts(InterMolecularReaction):
         if self.template is None or not self.template.GetSubstructMatch(self.REQUIRED_SUBSTRUCT):
             raise InvalidMolecule(
                 'The template molecule must contain a "C=CC" substructure for a friedel crafts reaction!')
+
+    def _create_reactants(self):
+        self._process_nucleophile()
+        self.reactants = [self.reacting_mol, self.template]
+
+    def _process_nucleophile(self):
+
+        if isinstance(self.model, models.Sidechain):
+            self._tag_sidechain_connection_atom()
+        elif isinstance(self.model, models.Monomer):
+            self._tag_monomer_connection_atom()
+        else:
+            raise InvalidMolecule(
+                f'The nucleophile needs to be an instance of a sidechain or a monomer!')
+
+    def _create_product(self):
+        self.product = utils.connect_mols(*self.reactants, map_nums=self.MAP_NUMS, clear_map_nums=False)
+
+
+class TsujiTrost(InterMolecularReaction):
+    REQUIRED_SUBSTRUCT = Chem.MolFromSmarts('C=CC')
+    MAP_NUMS = (InterMolecularReaction.NUCLEOPHILE_EAS_MAP_NUM, models.Template.EAS_MAP_NUM)
+
+    def _get_template_mol(self, template):
+        self.template = template.tsuji_trost_mol
+
+    def _validate_reacting_atom(self, atom):
+        if atom.GetSymbol() not in ('N', 'O', 'S') or atom.GetTotalNumHs() == 0:
+            raise InvalidMolecule(
+                'The nucleophilic reacting atom must be a heteroatom with at least one hydrogen for a tsuji trost reaction!')
+
+    def _validate_template(self):
+        if self.template is None or not self.template.GetSubstructMatch(self.REQUIRED_SUBSTRUCT):
+            raise InvalidMolecule(
+                'The template molecule must contain a "C=CC" substructure for a tsuji trost reaction!')
 
     def _create_reactants(self):
         self._process_nucleophile()
