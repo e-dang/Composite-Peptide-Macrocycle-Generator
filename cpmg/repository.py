@@ -133,6 +133,14 @@ class TemplatePeptideRepository(AbstractRepository):
         return super().save(self._check_type(data))
 
 
+class ReactionRepository(AbstractRepository):
+    TYPE = models.Reaction
+    CATEGORY = 'reactions'
+
+    def save(self, data):
+        return super().save(self._check_type(data))
+
+
 class RegioSQMRepository(AbstractRepository):
     TYPE = models.RegioSQMPrediction
     CATEGORY = 'regiosqm'
@@ -182,6 +190,7 @@ create_sidechain_repository = get_repository(SidechainRepository)
 create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
 create_template_peptide_repository = get_repository(TemplatePeptideRepository)
+create_reaction_repository = get_repository(ReactionRepository)
 create_regiosqm_repository = get_repository(RegioSQMRepository)
 create_pka_repository = get_repository(pKaRepository)
 

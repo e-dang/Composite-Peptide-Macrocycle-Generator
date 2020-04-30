@@ -161,6 +161,24 @@ def test_template_peptide_repository_fail(hdf5_repository):
     assert(len(template_peptide_repo.failed_instances) == 1)
 
 
+def test_reaction_repository(hdf5_repository):
+    reaction_repo = repo.create_reaction_repository()
+    ids = reaction_repo.save(list(map(models.Reaction.from_dict, [TEST_REACTION_1])))
+    data = reaction_repo.load(ids)
+    data = models_to_dict(data)
+
+    assert(len(data) == 1)
+    assert(TEST_REACTION_1 == data[0])
+
+
+def test_reaction_repository_fail(hdf5_repository):
+    reaction_repo = repo.create_reaction_repository()
+
+    _ = reaction_repo.save(['dne'])
+
+    assert(len(reaction_repo.failed_instances) == 1)
+
+
 def test_regiosqm_repository(hdf5_repository):
     regiosqm_repo = repo.create_regiosqm_repository()
     ids = regiosqm_repo.save(list(map(models.RegioSQMPrediction.from_dict, [
