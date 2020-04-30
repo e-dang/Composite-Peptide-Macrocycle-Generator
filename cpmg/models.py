@@ -26,14 +26,6 @@ class AbstractMolecule:
         data.pop('_id')
         return data
 
-# class AbstractReaction:
-#     def __init__(self, binary, smarts, _id=None):
-#         self.binary = binary
-#         self.smarts = smarts
-#         self.rxn_atom_idx = rxn_atom_idx
-#         self.template = template
-#         self.reacting_mol = reacting_mol
-
 
 class Backbone(AbstractMolecule):
     MAP_NUM = 1
@@ -274,6 +266,37 @@ class Macrocycle(AbstractMolecule):
     def from_dict(cls, data, _id=None):
         return cls(data['binary'], data['kekule'], data['modifications'], data['has_cap'],
                    data['template_peptide'], data['template'], data['reactions'], _id=_id)
+
+
+class Reaction:
+    def __init__(self, rxn_type, binary, smarts, template, reacting_mol, rxn_atom_idx, _id=None):
+        self._id = _id
+        self.type = rxn_type
+        self.binary = binary
+        self.smarts = smarts
+        self.template = template
+        self.reacting_mol = reacting_mol
+        self.rxn_atom_idx = rxn_atom_idx
+
+    @classmethod
+    def from_mols(cls, rxn_type, smarts, template, reacting_mol, rxn_atom_idx):
+        _id = None
+        if reacting_mol is not None:
+            _id = reacting_mol.shared_id if isinstance(reacting_mol, Sidechain) else reacting_mol._id
+        return cls(rxn_type, AllChem.ReactionFromSmarts(smarts).ToBinary(), smarts, template._id, _id, rxn_atom_idx)
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return cls(data['type'], data['binary'], data['smarts'], data['template'], data['reacting_mol'], data['rxn_atom_idx'], _id=_id)
+
+    @property
+    def rxn(self):
+        return AllChem.ReactionFromSmarts(self.smarts)
+
+    def to_dict(self):
+        data = deepcopy(self.__dict__)
+        data.pop('_id')
+        return data
 
 
 class AbstractPrediction:

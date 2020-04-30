@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from rdkit import Chem
 
@@ -82,13 +84,35 @@ def template_peptide_from_dict():
     # return models.Macrocycle.from_mol(Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O'), 'm', models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='afji923'), mode)
 
 @pytest.fixture()
+def reaction_from_mols():
+    rxn_type = 'tsuji_trost'
+    smarts = '(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\[CH3:2])>>C(=C/[*:50])\[CH2:2][O:4]c1ccc([*:3])cc1'
+    template = models.Template.from_dict(TEST_TEMPLATE_1, _id=str(uuid.uuid4()))
+    reacting_mol = models.Sidechain.from_dict(TEST_SIDECHAIN_1, _id=str(uuid.uuid4()))
+    rxn_atom_idx = 5
+    reaction = models.Reaction.from_mols(rxn_type, smarts, template, reacting_mol, rxn_atom_idx)
+    return reaction, rxn_type, smarts, template, reacting_mol, rxn_atom_idx
+
+
+@pytest.fixture()
+def reaction_from_dict():
+    _id = str(uuid.uuid4())
+    reaction = models.Reaction.from_dict(TEST_REACTION_1, _id=_id)
+    return reaction, TEST_REACTION_1, _id
+
+
+@pytest.fixture()
 def regiosqm_prediction_from_dict():
-    return models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id='acj8efg8')
+    _id = str(uuid.uuid4())
+    prediction = models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id=_id)
+    return prediction, TEST_REGIOSQM_PREDICTION_1, _id
 
 
 @pytest.fixture()
 def pka_prediction_from_dict():
-    return models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id='af9uf9qao')
+    _id = str(uuid.uuid4())
+    prediction = models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id=_id)
+    return prediction, TEST_PKA_PREDICTION_1, _id
 
 
 def test_backbone_from_mol(backbone_from_mol):
@@ -357,21 +381,56 @@ def test_template_peptide_eq(template_peptide_from_dict):
 # def test_macrocycle_to_dict(macrocycle_from_dict):
 #     assert(macrocycle_from_dict.to_dict() == TEST_MACROCYCLE_1)
 
+def test_reaction_from_mols(reaction_from_mols):
+    reaction, rxn_type, smarts, template, reacting_mol, rxn_atom_idx = reaction_from_mols
+    assert(reaction._id == None)
+    assert(reaction.type == rxn_type)
+    assert(reaction.smarts == smarts)
+    assert(reaction.binary != None)
+    assert(isinstance(AllChem.ChemicalReaction(reaction.binary), AllChem.ChemicalReaction))
+    assert(reaction.template == template._id)
+    assert(reaction.reacting_mol == reacting_mol.shared_id)
+    assert(reaction.rxn_atom_idx == rxn_atom_idx)
+
+
+def test_reaction_from_dict(reaction_from_dict):
+    reaction, reaction_dict, _id = reaction_from_dict
+    assert(reaction._id == _id)
+    assert(reaction.type == reaction_dict['type'])
+    assert(reaction.smarts == reaction_dict['smarts'])
+    assert(reaction.binary != None)
+    assert(isinstance(AllChem.ChemicalReaction(reaction.binary), AllChem.ChemicalReaction))
+    assert(reaction.template == reaction_dict['template'])
+    assert(reaction.reacting_mol == reaction_dict['reacting_mol'])
+    assert(reaction.rxn_atom_idx == reaction_dict['rxn_atom_idx'])
+
+
+def test_reaction_to_dict(reaction_from_dict):
+    reaction, reaction_dict, _ = reaction_from_dict
+    assert(reaction.to_dict() == reaction_dict)
+
+
 def test_regiosqm_prediction_from_dict(regiosqm_prediction_from_dict):
-    assert(regiosqm_prediction_from_dict.predictions == [3, 6])
-    assert(regiosqm_prediction_from_dict.reacting_mol == 'CC1=CC=C(O)C=C1')
-    assert(regiosqm_prediction_from_dict.solvent == 'nitromethane')
+    prediction, prediction_dict, _id = regiosqm_prediction_from_dict
+    assert(prediction._id == _id)
+    assert(prediction.predictions == prediction_dict['predictions'])
+    assert(prediction.reacting_mol == prediction_dict['reacting_mol'])
+    assert(prediction.solvent == prediction_dict['solvent'])
 
 
 def test_regiosqm_prediction_to_dict(regiosqm_prediction_from_dict):
-    assert(regiosqm_prediction_from_dict.to_dict() == TEST_REGIOSQM_PREDICTION_1)
+    prediction, prediction_dict, _ = regiosqm_prediction_from_dict
+    assert(prediction.to_dict() == prediction_dict)
 
 
 def test_pka_prediction_from_dict(pka_prediction_from_dict):
-    assert(pka_prediction_from_dict.predictions == {5: 9.3})
-    assert(pka_prediction_from_dict.reacting_mol == 'CC1=CC=C(O)C=C1')
-    assert(pka_prediction_from_dict.solvent == 'water')
+    prediction, prediction_dict, _id = pka_prediction_from_dict
+    assert(prediction._id == _id)
+    assert(prediction.predictions == prediction_dict['predictions'])
+    assert(prediction.reacting_mol == prediction_dict['reacting_mol'])
+    assert(prediction.solvent == prediction_dict['solvent'])
 
 
 def test_pka_prediction_to_dict(pka_prediction_from_dict):
-    assert(pka_prediction_from_dict.to_dict() == TEST_PKA_PREDICTION_1)
+    prediction, prediction_dict, _ = pka_prediction_from_dict
+    assert(prediction.to_dict() == prediction_dict)

@@ -1,5 +1,7 @@
-from rdkit import Chem
 from copy import deepcopy
+
+from rdkit import Chem
+from rdkit.Chem import AllChem
 
 TEST_BACKBONE_1 = {'binary': Chem.MolFromSmiles('N[CH2:1]C(=O)O').ToBinary(
 ), 'kekule': 'NCC(=O)O', 'mapped_kekule': 'N[CH2:1]C(=O)O'}
@@ -139,6 +141,10 @@ TEST_TEMPLATE_PEPTIDE_7 = {'binary': Chem.MolFromSmiles('C#CCCC[C@@](C=O)(CC(=O)
                            'kekule': 'C#CCCC[C@@](C=O)(CC(=O)NCCCC[C@H](NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)C(CC1=CC=CC2=N[NH]C(=O)N12)NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1)C(=O)O)CC1=CC=CC(/C=C/C)=C1',
                            'template': 'temp3',
                            'peptide': TEST_PEPTIDE_5_WITH_ID}
+
+
+TEST_REACTION_1 = {'type': 'tsuji_trost', 'binary': AllChem.ReactionFromSmarts('(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1').ToBinary(
+), 'smarts': '(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1', 'template': 'temp1', 'reacting_mol': 'a', 'rxn_atom_idx': 5}
 
 TEST_REGIOSQM_PREDICTION_1 = {'predictions': [3, 6],
                               'reacting_mol': 'CC1=CC=C(O)C=C1',
