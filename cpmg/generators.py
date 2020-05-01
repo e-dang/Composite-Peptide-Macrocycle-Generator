@@ -10,6 +10,8 @@ import cpmg.repository as repo
 import macrocycles.utils as utils
 from cpmg.exceptions import InvalidMolecule
 import cpmg.filters as filters
+import cpmg.reactions as rxns
+import cpmg.config as config
 
 
 class SidechainModifier:
@@ -171,6 +173,67 @@ class TemplatePeptideGenerator:
         return template_peptides
 
 
+class MacrocycleGenerator:
+    PS = rxns.PictetSpangler.TYPE
+    TPS = rxns.TemplatePictetSpangler.TYPE
+    ALDH = rxns.AldehydeCyclization.TYPE
+    MAX_ATOM_DIFFERENCE = 5
+
+    def generate(self, args):
+        template_peptide, reaction_combos = args
+
+        template_peptide_mol = template_peptide.mol
+        num_atoms = len(template_peptide_mol.GetAtoms())
+
+        final_macrocycles = []
+        for reaction_combo in reaction_combos:
+            reactants = [template_peptide.mol]
+            reactions = [(reaction.rxn, reaction.type) for reaction in reaction_combo]
+
+            successful_rxn = False
+            successful_rxns = []
+            for i, (rxn, rxn_type) in enumerate(reactions):
+
+                # pictet_spangler worked, don't use template_only_reactions
+                if rxn_type in (self.TPS, self.ALDH) and successful_rxn:
+                    continue
+
+                macrocycles = {}
+                successful_rxn = False
+                for reactant in reactants:
+                    for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
+                        try:
+                            Chem.SanitizeMol(macrocycle)
+                        except ValueError:  # most likely there are 2 sidechains where one contains the other as a
+                            continue       # substructure which causes this exception to be raised.
+
+                        # protect atoms that participated in this reaction from reacting again in subsequent reactions
+                        self._set_protected_atoms(macrocycle, rxn)
+
+                        # the number of atoms shouldn't have changed significantly
+                        if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE:
+                            macrocycles[Chem.MolToSmiles(macrocycle)] = macrocycle
+
+                if rxn_type in (self.PS, self.TPS, self.ALDH) and len(macrocycles) == 0:  # reaction failed; reuse reactant
+                    continue
+
+                reactants = macrocycles.values()
+                successful_rxn = True
+                successful_rxns.append(reaction_combo[i])
+
+            for macrocycle in macrocycles:
+                final_macrocycles.append(models.Macrocycle.from_mol(
+                    Chem.MolFromSmiles(macrocycle), [], template_peptide, successful_rxns))
+
+        return final_macrocycles
+
+    def _set_protected_atoms(self, macrocycle, reaction):
+        for atom in chain.from_iterable(reaction.GetReactingAtoms()):
+            atom = macrocycle.GetAtomWithIdx(atom)
+            if atom.GetIsAromatic():
+                atom.SetProp('_protected', '1')
+
+
 class InterMolecularReactionGenerator:
 
     def __init__(self, impl):
@@ -227,7 +290,6 @@ class IntraMolecularReactionGenerator:
         reactions = []
 
         try:
-            print(reacting_mol)
             for smarts in self.impl.generate(reacting_mol):
                 reactions.append(models.Reaction.from_mols(self.impl.TYPE, smarts, reacting_mol, None, None))
         except InvalidMolecule:

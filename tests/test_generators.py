@@ -36,6 +36,7 @@ TEMPLATE_PEPTIDE_3 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_4, _
 TEMPLATE_PEPTIDE_4 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_5, _id='faopsvp98')
 TEMPLATE_PEPTIDE_5 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_6, _id='ca0-fiuqe2')
 TEMPLATE_PEPTIDE_6 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_7, _id='cas.f-3aw')
+TEMPLATE_PEPTIDE_7 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_8, _id=str(uuid.uuid4()))
 REACTION_1 = models.Reaction.from_mols(rxns.FriedelCrafts.TYPE, FC_RESULT_SMARTS_1[0], TEMPLATE_1, SIDECHAIN_1, 3)
 REACTION_2 = models.Reaction.from_mols(rxns.FriedelCrafts.TYPE, FC_RESULT_SMARTS_1[0], TEMPLATE_2, SIDECHAIN_1, 3)
 REACTION_3 = models.Reaction.from_mols(rxns.FriedelCrafts.TYPE, FC_RESULT_SMARTS_1[0], TEMPLATE_3, SIDECHAIN_1, 3)
@@ -45,6 +46,9 @@ REACTION_6 = models.Reaction.from_mols(rxns.TsujiTrost.TYPE, TT_RESULT_SMARTS_1[
 REACTION_7 = models.Reaction.from_mols(rxns.AldehydeCyclization.TYPE, ALD_RESULT_SMARTS_1[0], TEMPLATE_2, None, None)
 REACTION_8 = models.Reaction.from_mols(rxns.TemplatePictetSpangler.TYPE,
                                        TPS_RESULTS_SMARTS_1[0], TEMPLATE_3, None, None)
+REACTION_9 = models.Reaction.from_dict(TEST_REACTION_2, _id=str(uuid.uuid4()))
+REACTION_10 = models.Reaction.from_dict(TEST_REACTION_3, _id=str(uuid.uuid4()))
+MACROCYCLE_1 = models.Macrocycle.from_dict(TEST_MACROCYCLE_1, _id=str(uuid.uuid4()))
 REGIOSQM_PREDICTION = models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id=str(uuid.uuid4()))
 PKA_PREDICTION = models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id=str(uuid.uuid4()))
 
@@ -98,8 +102,19 @@ def test_template_peptide_generator(data, num_results, expected_results):
     template_peptides.sort(key=lambda x: x.kekule)
     expected_results.sort(key=lambda x: x.kekule)
     for template_peptide, expected_result in zip(template_peptides, expected_results):
-        print(template_peptide.kekule, expected_result.kekule)
         assert(template_peptide == expected_result)
+
+
+@pytest.mark.parametrize('data,num_results,expected_results', [
+    ((TEMPLATE_PEPTIDE_7, [[REACTION_9, REACTION_10]]), 1, [TEST_MACROCYCLE_1['kekule']])])
+def test_macrocycle_generator(data, num_results, expected_results):
+    generator = generators.MacrocycleGenerator()
+
+    macrocycles = generator.generate(data)
+
+    assert(len(macrocycles) == num_results)
+    for macrocycle, expected_result in zip(macrocycles, expected_results):
+        assert(macrocycle.kekule == expected_result)
 
 
 @pytest.mark.parametrize('data,impl,num_results,expected_results', [
@@ -108,7 +123,7 @@ def test_template_peptide_generator(data, num_results, expected_results):
     ((SIDECHAIN_1, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3]), rxns.TsujiTrost(), 3, [REACTION_4, REACTION_5, REACTION_6])
 ])
 def test_intermolecular_reaction_generator(data, impl, num_results, expected_results):
-    with mock.patch('cpmg.generators.repo.BackboneRepository.load', return_value=[models.Backbone.from_dict(TEST_BACKBONE_1)]), \
+    with mock.patch('cpmg.generators.repo.BackboneRepository.load', return_value=[models.Backbone.from_dict(TEST_BACKBONE_1, _id=str(uuid.uuid4()))]), \
             mock.patch('cpmg.generators.filters.proxies.repo.RegioSQMRepository.load', return_value=[REGIOSQM_PREDICTION]), \
             mock.patch('cpmg.generators.filters.proxies.repo.pKaRepository.load', return_value=[PKA_PREDICTION]):
         generator = generators.InterMolecularReactionGenerator(impl)

@@ -169,9 +169,14 @@ TEST_TEMPLATE_PEPTIDE_7 = {'binary': Chem.MolFromSmiles('C#CCCC[C@@](C=O)(CC(=O)
                            'kekule': 'C#CCCC[C@@](C=O)(CC(=O)NCCCC[C@H](NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)C(CC1=CC=CC2=N[NH]C(=O)N12)NC(=O)[C@@H]1C[C@H](OC2=CC(C3=CC=CC=C3)=NC3=CC(OC)=CC=C23)CN1C(=O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1)C(=O)O)CC1=CC=CC(/C=C/C)=C1',
                            'template': 'temp3',
                            'peptide': TEST_PEPTIDE_5_WITH_ID}
+TEST_TEMPLATE_PEPTIDE_8 = {'binary': Chem.MolFromSmiles('C#CC[C@@]1(C(=O)N2[C@@H]3CC[C@@]2(C(=O)NC(CCN2C=C4C=CC=CC4=C2)CC(=O)O)C3)CCCN1C(=O)C(CC1=CC=CC2=CC=CN12)NC(=O)C(CC(C)C)NC(=O)[C@H](CC=O)CC1=CC(/C=C/C)=CC=C1F').ToBinary(),
+                           'kekule': 'C#CC[C@@]1(C(=O)N2[C@@H]3CC[C@@]2(C(=O)NC(CCN2C=C4C=CC=CC4=C2)CC(=O)O)C3)CCCN1C(=O)C(CC1=CC=CC2=CC=CN12)NC(=O)C(CC(C)C)NC(=O)[C@H](CC=O)CC1=CC(/C=C/C)=CC=C1F',
+                           'template': str(uuid.uuid4()),
+                           'peptide': TEST_PEPTIDE_5_WITH_ID}
 
-TEST_MACROCYCLE_1 = {'binary': Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O').ToBinary(),
-                     'kekule': 'C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O',
+
+TEST_MACROCYCLE_1 = {'binary': Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)C(CC1=CC=CC3=CC=CN13)NC(=O)C(CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CCC(CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O').ToBinary(),
+                     'kekule': 'C#CC[C@@]12CCCN1C(=O)C(CC1=CC=CC3=CC=CN13)NC(=O)C(CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CCC(CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O',
                      'has_cap': False,
                      'modifications': '',
                      'template': str(uuid.uuid4()),
@@ -181,6 +186,18 @@ TEST_MACROCYCLE_1 = {'binary': Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@@H](C
 
 TEST_REACTION_1 = {'type': 'tsuji_trost', 'binary': AllChem.ReactionFromSmarts('(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1').ToBinary(
 ), 'smarts': '(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1', 'template': 'temp1', 'reacting_mol': 'a', 'rxn_atom_idx': 5}
+
+TEST_REACTION_2 = {'type': rxns.AldehydeCyclization.TYPE, 'binary': AllChem.ReactionFromSmarts('(O=[C:1]([C@H](C[CH:7]=O)C[*:50])[NH:6][*:5])>>O=[C:1]1[C@@H](C[*:50])C=[CH:7][N:6]1[*:5]').ToBinary(),
+                   'smarts': '(O=[C:1]([C@H](C[CH:7]=O)C[*:50])[NH:6][*:5])>>O=[C:1]1[C@@H](C[*:50])C=[CH:7][N:6]1[*:5]',
+                   'template': TEST_TEMPLATE_2,
+                   'reacting_mol': None,
+                   'rxn_atom_idx': None}
+
+TEST_REACTION_3 = {'type': rxns.FriedelCrafts.TYPE, 'binary': AllChem.ReactionFromSmarts('(c1cc2cn([*:3])[cH:4]c2cc1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][c:4]1c2ccccc2cn1[*:3]').ToBinary(),
+                   'smarts': '(c1cc2cn([*:3])[cH:4]c2cc1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][c:4]1c2ccccc2cn1[*:3]',
+                   'template': TEST_TEMPLATE_2,
+                   'reacting_mol': 'CN1C=C2C=CC=CC2=C1',
+                   'rxn_atom_idx': 2}
 
 TEST_REGIOSQM_PREDICTION_1 = {'predictions': [3, 6],
                               'reacting_mol': 'CC1=CC=C(O)C=C1',
