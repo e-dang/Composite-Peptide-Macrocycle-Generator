@@ -42,6 +42,9 @@ REACTION_3 = models.Reaction.from_mols(rxns.FriedelCrafts.TYPE, FC_RESULT_SMARTS
 REACTION_4 = models.Reaction.from_mols(rxns.TsujiTrost.TYPE, TT_RESULT_SMARTS_1[0], TEMPLATE_1, SIDECHAIN_1, 5)
 REACTION_5 = models.Reaction.from_mols(rxns.TsujiTrost.TYPE, TT_RESULT_SMARTS_1[0], TEMPLATE_2, SIDECHAIN_1, 5)
 REACTION_6 = models.Reaction.from_mols(rxns.TsujiTrost.TYPE, TT_RESULT_SMARTS_1[0], TEMPLATE_3, SIDECHAIN_1, 5)
+REACTION_7 = models.Reaction.from_mols(rxns.AldehydeCyclization.TYPE, ALD_RESULT_SMARTS_1[0], TEMPLATE_2, None, None)
+REACTION_8 = models.Reaction.from_mols(rxns.TemplatePictetSpangler.TYPE,
+                                       TPS_RESULTS_SMARTS_1[0], TEMPLATE_3, None, None)
 REGIOSQM_PREDICTION = models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id=str(uuid.uuid4()))
 PKA_PREDICTION = models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id=str(uuid.uuid4()))
 
@@ -114,4 +117,17 @@ def test_intermolecular_reaction_generator(data, impl, num_results, expected_res
     assert(len(reactions) == num_results)
     for reaction, expected_result in zip(reactions, expected_results):
         data = reaction.to_dict()
+        assert(reaction == expected_result)
+
+
+@pytest.mark.parametrize('data,impl,num_results,expected_results', [
+    (TEMPLATE_2, rxns.AldehydeCyclization(), 1, [REACTION_7]),
+    (TEMPLATE_3, rxns.TemplatePictetSpangler(), 1, [REACTION_8])])
+def test_intramolecular_reaction_generator(data, impl, num_results, expected_results):
+    generator = generators.IntraMolecularReactionGenerator(impl)
+
+    reactions = generator.generate(data)
+
+    assert(len(reactions) == num_results)
+    for reaction, expected_result in zip(reactions, expected_results):
         assert(reaction == expected_result)

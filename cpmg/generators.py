@@ -217,3 +217,20 @@ class InterMolecularReactionGenerator:
             non_symmetric_atom_idxs = non_symmetric_atom_idxs - atom_idxs
 
         return non_symmetric_atom_idxs
+
+
+class IntraMolecularReactionGenerator:
+    def __init__(self, impl):
+        self.impl = impl
+
+    def generate(self, reacting_mol):
+        reactions = []
+
+        try:
+            print(reacting_mol)
+            for smarts in self.impl.generate(reacting_mol):
+                reactions.append(models.Reaction.from_mols(self.impl.TYPE, smarts, reacting_mol, None, None))
+        except InvalidMolecule:
+            pass
+
+        return reactions
