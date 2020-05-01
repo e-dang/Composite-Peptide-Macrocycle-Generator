@@ -6,6 +6,7 @@ from rdkit.Chem import AllChem
 
 import cpmg.exceptions as exceptions
 import cpmg.utils as utils
+import cpmg.config as config
 
 SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 METHYL = Chem.MolFromSmarts('[CH3]')
@@ -394,15 +395,25 @@ class Macrocycle(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol, modifications, template_peptide, reactions):
+        mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol))
         Chem.Kekulize(mol)
-        reactions = [rxn._id for rxn in reactions]
+        cls.validate(mol)
+        reactions = [rxn.to_reduced_dict() for rxn in reactions]
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), modifications,
-                   template_peptide.has_cap, template_peptide._id, template_peptide.template, reactions)
+                   template_peptide.peptide['has_cap'], template_peptide._id, template_peptide.template, reactions)
 
     @classmethod
     def from_dict(cls, data, _id=None):
         return cls(data['binary'], data['kekule'], data['modifications'], data['has_cap'],
                    data['template_peptide'], data['template'], data['reactions'], _id=_id)
+
+    @staticmethod
+    def validate(mol):
+        if not [ring for ring in mol.GetRingInfo().BondRings() if len(ring) >= config.MIN_MACRO_RING_SIZE]:
+            raise exceptions.InvalidMolecule(
+                f'A macrocycle must have at least {config.MIN_MACRO_RING_SIZE} ring atoms!')
+
+        return True
 
 
 class Reaction:
@@ -433,12 +444,15 @@ class Reaction:
 
     @property
     def rxn(self):
-        return AllChem.ReactionFromSmarts(self.smarts)
+        return AllChem.ChemicalReaction(self.binary)
 
     def to_dict(self):
         data = deepcopy(self.__dict__)
         data.pop('_id')
         return data
+
+    def to_reduced_dict(self):
+        return {'_id': self._id, 'type': self.type}
 
 
 class AbstractPrediction:

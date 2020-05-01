@@ -93,9 +93,22 @@ def template_peptide_from_dict():
     return models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='afji923')
 
 
-# @pytest.fixture()
-# def macrocycle_from_mol():
-    # return models.Macrocycle.from_mol(Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O'), 'm', models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='afji923'), mode)
+@pytest.fixture()
+def macrocycle_from_mol():
+    tp_id = str(uuid.uuid4())
+    rxn_id = str(uuid.uuid4())
+    kekule = 'C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O'
+    macrocycle = models.Macrocycle.from_mol(Chem.MolFromSmiles(kekule), '', models.TemplatePeptide.from_dict(
+        TEST_TEMPLATE_PEPTIDE_1, _id=tp_id), [models.Reaction.from_dict(TEST_REACTION_1, _id=rxn_id)])
+    return macrocycle, kekule, TEST_TEMPLATE_PEPTIDE_1['template'], tp_id, rxn_id, TEST_REACTION_1['type'], TEST_TEMPLATE_PEPTIDE_1['peptide']['has_cap']
+
+
+@pytest.fixture()
+def macrocycle_from_dict():
+    _id = str(uuid.uuid4())
+    macrocycle = models.Macrocycle.from_dict(TEST_MACROCYCLE_1, _id=_id)
+    return macrocycle, TEST_MACROCYCLE_1, _id
+
 
 @pytest.fixture()
 def reaction_from_mols():
@@ -462,30 +475,45 @@ def test_template_peptide_eq(template_peptide_from_dict):
     assert(template_peptide_from_dict == models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_1, _id='doesnt matter'))
     assert(template_peptide_from_dict != models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_2, _id='doesnt matter'))
 
-# def test_macrocycle_from_mol(macrocycle_from_mol):
-#     assert(macrocycle_from_mol._id == None)
-#     assert(macrocycle_from_mol.binary != None)
-#     assert(macrocycle_from_mol.kekule ==
-#            'C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O')
-#     assert(macrocycle_from_mol.template == 'temp1')
-#     assert(macrocycle_from_mol.template_peptide == '')
+
+@pytest.mark.parametrize('smiles', [('C1CCCCCCCCC1'), ('C1CCCCCCCCCC1')])
+def test_macrocycle_validate(smiles):
+    assert(models.Macrocycle.validate(Chem.MolFromSmiles(smiles)))
 
 
-# def test_macrocycle_from_dict(macrocycle_from_dict):
-#     assert(macrocycle_from_dict._id == 'afji923')
-#     assert(macrocycle_from_dict.binary != None)
-#     assert(macrocycle_from_dict.kekule ==
-#            'C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O')
-#     assert(macrocycle_from_dict.template == 'temp1')
-#     assert(macrocycle_from_dict.peptide['_id'] == 'aefoi249')
-#     assert(macrocycle_from_dict.peptide['has_cap'] == False)
-#     assert(len(macrocycle_from_dict.peptide['monomers']) == 3)
-#     with pytest.raises(KeyError):
-#         macrocycle_from_dict.peptide['binary']
+@pytest.mark.parametrize('smiles', [('C1CCCCCCCC1'), ('CCCCCCCCCCC')])
+def test_macrocycle_validate_fail(smiles):
+    with pytest.raises(exceptions.InvalidMolecule):
+        models.Macrocycle.validate(Chem.MolFromSmiles(smiles))
 
 
-# def test_macrocycle_to_dict(macrocycle_from_dict):
-#     assert(macrocycle_from_dict.to_dict() == TEST_MACROCYCLE_1)
+def test_macrocycle_from_mol(macrocycle_from_mol):
+    macrocycle, kekule, template_id, tp_id, rxn_id, rxn_type, has_cap = macrocycle_from_mol
+    assert(macrocycle._id == None)
+    assert(macrocycle.binary != None)
+    assert(isinstance(Chem.Mol(macrocycle.binary), Chem.Mol))
+    assert(macrocycle.kekule == kekule)
+    assert(macrocycle.has_cap == has_cap)
+    assert(macrocycle.template == template_id)
+    assert(macrocycle.template_peptide == tp_id)
+    assert(macrocycle.reactions == [{'_id': rxn_id, 'type': rxn_type}])
+
+
+def test_macrocycle_from_dict(macrocycle_from_dict):
+    macrocycle, macrocycle_dict, _id = macrocycle_from_dict
+    assert(macrocycle._id == _id)
+    assert(macrocycle.binary != None)
+    assert(macrocycle.kekule == macrocycle_dict['kekule'])
+    assert(macrocycle.has_cap == macrocycle_dict['has_cap'])
+    assert(macrocycle.template == macrocycle_dict['template'])
+    assert(macrocycle.template_peptide == macrocycle_dict['template_peptide'])
+    assert(macrocycle.reactions == macrocycle_dict['reactions'])
+
+
+def test_macrocycle_to_dict(macrocycle_from_dict):
+    macrocycle, macrocycle_dict, _ = macrocycle_from_dict
+    assert(macrocycle.to_dict() == macrocycle_dict)
+
 
 def test_reaction_from_mols(reaction_from_mols):
     reaction, rxn_type, smarts, template, reacting_mol, rxn_atom_idx = reaction_from_mols
