@@ -4,6 +4,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 import cpmg.models as models
+import cpmg.reactions as rxns
 
 TEST_BACKBONE_1 = {'binary': Chem.MolFromSmiles('N[CH2:1]C(=O)O').ToBinary(
 ), 'kekule': 'NCC(=O)O', 'mapped_kekule': 'N[CH2:1]C(=O)O'}
@@ -181,12 +182,22 @@ TEST_REGIOSQM_PREDICTION_2 = {'predictions': [2, 3, 4],
                               'solvent': 'nitromethane',
                               'cutoff': '3.0'}
 
-TEST_PKA_PREDICTION_1 = {'predictions': {'4': 9.3},
-                         'reacting_mol': 'OC1=CC=CC=C1',
+TEST_PKA_PREDICTION_1 = {'predictions': {'5': 9.3},
+                         'reacting_mol': 'CC1=CC=C(O)C=C1',
                          'solvent': 'water'}
-TEST_PKA_PREDICTION_2 = {'predictions': {'2': 11.3, '7': 10.3},
-                         'reacting_mol': 'O=C1[NH]C=NC2=C1C=C[NH]2',
+TEST_PKA_PREDICTION_2 = {'predictions': {'3': 11.3, '8': 10.3},
+                         'reacting_mol': 'CC1=C[NH]C2=C1C(=O)[NH]C=N2',
                          'solvent': 'water'}
-TEST_PKA_PREDICTION_3 = {'predictions': {'4': 16.3},
-                         'reacting_mol': 'C1=C[NH]C=C1',
+TEST_PKA_PREDICTION_3 = {'predictions': {'5': 16.3},
+                         'reacting_mol': 'CC1=CC=C[NH]1',
                          'solvent': 'water'}
+
+FC_RESULT_SMARTS_1 = [f'(Oc1[cH:{rxns.FriedelCrafts.NUCLEOPHILE_EAS_MAP_NUM}]cc([*:{rxns.FriedelCrafts.NUCLEOPHILE_WC_MAP_NUM}])cc1.C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{models.Template.EAS_MAP_NUM}])>>Oc1ccc([*:{rxns.FriedelCrafts.NUCLEOPHILE_WC_MAP_NUM}])c[c:{rxns.FriedelCrafts.NUCLEOPHILE_EAS_MAP_NUM}]1[CH2:{models.Template.EAS_MAP_NUM}]/C=C/[*:{models.Template.WC_MAP_NUM_1}]']
+FC_RESULT_SMARTS_2 = [f'(O=[C:{rxns.FriedelCrafts.BACKBONE_CARBOXYL_MAP_NUM}]([C@@H]1C[C@H](Oc2cc[cH:{rxns.FriedelCrafts.NUCLEOPHILE_EAS_MAP_NUM}]cc2)CN1[*:{rxns.FriedelCrafts.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.FriedelCrafts.C_TERM_WILDCARD_MAP_NUM}].C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{models.Template.EAS_MAP_NUM}])>>O=[C:{rxns.FriedelCrafts.BACKBONE_CARBOXYL_MAP_NUM}]([C@@H]1C[C@H](Oc2cc[c:{rxns.FriedelCrafts.NUCLEOPHILE_EAS_MAP_NUM}]([CH2:{models.Template.EAS_MAP_NUM}]/C=C/[*:{models.Template.WC_MAP_NUM_1}])cc2)CN1[*:{rxns.FriedelCrafts.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.FriedelCrafts.C_TERM_WILDCARD_MAP_NUM}]']
+TT_RESULT_SMARTS_1 = [f'(c1c([OH:{rxns.TsujiTrost.NUCLEOPHILE_EAS_MAP_NUM}])ccc([*:{rxns.TsujiTrost.NUCLEOPHILE_WC_MAP_NUM}])c1.C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{models.Template.EAS_MAP_NUM}])>>C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH2:{models.Template.EAS_MAP_NUM}][O:{rxns.TsujiTrost.NUCLEOPHILE_EAS_MAP_NUM}]c1ccc([*:{rxns.TsujiTrost.NUCLEOPHILE_WC_MAP_NUM}])cc1']
+PS_RESULT_SMARTS_1 = [f'(O=[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]([C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C[CH:{rxns.PictetSpangler.TEMPLATE_ALDEHYDE_C_MAP_NUM}]=O)[NH:{rxns.PictetSpangler.BACKBONE_NITROGEN_MAP_NUM}]C(Cc1[nH]cc[cH:{rxns.PictetSpangler.NUCLEOPHILE_EAS_MAP_NUM}]1)[*:{rxns.PictetSpangler.C_TERM_WILDCARD_MAP_NUM}])>>O=[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]1[C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C[C:{rxns.PictetSpangler.TEMPLATE_ALDEHYDE_C_MAP_NUM}]2[c:{rxns.PictetSpangler.NUCLEOPHILE_EAS_MAP_NUM}]3cc[nH]c3CC([*:{rxns.PictetSpangler.C_TERM_WILDCARD_MAP_NUM}])[N:{rxns.PictetSpangler.BACKBONE_NITROGEN_MAP_NUM}]12']
+PS_RESULT_SMARTS_2 = [f'(C#CCCC[C@@](C[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERIZATION_MAP_NUM}](=O)[NH:{rxns.PictetSpangler.BACKBONE_NITROGEN_MAP_NUM}]C(Cc1[nH]cc[cH:{rxns.PictetSpangler.NUCLEOPHILE_EAS_MAP_NUM}]1)[*:{rxns.PictetSpangler.C_TERM_WILDCARD_MAP_NUM}])(C[*:{models.Template.WC_MAP_NUM_1}])[CH:{rxns.PictetSpangler.TEMPLATE_ALDEHYDE_C_MAP_NUM}]=O)>>C#CCCC[C@]1(C[*:{models.Template.WC_MAP_NUM_1}])C[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERIZATION_MAP_NUM}](=O)[N:{rxns.PictetSpangler.BACKBONE_NITROGEN_MAP_NUM}]2C([*:{rxns.PictetSpangler.C_TERM_WILDCARD_MAP_NUM}])Cc3[nH]cc[c:{rxns.PictetSpangler.NUCLEOPHILE_EAS_MAP_NUM}]3[C:{rxns.PictetSpangler.TEMPLATE_ALDEHYDE_C_MAP_NUM}]12']
+PYR_RESULT_SMARTS_1 = [f'(c1ccc2c(c1)[nH][cH:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}][c:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]2CC([NH:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}].C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}])>>C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH2:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}][C@:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]12CC([*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}])[N:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}]([*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[C@@H:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}]1Nc1ccccc12',
+                       f'(c1ccc2c(c1)[nH][cH:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}][c:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]2CC([NH:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}].C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}])>>C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH2:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}][C@@:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]12CC([*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}])[N:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}]([*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[C@H:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}]1Nc1ccccc12']
+TPS_RESULTS_SMARTS_1 = [f'(C#CCCC[C@@](CC(=O)[NH:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}][*:{models.Template.WC_MAP_NUM_1}])(Cc1cc([*:{models.Template.WC_MAP_NUM_2}])cc[cH:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1)[CH:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]=O)>>C#CCCC[C@]12CC(=O)[N:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}]([*:{models.Template.WC_MAP_NUM_1}])[C@H:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]1[c:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1ccc([*:{models.Template.WC_MAP_NUM_2}])cc1C2']
+ALD_RESULT_SMARTS_1 = [f'(O=[C:{rxns.AldehydeCyclization.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]([C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C[CH:{rxns.AldehydeCyclization.ALDEHYDE_C_MAP_NUM}]=O)[NH:{rxns.AldehydeCyclization.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.AldehydeCyclization.BACKBONE_CARBOXYL_MAP_NUM}])>>O=[C:{rxns.AldehydeCyclization.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]1[C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C=[CH:{rxns.AldehydeCyclization.ALDEHYDE_C_MAP_NUM}][N:{rxns.AldehydeCyclization.BACKBONE_NITROGEN_MAP_NUM}]1[*:{rxns.AldehydeCyclization.BACKBONE_CARBOXYL_MAP_NUM}]']

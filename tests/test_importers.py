@@ -186,9 +186,8 @@ def test_pka_prediction_importer(mol_importers):
     test_data = [TEST_PKA_PREDICTION_1, TEST_PKA_PREDICTION_2, TEST_PKA_PREDICTION_3]
     assert(len(pka_data) == 3)
     for prediction in pka_data:
-        print(prediction.to_dict())
-
         assert(prediction.to_dict() in test_data)
+        test_data.remove(prediction.to_dict())
 
 
 def test_create_importers(hdf5_repository):
