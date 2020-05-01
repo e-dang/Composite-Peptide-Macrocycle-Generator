@@ -47,8 +47,8 @@ class HDF5File(h5py.File):
 
 class HDF5Initializer:
     def __init__(self):
-        self.data_types = ['backbone', 'connections', 'templates',
-                           'sidechains', 'monomers', 'peptides', 'template_peptides', 'reactions', 'regiosqm', 'pka']
+        self.data_types = ['backbone', 'connections', 'templates', 'sidechains', 'monomers', 'peptides',
+                           'template_peptides', 'macrocycles', 'reactions', 'regiosqm', 'pka']
 
     def initialize(self):
         with HDF5File() as file:

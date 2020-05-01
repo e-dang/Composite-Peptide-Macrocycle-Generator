@@ -161,6 +161,15 @@ def test_template_peptide_repository_fail(hdf5_repository):
     assert(len(template_peptide_repo.failed_instances) == 1)
 
 
+def test_macrocycle_repository(hdf5_repository):
+    macrocycle_repo = repo.create_macrocycle_repository()
+    ids = macrocycle_repo.save(list(map(models.Macrocycle.from_dict, [TEST_MACROCYCLE_1])))
+    data = models_to_dict(macrocycle_repo.load(ids))
+
+    assert(len(data) == 1)
+    assert(TEST_MACROCYCLE_1 == data[0])
+
+
 def test_reaction_repository(hdf5_repository):
     reaction_repo = repo.create_reaction_repository()
     ids = reaction_repo.save(list(map(models.Reaction.from_dict, [TEST_REACTION_1])))
@@ -217,3 +226,15 @@ def test_pka_repository_fail(hdf5_repository):
     _ = pka_repo.save(['dne'])
 
     assert(len(pka_repo.failed_instances) == 1)
+
+
+# def test_peptide_plan_repository(hdf5_repository):
+#     peptide_plan_repo = repo.create_peptide_plan_repository()
+#     ids = peptide_plan_repo.save(TEST_PEPTIDE_PLAN)
+
+#     data = peptide_plan_repo.load(ids)
+#     data.sort()
+
+#     assert(len(data) == 3)
+#     for loaded_ls, test_ls in zip(data, TEST_PEPTIDE_PLAN):
+#         assert(loaded_ls == test_ls)

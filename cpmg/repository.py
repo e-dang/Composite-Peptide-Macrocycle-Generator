@@ -47,9 +47,6 @@ class BackboneRepository(AbstractRepository):
     TYPE = models.Backbone
     CATEGORY = 'backbone'
 
-    def __init__(self, impl):
-        super().__init__(impl)
-
     def save(self, data):
         return super().save(self._check_type(data))
 
@@ -57,9 +54,6 @@ class BackboneRepository(AbstractRepository):
 class ConnectionRepository(AbstractRepository):
     TYPE = models.Connection
     CATEGORY = 'connections'
-
-    def __init__(self, impl):
-        super().__init__(impl)
 
     def save(self, data):
         return super().save(self._check_type(data))
@@ -69,9 +63,6 @@ class TemplateRepository(AbstractRepository):
     TYPE = models.Template
     CATEGORY = 'templates'
 
-    def __init__(self, impl):
-        super().__init__(impl)
-
     def save(self, data):
         return super().save(self._check_type(data))
 
@@ -80,9 +71,6 @@ class SidechainRepository(AbstractRepository):
     TYPE = models.Sidechain
     CATEGORY = 'sidechains'
 
-    def __init__(self, impl):
-        super().__init__(impl)
-
     def save(self, data):
         return super().save(self._check_type(data))
 
@@ -90,9 +78,6 @@ class SidechainRepository(AbstractRepository):
 class MonomerRepository(AbstractRepository):
     TYPE = models.Monomer
     CATEGORY = 'monomers'
-
-    def __init__(self, impl):
-        super().__init__(impl)
 
     def save(self, data):
         return super().save(self._attach_indices(self._check_type(data)))
@@ -115,9 +100,6 @@ class PeptideRepository(AbstractRepository):
     TYPE = models.Peptide
     CATEGORY = 'peptides'
 
-    def __init__(self, impl):
-        super().__init__(impl)
-
     def save(self, data):
         return super().save(self._check_type(data))
 
@@ -126,8 +108,13 @@ class TemplatePeptideRepository(AbstractRepository):
     TYPE = models.TemplatePeptide
     CATEGORY = 'template_peptides'
 
-    def __init__(self, impl):
-        super().__init__(impl)
+    def save(self, data):
+        return super().save(self._check_type(data))
+
+
+class MacrocycleRepository(AbstractRepository):
+    TYPE = models.Macrocycle
+    CATEGORY = 'macrocycles'
 
     def save(self, data):
         return super().save(self._check_type(data))
@@ -144,9 +131,6 @@ class ReactionRepository(AbstractRepository):
 class RegioSQMRepository(AbstractRepository):
     TYPE = models.RegioSQMPrediction
     CATEGORY = 'regiosqm'
-
-    def __init__(self, impl):
-        super().__init__(impl)
 
     def save(self, data):
         return super().save(self._check_type(data))
@@ -190,6 +174,7 @@ create_sidechain_repository = get_repository(SidechainRepository)
 create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
 create_template_peptide_repository = get_repository(TemplatePeptideRepository)
+create_macrocycle_repository = get_repository(MacrocycleRepository)
 create_reaction_repository = get_repository(ReactionRepository)
 create_regiosqm_repository = get_repository(RegioSQMRepository)
 create_pka_repository = get_repository(pKaRepository)

@@ -1,3 +1,4 @@
+import uuid
 from copy import deepcopy
 
 from rdkit import Chem
@@ -169,6 +170,14 @@ TEST_TEMPLATE_PEPTIDE_7 = {'binary': Chem.MolFromSmiles('C#CCCC[C@@](C=O)(CC(=O)
                            'template': 'temp3',
                            'peptide': TEST_PEPTIDE_5_WITH_ID}
 
+TEST_MACROCYCLE_1 = {'binary': Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O').ToBinary(),
+                     'kekule': 'C#CC[C@@]12CCCN1C(=O)[C@@H](CC1=CC=CC3=CC=CN13)NC(=O)[C@@H](CC(C)C)N1C=C[C@H](CC3=C(F)C=CC(=C3)/C=C/CC3=C4C=CC=CC4=CN3CC[C@@H](CC(=O)O)NC(=O)[C@]34CC[C@H](C3)N4C2=O)C1=O',
+                     'has_cap': False,
+                     'modifications': '',
+                     'template': str(uuid.uuid4()),
+                     'template_peptide': str(uuid.uuid4()),
+                     'reactions': [{'_id': str(uuid.uuid4()), 'type': rxns.TemplatePictetSpangler.TYPE},
+                                   {'_id': str(uuid.uuid4()), 'type': rxns.FriedelCrafts.TYPE}]}
 
 TEST_REACTION_1 = {'type': 'tsuji_trost', 'binary': AllChem.ReactionFromSmarts('(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1').ToBinary(
 ), 'smarts': '(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1', 'template': 'temp1', 'reacting_mol': 'a', 'rxn_atom_idx': 5}
