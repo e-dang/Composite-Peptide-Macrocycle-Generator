@@ -1,11 +1,14 @@
+import uuid
 from copy import deepcopy
-
+import mock
 import pytest
 
 import cpmg.generators as generators
 import cpmg.models as models
+import cpmg.reactions as rxns
 from data.mols import *
 
+SIDECHAIN_1 = models.Sidechain.from_dict(TEST_SIDECHAIN_1, _id=str(uuid.uuid4()))
 TEMPLATE_1 = models.Template.from_dict(TEST_TEMPLATE_1, _id='temp1')
 TEMPLATE_2 = models.Template.from_dict(TEST_TEMPLATE_2, _id='temp2')
 TEMPLATE_3 = models.Template.from_dict(TEST_TEMPLATE_3, _id='temp3')
@@ -33,6 +36,14 @@ TEMPLATE_PEPTIDE_3 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_4, _
 TEMPLATE_PEPTIDE_4 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_5, _id='faopsvp98')
 TEMPLATE_PEPTIDE_5 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_6, _id='ca0-fiuqe2')
 TEMPLATE_PEPTIDE_6 = models.TemplatePeptide.from_dict(TEST_TEMPLATE_PEPTIDE_7, _id='cas.f-3aw')
+REACTION_1 = models.Reaction.from_mols(rxns.FriedelCrafts.TYPE, FC_RESULT_SMARTS_1[0], TEMPLATE_1, SIDECHAIN_1, 3)
+REACTION_2 = models.Reaction.from_mols(rxns.FriedelCrafts.TYPE, FC_RESULT_SMARTS_1[0], TEMPLATE_2, SIDECHAIN_1, 3)
+REACTION_3 = models.Reaction.from_mols(rxns.FriedelCrafts.TYPE, FC_RESULT_SMARTS_1[0], TEMPLATE_3, SIDECHAIN_1, 3)
+REACTION_4 = models.Reaction.from_mols(rxns.TsujiTrost.TYPE, TT_RESULT_SMARTS_1[0], TEMPLATE_1, SIDECHAIN_1, 5)
+REACTION_5 = models.Reaction.from_mols(rxns.TsujiTrost.TYPE, TT_RESULT_SMARTS_1[0], TEMPLATE_2, SIDECHAIN_1, 5)
+REACTION_6 = models.Reaction.from_mols(rxns.TsujiTrost.TYPE, TT_RESULT_SMARTS_1[0], TEMPLATE_3, SIDECHAIN_1, 5)
+REGIOSQM_PREDICTION = models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTION_1, _id=str(uuid.uuid4()))
+PKA_PREDICTION = models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id=str(uuid.uuid4()))
 
 
 @pytest.mark.parametrize('data,expected_result', [((models.Sidechain.from_dict(TEST_SIDECHAIN_1, _id='1afdw'), [CONNECTION]), models.Sidechain.from_mol(Chem.MolFromSmiles('CCc1ccc(O)cc1'), CONNECTION, TEST_SIDECHAIN_1['shared_id']))])
@@ -86,3 +97,21 @@ def test_template_peptide_generator(data, num_results, expected_results):
     for template_peptide, expected_result in zip(template_peptides, expected_results):
         print(template_peptide.kekule, expected_result.kekule)
         assert(template_peptide == expected_result)
+
+
+@pytest.mark.parametrize('data,impl,num_results,expected_results', [
+    ((SIDECHAIN_1, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3]),
+     rxns.FriedelCrafts(), 3, [REACTION_1, REACTION_2, REACTION_3]),
+    ((SIDECHAIN_1, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3]), rxns.TsujiTrost(), 3, [REACTION_4, REACTION_5, REACTION_6])
+])
+def test_intermolecular_reaction_generator(data, impl, num_results, expected_results):
+    with mock.patch('cpmg.generators.repo.BackboneRepository.load', return_value=[models.Backbone.from_dict(TEST_BACKBONE_1)]), \
+            mock.patch('cpmg.generators.filters.proxies.repo.RegioSQMRepository.load', return_value=[REGIOSQM_PREDICTION]), \
+            mock.patch('cpmg.generators.filters.proxies.repo.pKaRepository.load', return_value=[PKA_PREDICTION]):
+        generator = generators.InterMolecularReactionGenerator(impl)
+        reactions = generator.generate(data)
+
+    assert(len(reactions) == num_results)
+    for reaction, expected_result in zip(reactions, expected_results):
+        data = reaction.to_dict()
+        assert(reaction == expected_result)

@@ -495,7 +495,7 @@ def test_reaction_from_mols(reaction_from_mols):
     assert(reaction.binary != None)
     assert(isinstance(AllChem.ChemicalReaction(reaction.binary), AllChem.ChemicalReaction))
     assert(reaction.template == template._id)
-    assert(reaction.reacting_mol == reacting_mol.shared_id)
+    assert(reaction.reacting_mol == {'_id': reacting_mol.shared_id, 'kekule': reacting_mol.kekule})
     assert(reaction.rxn_atom_idx == rxn_atom_idx)
 
 

@@ -112,6 +112,7 @@ class InterMolecularReaction:
 
 
 class FriedelCrafts(InterMolecularReaction):
+    TYPE = 'friedel_crafts'
     REQUIRED_SUBSTRUCT = Chem.MolFromSmarts('C=CC')
     MAP_NUMS = (InterMolecularReaction.NUCLEOPHILE_EAS_MAP_NUM, models.Template.EAS_MAP_NUM)
 
@@ -147,6 +148,7 @@ class FriedelCrafts(InterMolecularReaction):
 
 
 class TsujiTrost(InterMolecularReaction):
+    TYPE = 'tsuji_trost'
     REQUIRED_SUBSTRUCT = Chem.MolFromSmarts('C=CC')
     MAP_NUMS = (InterMolecularReaction.NUCLEOPHILE_EAS_MAP_NUM, models.Template.EAS_MAP_NUM)
 
@@ -182,6 +184,7 @@ class TsujiTrost(InterMolecularReaction):
 
 
 class PictetSpangler(InterMolecularReaction):
+    TYPE = 'pictet_spangler'
     REQUIRED_SUBSTRUCT = Chem.MolFromSmarts('C(=O)')
     BACKBONE_OLIGOMERIZATION_MAP_NUM = models.Backbone.MAP_NUM
     SIDECHAIN_OLIGOMERIZATION_MAP_NUM = InterMolecularReaction.NUCLEOPHILE_WC_MAP_NUM
@@ -275,6 +278,7 @@ class PictetSpangler(InterMolecularReaction):
 
 
 class Pyrroloindoline(InterMolecularReaction):
+    TYPE = 'pyrroloindoline'
     REQUIRED_SUBSTRUCT = Chem.MolFromSmarts('C=CC')
     INDOLE = Chem.MolFromSmarts('*c1c[nH]c2ccccc12')
     STEREOCHEMISTRIES = [('CCW', 'CCW'), ('CW', 'CW')]
@@ -385,7 +389,7 @@ class IntraMolecularReaction:
 
 
 class TemplatePictetSpangler(IntraMolecularReaction):
-
+    TYPE = 'template_pictet_spangler'
     STEREOCHEMISTRY = 'CCW'
     ALDEHYDE_O_MAP_NUM = models.Template.PS_OXYGEN_MAP_NUM
     ALDEHYDE_C_MAP_NUM = models.Template.PS_CARBON_MAP_NUM
@@ -434,6 +438,7 @@ class TemplatePictetSpangler(IntraMolecularReaction):
 
 
 class AldehydeCyclization(IntraMolecularReaction):
+    TYPE = 'aldehyde_cyclization'
     CARBOXYL_W_EXTRA_C = Chem.MolFromSmarts('CC(=O)[OH]')
     BACKBONE_CARBOXYL_MAP_NUM = 100
     BACKBONE_NITROGEN_MAP_NUM = 101

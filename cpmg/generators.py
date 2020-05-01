@@ -1,3 +1,4 @@
+from copy import deepcopy
 from itertools import chain
 
 from rdkit import Chem
@@ -5,7 +6,10 @@ from rdkit.Chem import AllChem
 
 import cpmg.models as models
 import cpmg.utils as temp_utils
+import cpmg.repository as repo
 import macrocycles.utils as utils
+from cpmg.exceptions import InvalidMolecule
+import cpmg.filters as filters
 
 
 class SidechainModifier:
@@ -159,9 +163,57 @@ class TemplatePeptideGenerator:
                 atom = peptide_mol.GetAtomWithIdx(atom_idx)
 
                 atom.SetAtomMapNum(self.PEPTIDE_NITROGEN_MAP_NUM)
-                template_peptide = utils.connect_mols(template.mol, peptide_mol, map_nums=self.MAP_NUMS)
+                template_peptide = utils.connect_mols(template.oligomerization_mol, peptide_mol, map_nums=self.MAP_NUMS)
                 atom.SetAtomMapNum(0)
 
                 template_peptides.append(models.TemplatePeptide.from_mol(template_peptide, template, peptide))
 
         return template_peptides
+
+
+class InterMolecularReactionGenerator:
+
+    def __init__(self, impl):
+        self.impl = impl
+        self.backbones = list(map(lambda x: x.mol, repo.create_backbone_repository().load()))
+
+    @filters.pka_filter
+    @filters.regiosqm_filter
+    def generate(self, args):
+        nucleophile, templates = args
+        nucleophile_mol = nucleophile.mol
+
+        non_symmetric_atom_idxs = self._get_non_symmetric_atoms(nucleophile_mol)
+
+        reactions = []
+        for atom in [nucleophile_mol.GetAtomWithIdx(atom_idx) for atom_idx in non_symmetric_atom_idxs]:
+            atom.SetAtomMapNum(self.impl.NUCLEOPHILE_EAS_MAP_NUM)
+            for template in templates:
+                try:
+                    smarts = self.impl.generate(deepcopy(nucleophile_mol), template, atom, nucleophile)
+                except InvalidMolecule:
+                    pass
+                else:
+                    for rxn_str in smarts:
+                        reactions.append(models.Reaction.from_mols(
+                            self.impl.TYPE, rxn_str, template, nucleophile, atom.GetIdx()))
+
+            atom.SetAtomMapNum(0)
+
+        return reactions
+
+    def _get_non_symmetric_atoms(self, mol):
+
+        unique_pairs = map(set, zip(*mol.GetSubstructMatches(mol, uniquify=False)))
+        Chem.Kekulize(mol)  # have to kekulize after substruct match...
+        sorted_unique_pairs = map(sorted, map(list, unique_pairs))
+        reduced_pairs = set(tuple(pair) for pair in sorted_unique_pairs)
+        non_symmetric_atom_idxs = set(pair[0] for pair in reduced_pairs)
+
+        # remove backbone atoms from non-symmetric atoms (this does nothing if mol is a sidechain)
+        for backbone in self.backbones:
+            temp_utils.clear_atom_map_nums(backbone)
+            atom_idxs = set(chain.from_iterable(mol.GetSubstructMatches(backbone)))
+            non_symmetric_atom_idxs = non_symmetric_atom_idxs - atom_idxs
+
+        return non_symmetric_atom_idxs

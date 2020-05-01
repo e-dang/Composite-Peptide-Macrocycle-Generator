@@ -415,12 +415,17 @@ class Reaction:
         self.reacting_mol = reacting_mol
         self.rxn_atom_idx = rxn_atom_idx
 
+    def __eq__(self, other):
+        return self.type == other.type and self.smarts == other.smarts and self.template == other.template \
+            and self.reacting_mol == other.reacting_mol and self.rxn_atom_idx == other.rxn_atom_idx
+
     @classmethod
     def from_mols(cls, rxn_type, smarts, template, reacting_mol, rxn_atom_idx):
-        _id = None
+
         if reacting_mol is not None:
             _id = reacting_mol.shared_id if isinstance(reacting_mol, Sidechain) else reacting_mol._id
-        return cls(rxn_type, AllChem.ReactionFromSmarts(smarts).ToBinary(), smarts, template._id, _id, rxn_atom_idx)
+            reacting_mol = {'_id': _id, 'kekule': reacting_mol.kekule}
+        return cls(rxn_type, AllChem.ReactionFromSmarts(smarts).ToBinary(), smarts, template._id, reacting_mol, rxn_atom_idx)
 
     @classmethod
     def from_dict(cls, data, _id=None):
