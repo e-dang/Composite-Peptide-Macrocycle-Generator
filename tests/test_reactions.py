@@ -24,6 +24,7 @@ PS_RESULT_SMARTS_2 = [f'(C#CCCC[C@@](C[C:{rxns.PictetSpangler.TEMPLATE_OLIGOMERI
 PYR_RESULT_SMARTS_1 = [f'(c1ccc2c(c1)[nH][cH:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}][c:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]2CC([NH:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}].C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}])>>C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH2:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}][C@:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]12CC([*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}])[N:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}]([*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[C@@H:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}]1Nc1ccccc12',
                        f'(c1ccc2c(c1)[nH][cH:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}][c:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]2CC([NH:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}].C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH3:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}])>>C(=C/[*:{models.Template.WC_MAP_NUM_1}])\\[CH2:{rxns.Pyrroloindoline.TEMPLATE_EAS_MAP_NUM}][C@@:{rxns.Pyrroloindoline.NUCLEOPHILE_EAS_MAP_NUM}]12CC([*:{rxns.Pyrroloindoline.C_TERM_WILDCARD_MAP_NUM}])[N:{rxns.Pyrroloindoline.BACKBONE_NITROGEN_MAP_NUM}]([*:{rxns.Pyrroloindoline.N_TERM_WILDCARD_MAP_NUM}])[C@H:{rxns.Pyrroloindoline.ADJ_CARBON_MAP_NUM}]1Nc1ccccc12']
 TPS_RESULTS_SMARTS_1 = [f'(C#CCCC[C@@](CC(=O)[NH:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}][*:{models.Template.WC_MAP_NUM_1}])(Cc1cc([*:{models.Template.WC_MAP_NUM_2}])cc[cH:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1)[CH:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]=O)>>C#CCCC[C@]12CC(=O)[N:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}]([*:{models.Template.WC_MAP_NUM_1}])[C@H:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]1[c:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1ccc([*:{models.Template.WC_MAP_NUM_2}])cc1C2']
+ALD_RESULT_SMARTS_1 = [f'(O=[C:{rxns.AldehydeCyclization.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]([C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C[CH:{rxns.AldehydeCyclization.ALDEHYDE_C_MAP_NUM}]=O)[NH:{rxns.AldehydeCyclization.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.AldehydeCyclization.BACKBONE_CARBOXYL_MAP_NUM}])>>O=[C:{rxns.AldehydeCyclization.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]1[C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C=[CH:{rxns.AldehydeCyclization.ALDEHYDE_C_MAP_NUM}][N:{rxns.AldehydeCyclization.BACKBONE_NITROGEN_MAP_NUM}]1[*:{rxns.AldehydeCyclization.BACKBONE_CARBOXYL_MAP_NUM}]']
 
 
 @pytest.mark.parametrize('model_mol,template,atom_idx,expected', [(SIDECHAIN_1, TEMPLATE_1, 3, FC_RESULT_SMARTS_1),
@@ -118,6 +119,14 @@ def test_template_pictet_spangler(model_mol, expected):
     assert(rxn_smarts == expected)
 
 
+@pytest.mark.parametrize('model_mol', [(TEMPLATE_1), (TEMPLATE_2)])
+def test_template_pictet_spangler_fail(model_mol):
+    reaction = rxns.TemplatePictetSpangler()
+
+    with pytest.raises(InvalidMolecule):
+        _ = reaction.generate(model_mol)
+
+
 @pytest.mark.parametrize('model_mol,template,atom_idx,expected', [(SIDECHAIN_3, TEMPLATE_1, 1, PYR_RESULT_SMARTS_1),
                                                                   (SIDECHAIN_3, TEMPLATE_2, 1, PYR_RESULT_SMARTS_1),
                                                                   (SIDECHAIN_3, TEMPLATE_3, 1, PYR_RESULT_SMARTS_1)])
@@ -143,3 +152,20 @@ def test_pyrroloindoline_fail(model_mol, template, atom_idx):
 
     with pytest.raises(InvalidMolecule):
         _ = reaction.generate(reacting_mol, template, reacting_atom, model_mol)
+
+
+@pytest.mark.parametrize('model_mol,expected', [(TEMPLATE_2, ALD_RESULT_SMARTS_1)])
+def test_aldehyde_cyclization(model_mol, expected):
+    reaction = rxns.AldehydeCyclization()
+
+    rxn_smarts = reaction.generate(model_mol)
+
+    assert(rxn_smarts == expected)
+
+
+@pytest.mark.parametrize('model_mol', [(TEMPLATE_1), (TEMPLATE_3)])
+def test_aldehyde_cyclization_fail(model_mol):
+    reaction = rxns.AldehydeCyclization()
+
+    with pytest.raises(InvalidMolecule):
+        _ = reaction.generate(model_mol)

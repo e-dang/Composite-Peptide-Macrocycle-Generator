@@ -6,7 +6,8 @@
         "tsuji_trost_kekule": "[*:201]/C=C/[CH3:200]",
         "pictet_spangler_kekule": null,
         "template_pictet_spangler_kekule": null,
-        "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]"
+        "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]",
+        "aldehyde_cyclization_kekule": null
     },
     {
         "kekule": "CC(C)(C)OC(=O)OC/C=C/C1=CC(C[C@@H](CC=O)C(=O)ON2C(=O)CCC2=O)=C(F)C=C1",
@@ -15,7 +16,8 @@
         "tsuji_trost_kekule": "[*:201]/C=C/[CH3:200]",
         "pictet_spangler_kekule": "[O:300]=[CH1:301]C[C@H](C[*:201])[CH1:1]=O",
         "template_pictet_spangler_kekule": null,
-        "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]"
+        "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]",
+        "aldehyde_cyclization_kekule": "[O:300]=[CH1:301]C[C@H](C[*:201])[CH1:1]=O"
     },
     {
         "kekule": "C#CCCC[C@@](C=O)(CC(=O)ON1C(=O)CCC1=O)CC1=CC(/C=C/COC(=O)OC(C)(C)C)=CC=C1",
@@ -24,6 +26,7 @@
         "tsuji_trost_kekule": "[*:201]/C=C/[CH3:200]",
         "pictet_spangler_kekule": "C#CCCC[C@](C[*:201])(C[CH1:1]=O)[CH1:301]=[O:300]",
         "template_pictet_spangler_kekule": "C#CCCC[C@@]([CH1:301]=[O:300])(CC(=O)[NH1:302][*:201])CC1=[CH1:200]C=CC([*:202])=C1",
-        "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]"
+        "pyrroloindoline_kekule": "[*:201]/C=C/[CH3:200]",
+        "aldehyde_cyclization_kekule": null
     }
 ]
