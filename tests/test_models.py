@@ -121,11 +121,11 @@ def reaction_from_mols():
     return reaction, rxn_type, smarts, template, reacting_mol, rxn_atom_idx
 
 
-@pytest.fixture()
-def reaction_from_dict():
+@pytest.fixture(params=[TEST_REACTION_1, TEST_REACTION_2])
+def reaction_from_dict(request):
     _id = str(uuid.uuid4())
-    reaction = models.Reaction.from_dict(TEST_REACTION_1, _id=_id)
-    return reaction, TEST_REACTION_1, _id
+    reaction = models.Reaction.from_dict(request.param, _id=_id)
+    return reaction, request.param, _id
 
 
 @pytest.fixture(params=[TEST_REGIOSQM_PREDICTION_1, TEST_REGIOSQM_PREDICTION_2])
@@ -523,6 +523,7 @@ def test_reaction_from_mols(reaction_from_mols):
     assert(reaction.binary != None)
     assert(isinstance(AllChem.ChemicalReaction(reaction.binary), AllChem.ChemicalReaction))
     assert(reaction.template == template._id)
+    assert(isinstance(reaction.reacting_mol, dict) or reaction.reacting_mol is None)
     assert(reaction.reacting_mol == {'_id': reacting_mol.shared_id, 'kekule': reacting_mol.kekule})
     assert(reaction.rxn_atom_idx == rxn_atom_idx)
 
@@ -535,6 +536,7 @@ def test_reaction_from_dict(reaction_from_dict):
     assert(reaction.binary != None)
     assert(isinstance(AllChem.ChemicalReaction(reaction.binary), AllChem.ChemicalReaction))
     assert(reaction.template == reaction_dict['template'])
+    assert(isinstance(reaction.reacting_mol, dict) or reaction.reacting_mol is None)
     assert(reaction.reacting_mol == reaction_dict['reacting_mol'])
     assert(reaction.rxn_atom_idx == reaction_dict['rxn_atom_idx'])
 
