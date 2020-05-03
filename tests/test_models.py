@@ -142,6 +142,11 @@ def pka_prediction_from_dict(request):
     return prediction, request.param, _id
 
 
+@pytest.fixture()
+def peptide_plan_data():
+    return [(1, 2, 3), (3, 4, 5, 6)], 3
+
+
 def test_backbone_from_mol(backbone_from_mol):
     assert(backbone_from_mol._id == None)
     assert(backbone_from_mol.binary != None)
@@ -570,3 +575,65 @@ def test_pka_prediction_from_dict(pka_prediction_from_dict):
 def test_pka_prediction_to_dict(pka_prediction_from_dict):
     prediction, prediction_dict, _ = pka_prediction_from_dict
     assert(prediction.to_dict() == prediction_dict)
+
+
+@pytest.mark.parametrize('length', [(3), (4), (5)])
+def test_peptide_plan_constructor(length):
+    plan = models.PeptidePlan(length)
+
+    assert(plan.peptide_length == length)
+    assert(plan.valid_lengths == (length, length + 1))
+
+
+@pytest.mark.parametrize('data, peptide_length, expected_len, expected_data', [
+    ([(1, 2, 3), (1, 2, 3), (3, 4, 5)], 3, 2, [(1, 2, 3), (3, 4, 5)])
+])
+def test_peptide_plan_add(data, peptide_length, expected_len, expected_data):
+    plan = models.PeptidePlan(peptide_length)
+
+    for tup in data:
+        plan.add(tup)
+
+    assert(len(plan) == expected_len)
+    assert(plan.combinations == set(expected_data))
+
+
+@pytest.mark.parametrize('data, peptide_length', [
+    ([(1, 2, 3)], 4),
+    ([(1, 2, 3, 4, 5)], 3)
+])
+def test_peptide_plan_add_fail(data, peptide_length):
+    plan = models.PeptidePlan(peptide_length)
+
+    with pytest.raises(RuntimeError):
+        for tup in data:
+            plan.add(tup)
+
+
+def test_peptide_plan_iter(peptide_plan_data):
+    data, peptide_length = peptide_plan_data
+    plan = models.PeptidePlan(peptide_length)
+
+    for tup in data:
+        plan.add(tup)
+
+    for combination in plan:
+        assert(combination in data)
+        data.remove(combination)
+
+
+def test_peptide_plan_data(peptide_plan_data):
+    data, peptide_length = peptide_plan_data
+    plan = models.PeptidePlan(peptide_length)
+
+    for tup in data[:-1]:
+        plan.add(tup)
+
+    plan_data = plan.data()
+    sorted_plan_data = sorted(plan_data, key=len)
+
+    assert(isinstance(plan_data, list))
+    assert(plan_data == sorted_plan_data)
+
+    with pytest.raises(RuntimeError):
+        plan.add(data[-1])
