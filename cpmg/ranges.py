@@ -51,3 +51,20 @@ class BatchedDataChunk(Range):
             end = total_num_data
 
         return end
+
+
+class Key:
+    def __init__(self, range, peptide_length=None):
+        self.range = range
+        self.peptide_length = peptide_length
+
+    def __contains__(self, other):
+        return other in self.range
+
+    @property
+    def start(self):
+        return self.range.start
+
+    @property
+    def end(self):
+        return self.range.end
