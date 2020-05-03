@@ -1,12 +1,13 @@
 from copy import deepcopy
 from itertools import chain
 
+import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+import cpmg.config as config
 import cpmg.exceptions as exceptions
 import cpmg.utils as utils
-import cpmg.config as config
 
 SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 METHYL = Chem.MolFromSmarts('[CH3]')
@@ -485,3 +486,36 @@ class pKaPrediction(AbstractPrediction):
     @classmethod
     def from_dict(cls, data, _id=None):
         return cls(data['predictions'], data['reacting_mol'], data['solvent'], _id=_id)
+
+
+class PeptidePlan:
+    def __init__(self, peptide_length):
+        self.combinations = set()
+        self.peptide_length = peptide_length
+        self.valid_lengths = (peptide_length, peptide_length + 1)
+
+    def __iter__(self):
+        return iter(self.combinations)
+
+    def __next__(self):
+        return next(self.combinations)
+
+    def __len__(self):
+        return len(self.combinations)
+
+    @classmethod
+    def from_array(cls, array):
+        peptide_plan = cls(len(array[0]))
+        peptide_plan.combinations = np.array(array)
+        return peptide_plan
+
+    def add(self, combination):
+        if isinstance(self.combinations, set) and len(combination) in self.valid_lengths:
+            self.combinations.add(combination)
+        else:
+            raise RuntimeError('Cannot add to peptide plan once uniqueness checks have been switched off!')
+
+    def data(self):
+        self.combinations = list(self.combinations)
+        self.combinations.sort(key=len)
+        return self.combinations
