@@ -24,6 +24,9 @@ class AbstractMolecule:
         self.binary = binary
         self.kekule = kekule
 
+    def __eq__(self, other):
+        return self.kekule == other.kekule
+
     @property
     def mol(self):
         return Chem.Mol(self.binary)
@@ -42,7 +45,7 @@ class Backbone(AbstractMolecule):
         self.mapped_kekule = mapped_kekule
 
     def __eq__(self, other):
-        return self.kekule == other.kekule and self.mapped_kekule == other.mapped_kekule
+        return super().__eq__(other) and self.mapped_kekule == other.mapped_kekule
 
     @classmethod
     def from_mol(cls, mol):
