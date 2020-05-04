@@ -1,3 +1,4 @@
+from collections import namedtuple
 from copy import deepcopy
 from itertools import chain
 
@@ -492,33 +493,48 @@ class pKaPrediction(AbstractPrediction):
 
 
 class PeptidePlan:
+    PeptidePlanData = namedtuple('peptide_plan_data', 'reg_combos cap_combos length')
+
     def __init__(self, peptide_length):
-        self.combinations = set()
-        self.peptide_length = peptide_length
-        self.valid_lengths = (peptide_length, peptide_length + 1)
+        self.reg_combinations = set()
+        self.cap_combinations = set()
+        self.reg_length = peptide_length
+        self.cap_length = peptide_length + 1
 
     def __iter__(self):
-        return iter(self.combinations)
+        self.combos = chain(self.reg_combinations, self.cap_combinations)
+        return iter(self.combos)
 
     def __next__(self):
-        return next(self.combinations)
+        return next(self.combos)
 
     def __len__(self):
-        return len(self.combinations)
+        return len(self.reg_combinations) + len(self.cap_combinations)
 
     @classmethod
-    def from_array(cls, array):
-        peptide_plan = cls(len(array[0]))
-        peptide_plan.combinations = np.array(array)
+    def from_array_tuple(cls, peptide_length, array_tuple):
+        peptide_plan = cls(peptide_length)
+        peptide_plan.reg_combinations, peptide_plan.cap_combinations = utils.split(
+            array_tuple, pred=lambda x: x == peptide_length)
+
+        peptide_plan.reg_combinations = set(peptide_plan.reg_combinations)
+        peptide_plan.cap_combinations = set(peptide_plan.cap_combinations)
+
         return peptide_plan
 
+    @property
+    def combinations(self):
+        return self.reg_combinations.union(self.cap_combinations)
+
     def add(self, combination):
-        if isinstance(self.combinations, set) and len(combination) in self.valid_lengths:
-            self.combinations.add(combination)
+        if len(combination) == self.reg_length:
+            self.reg_combinations.add(combination)
+        elif len(combination) == self.cap_length:
+            self.cap_combinations.add(combination)
         else:
             raise RuntimeError('Cannot add to peptide plan once uniqueness checks have been switched off!')
 
     def data(self):
-        self.combinations = list(self.combinations)
-        self.combinations.sort(key=len)
-        return self.combinations
+        reg_combinations = np.array(list(self.reg_combinations))
+        cap_combinations = np.array(list(self.cap_combinations))
+        return self.PeptidePlanData(reg_combinations, cap_combinations, self.reg_length)

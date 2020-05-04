@@ -1,5 +1,6 @@
 import uuid
 
+import numpy as np
 import pytest
 from rdkit import Chem
 
@@ -581,8 +582,8 @@ def test_pka_prediction_to_dict(pka_prediction_from_dict):
 def test_peptide_plan_constructor(length):
     plan = models.PeptidePlan(length)
 
-    assert(plan.peptide_length == length)
-    assert(plan.valid_lengths == (length, length + 1))
+    assert plan.reg_length == length
+    assert plan.cap_length == length + 1
 
 
 @pytest.mark.parametrize('data, peptide_length, expected_len, expected_data', [
@@ -626,14 +627,14 @@ def test_peptide_plan_data(peptide_plan_data):
     data, peptide_length = peptide_plan_data
     plan = models.PeptidePlan(peptide_length)
 
-    for tup in data[:-1]:
+    for tup in data:
         plan.add(tup)
 
     plan_data = plan.data()
-    sorted_plan_data = sorted(plan_data, key=len)
 
-    assert(isinstance(plan_data, list))
-    assert(plan_data == sorted_plan_data)
-
-    with pytest.raises(RuntimeError):
-        plan.add(data[-1])
+    assert isinstance(plan_data, plan.PeptidePlanData)
+    assert isinstance(plan_data.reg_combos, np.ndarray)
+    assert isinstance(plan_data.cap_combos, np.ndarray)
+    assert np.array_equal(plan_data.reg_combos, np.array([data[0]]))
+    assert np.array_equal(plan_data.cap_combos, np.array([data[1]]))
+    assert plan_data.length == peptide_length
