@@ -1,82 +1,172 @@
 import os
-from copy import copy
 
 import h5py
 import pytest
 from rdkit import Chem
 
-import conftest
+# import conftest
 import cpmg.config as config
 import cpmg.hdf5 as hdf5
 import cpmg.ranges as ranges
-from data.mols import *
-
-TEST_DICT = {'A': 1, 'B': True, 'C': 1.0, 'D': b'test_bin_string',
-             'E': 'test_string', 'F': Chem.MolFromSmiles('CCC').ToBinary()}
-TEST_LIST = [TEST_DICT, TEST_DICT, TEST_DICT]
 
 
-@pytest.fixture
-def sidechain_repo(hdf5_repository):
-    group = 'sidechains'
-    dataset_1 = [TEST_SIDECHAIN_1, TEST_SIDECHAIN_2]
-    dataset_2 = [TEST_SIDECHAIN_3, TEST_SIDECHAIN_4]
-    ids = hdf5_repository.save(group, dataset_1)
-    ids.extend(hdf5_repository.save(group, dataset_2))
-    yield hdf5_repository, ids, group, dataset_1, dataset_2
+@pytest.fixture()
+def dict1():
+    return {'A': 15, 'B': False, 'C': -1.0, 'D': b'test_bin_string',
+            'E': 'test_string', 'F': Chem.MolFromSmiles('C[NH]C').ToBinary()}
 
 
-@pytest.fixture
-def monomer_repo(hdf5_repository):
-    group = 'monomers'
-    dataset_1 = [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3]
-    dataset_2 = [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6]
-    ids = hdf5_repository.save(group, dataset_1)
-    ids.extend(hdf5_repository.save(group, dataset_2))
-    yield hdf5_repository, ids, group
+@pytest.fixture()
+def dict2():
+    return {'A': 1, 'B': True, 'C': 11.0, 'D': b'test_bin_string',
+            'E': 'another_test_string', 'F': Chem.MolFromSmiles('C([OH])C').ToBinary()}
 
 
-def test_serialize_deserialize():
-    serialized_data = hdf5.serialize(TEST_DICT)
-
-    assert(isinstance(serialized_data, str))
-
-    deserialized_data = hdf5.deserialize(serialized_data)
-
-    assert(TEST_DICT == deserialized_data)
+@pytest.fixture()
+def dict3():
+    return {'A': -1, 'B': True, 'C': 1.0, 'D': b'test_bin_string',
+            'E': 'test_string2', 'F': Chem.MolFromSmiles('CCC').ToBinary()}
 
 
-def test_serialize_deserialize_chunk():
-    serialized_data = hdf5.serialize_chunk(TEST_LIST)
+@pytest.fixture()
+def list1(dict1, dict2, dict3):
+    key = lambda x: x['A']
+    return sorted([dict1, dict2, dict3], key=key), key
+
+
+@pytest.fixture(params=[
+    ('connection_dicts', hdf5.ConnectionHDF5Repository, ['0', 'index', 'kekule_index']),
+    ('backbone_dicts', hdf5.BackboneHDF5Repository, ['0', 'index', 'mapped_kekule_index']),
+    ('template_dicts', hdf5.TemplateHDF5Repository, ['0', 'index', 'kekule_index']),
+    ('sidechain_dicts', hdf5.SidechainHDF5Repository, ['0', 'index', 'kekule_index']),
+    ('monomer_dicts', hdf5.MonomerHDF5Repository, ['0', 'index', 'kekule_index']),
+    ('peptide_len_3_dicts', hdf5.PeptideHDF5Repository, ['3/0', 'index', 'kekule_index']),
+    ('peptide_len_4_dicts', hdf5.PeptideHDF5Repository, ['4/0', 'index', 'kekule_index']),
+    ('peptide_len_5_dicts', hdf5.PeptideHDF5Repository, ['5/0', 'index', 'kekule_index']),
+    ('template_peptide_len_3_dicts', hdf5.TemplatePeptideHDF5Repository, ['3/0', 'index', 'kekule_index']),
+    ('template_peptide_len_4_dicts', hdf5.TemplatePeptideHDF5Repository, ['4/0', 'index', 'kekule_index']),
+    ('template_peptide_len_5_dicts', hdf5.TemplatePeptideHDF5Repository, ['5/0', 'index', 'kekule_index']),
+    ('reaction_dicts', hdf5.ReactionHDF5Repository, ['0', 'index']),
+    ('regiosqm_dicts', hdf5.RegioSQMHDF5Repository, ['0', 'index', 'reacting_mol_index']),
+    ('pka_dicts', hdf5.pKaHDF5Repository, ['0', 'index', 'reacting_mol_index'])
+],
+    ids=['connections', 'backbones', 'templates', 'sidechains', 'monomers', 'peptides_3', 'peptides_4', 'peptides_5',
+         'template_peptides_3', 'template_peptides_4', 'template_peptides_5', 'reactions', 'regiosqm', 'pka'
+         ])
+def obj_data(request):
+    fixture, repo, datasets = request.param
+    fixture = request.getfixturevalue(fixture)
+    return fixture, repo(), datasets
+
+
+@pytest.fixture(params=[
+    ('peptide_plan_tuple_len_3', hdf5.PeptidePlanHDF5Repository, ['3/cap/0', '3/no_cap/0', 'index']),
+    ('peptide_plan_tuple_len_4', hdf5.PeptidePlanHDF5Repository, ['4/cap/0', '4/no_cap/0', 'index']),
+    ('peptide_plan_tuple_len_5', hdf5.PeptidePlanHDF5Repository, ['5/cap/0', '5/no_cap/0', 'index'])
+],
+    ids=['peptide_plan_tuple_3', 'peptide_plan_tuple_4', 'peptide_plan_tuple_5'])
+def array_data(request):
+    fixture, repo, datasets = request.param
+    fixture = request.getfixturevalue(fixture)
+    return fixture, repo(), datasets
+
+
+@pytest.fixture()
+def obj_repository_w_saved_data(obj_data):
+    dicts, repo, datasets = obj_data
+
+    ids = repo.save(dicts)
+
+    return dicts, repo, datasets, ids
+
+
+@pytest.fixture()
+def array_repository_w_saved_data(array_data):
+    arrays, repo, datasets = array_data
+
+    ids = repo.save(arrays)
+
+    return arrays, repo, datasets, ids
+
+
+@pytest.fixture()
+def obj_repository_w_inactive_records(obj_repository_w_saved_data):
+    dicts, repo, datasets, ids = obj_repository_w_saved_data
+
+    repo.deactivate_records(ids)
+
+    return dicts, repo, datasets, ids
+
+
+@pytest.fixture()
+def array_repository_w_inactive_records(array_repository_w_saved_data):
+    arrays, repo, datasets, ids = array_repository_w_saved_data
+
+    repo.deactivate_records(ids)
+
+    return arrays, repo, datasets, ids
+
+
+def recursive_search(group, group_name):
+    found_datasets = []
+    for obj in group:
+        obj = group[obj]
+        if isinstance(obj, h5py.Dataset):
+            name = obj.name
+            name = name.split('/')
+            name.remove(group_name)
+            name = '/'.join(name)
+            found_datasets.append(name[1:])
+        elif isinstance(obj, h5py.Group):
+            found_datasets.extend(recursive_search(obj, group_name))
+
+    return found_datasets
+
+
+def test_serialize_deserialize(list1):
+    ls, _ = list1
+    for doc in ls:
+        serialized_data = hdf5.serialize(doc)
+
+        assert isinstance(serialized_data, str)
+
+        deserialized_data = hdf5.deserialize(serialized_data)
+
+        assert doc == deserialized_data
+
+
+def test_serialize_deserialize_chunk(list1):
+    ls, key = list1
+    serialized_data = hdf5.serialize_chunk(ls)
 
     for serialized_str in serialized_data:
-        assert(isinstance(serialized_str, str))
+        assert isinstance(serialized_str, str)
 
     deserialized_data = hdf5.deserialize_chunk(serialized_data)
+    deserialized_data.sort(key=key)
 
-    for doc, deserialized_doc in zip(TEST_LIST, deserialized_data):
-        assert(doc == deserialized_doc)
+    assert deserialized_data == ls
 
 
 def test_hdf5_file_regular_open():
     file = hdf5.HDF5File()
 
-    assert(os.path.exists(config.HDF5_FILEPATH))
-    assert(file)
-    assert(len(list(file.keys())) == 0)
+    assert os.path.exists(config.HDF5_FILEPATH)
+    assert file
+    assert len(list(file.keys())) == 0
 
     file.close()
 
-    assert(not file)
+    assert not file
 
 
 def test_hdf5_file_context_manager():
     with hdf5.HDF5File() as file:
-        assert(os.path.exists(config.HDF5_FILEPATH))
-        assert(file)
-        assert(len(list(file.keys())) == 0)
+        assert os.path.exists(config.HDF5_FILEPATH)
+        assert file
+        assert len(list(file.keys())) == 0
 
-    assert(not file)
+    assert not file
 
 
 def test_hdf5_file_create_group():
@@ -85,199 +175,372 @@ def test_hdf5_file_create_group():
         group1 = file.create_group(group_name)
         group2 = file.create_group(group_name)
 
-        assert(isinstance(group1, h5py.Group))
-        assert(isinstance(group2, h5py.Group))
-        assert(group1.name == group2.name)
+        assert isinstance(group1, h5py.Group)
+        assert isinstance(group2, h5py.Group)
+        assert group1.name == group2.name
 
 
-def test_hdf5_initializer():
-    initializer = hdf5.HDF5Initializer()
-    initializer.initialize()
+def test_hdf5_repository_save(obj_repository_w_saved_data):
+    dicts, repo, datasets, _ = obj_repository_w_saved_data
+
+    # verify datasets have been made properly
     with hdf5.HDF5File() as file:
-        assert(sorted(list(file.keys())) == sorted(initializer.data_types))
+        found_datasets = recursive_search(file[repo.GROUP], repo.GROUP)
+        assert found_datasets == datasets
+        assert len(file[repo.GROUP][datasets[0]]) == len(dicts)
+
+    # verify indices have been made properly
+    for index in repo.indices:
+        stored_index = repo.get_index(index)
+        for doc in dicts:
+            attr_val = doc[index]
+            assert attr_val in stored_index
+            stored_index.pop(attr_val)
 
 
-def test_hdf5_repository_save_load_range_single(hdf5_repository):
-    group = 'sidechains'
-    hdf5_repository.save(group, TEST_SIDECHAIN_1)
+def test_hdf5_obj_repository_load_from_whole_range(obj_repository_w_saved_data, dict_sort_key):
+    dicts, repo, _, ids = obj_repository_w_saved_data
+
+    key = ranges.Key(ranges.WholeRange())
+    loaded_ids, loaded_data = zip(*list(repo.load(key)))
+    loaded_ids = list(loaded_ids)
+    loaded_data = list(loaded_data)
+
+    loaded_ids.sort()
+    loaded_data.sort(key=dict_sort_key)
+    dicts.sort(key=dict_sort_key)
+
+    assert loaded_data == dicts
+    assert ids == loaded_ids
+
+
+def test_hdf5_obj_repository_load_from_ids(obj_repository_w_saved_data, dict_sort_key):
+    dicts, repo, _, ids = obj_repository_w_saved_data
+
+    loaded_ids, loaded_data = zip(*list(repo.load(ids)))
+    loaded_ids = list(loaded_ids)
+    loaded_data = list(loaded_data)
+
+    loaded_ids.sort()
+    loaded_data.sort(key=dict_sort_key)
+    dicts.sort(key=dict_sort_key)
+
+    assert loaded_data == dicts
+    assert ids == loaded_ids
+
+
+def test_hdf5_obj_repository_load_from_index_vals(obj_repository_w_saved_data, extract_attr_from_dicts, dict_sort_key):
+    dicts, repo, _, ids = obj_repository_w_saved_data
+
+    for index in repo.DEFAULT_INDICES:
+        key = ranges.Key(extract_attr_from_dicts(dicts, index), index=index)
+        loaded_ids, loaded_data = zip(*list(repo.load(key)))
+        loaded_ids = list(loaded_ids)
+        loaded_data = list(loaded_data)
+
+        loaded_ids.sort()
+        loaded_data.sort(key=dict_sort_key)
+        dicts.sort(key=dict_sort_key)
+
+        assert loaded_data == dicts
+        assert ids == loaded_ids
+
+
+def test_hd5f_array_repository_save(array_repository_w_saved_data):
+    arrays, repo, datasets, _ = array_repository_w_saved_data
+
+    num_records = len(arrays.reg_combos) + len(arrays.cap_combos)
+
+    # verify datasets have been made properly
+    with hdf5.HDF5File() as file:
+        found_datasets = recursive_search(file[repo.GROUP], repo.GROUP)
+        assert found_datasets == datasets
+        for dataset in datasets:
+            if repo.INDEX_DATASET not in dataset:
+                num_records -= len(file[repo.GROUP][dataset])
+        assert num_records == 0
+
+
+def test_hdf5_array_repository_load_from_whole_range(array_repository_w_saved_data):
+    arrays, repo, _, ids = array_repository_w_saved_data
+
+    arrays = [list(record) for record in arrays.reg_combos + arrays.cap_combos]
+
+    key = ranges.Key(ranges.WholeRange())
+    loaded_ids, loaded_data = zip(*list(repo.load(key)))
+    loaded_ids = list(loaded_ids)
+    loaded_data = [list(record) for record in loaded_data]
+
+    loaded_ids.sort()
+    loaded_data.sort()
+    arrays.sort()
+
+    assert loaded_data == arrays
+    assert ids == loaded_ids
+
+
+def test_hdf5_array_repository_load_from_ids(array_repository_w_saved_data):
+    arrays, repo, _, ids = array_repository_w_saved_data
+
+    arrays = [list(record) for record in arrays.reg_combos + arrays.cap_combos]
+
+    loaded_ids, loaded_data = zip(*list(repo.load(ids)))
+    loaded_ids = list(loaded_ids)
+    loaded_data = [list(record) for record in loaded_data]
+
+    loaded_ids.sort()
+    loaded_data.sort()
+    arrays.sort()
+
+    assert loaded_data == arrays
+    assert ids == loaded_ids
+
+
+def test_hdf5_obj_repository_get_num_records(obj_repository_w_saved_data):
+    _, repo, _, ids = obj_repository_w_saved_data
+
+    assert repo.get_num_records() == len(ids)
+
+
+def test_hdf5_array_repository_get_num_records(array_repository_w_saved_data):
+    _, repo, _, ids = array_repository_w_saved_data
+
+    assert repo.get_num_records() == len(ids)
+
+
+def test_hdf5_obj_repository_get_datasets(obj_repository_w_saved_data):
+    _, repo, datasets, ids = obj_repository_w_saved_data
 
     with hdf5.HDF5File() as file:
-        assert(list(file[group].keys()) == ['0'])
-        assert(len(file[group]['0']) == 1)
+        found_datasets = recursive_search(file[repo.GROUP], repo.GROUP)
+        for dataset in list(found_datasets):
+            if repo.INDEX_DATASET in dataset:
+                found_datasets.remove(dataset)
 
-    _, data = zip(*list(hdf5_repository.load(group, ranges.WholeRange())))
-    assert(len(data) == 1)
-    assert(data[0] == TEST_SIDECHAIN_1)
-
-
-def test_hdf5_repository_save_load_range_multi(sidechain_repo):
-    repo, ids, group, dataset_1, dataset_2 = sidechain_repo
-    test_dataset = sorted(dataset_1 + dataset_2, key=lambda x: x['kekule'])
-
-    with hdf5.HDF5File() as file:
-        assert(list(file[group].keys()) == ['0', '1'])
-        assert(len(file[group]['0']) == 2)
-        assert(len(file[group]['1']) == 2)
-
-    _, data = zip(*list(repo.load(group, ranges.WholeRange())))
-    data = sorted(list(data), key=lambda x: x['kekule'])
-    assert(len(data) == 4)
-    for doc, test_doc in zip(data, test_dataset):
-        assert(doc == test_doc)
+    assert repo.get_datasets() == found_datasets
 
 
-def test_hdf5_repository_save_load_discrete_chunk_multi(sidechain_repo):
-    repo, ids, group, dataset_1, dataset_2 = sidechain_repo
-    test_dataset = sorted([dataset_1[0], dataset_2[1]], key=lambda x: x['kekule'])
+def test_hdf5_array_repository_get_datasets(array_repository_w_saved_data):
+    _, repo, datasets, ids = array_repository_w_saved_data
 
     with hdf5.HDF5File() as file:
-        assert(list(file[group].keys()) == ['0', '1'])
-        assert(len(file[group]['0']) == 2)
-        assert(len(file[group]['1']) == 2)
+        found_datasets = recursive_search(file[repo.GROUP], repo.GROUP)
+        for dataset in list(found_datasets):
+            if repo.INDEX_DATASET in dataset:
+                found_datasets.remove(dataset)
 
-    _, data = zip(*list(repo.load(group, ranges.DiscreteDataChunk([0, 3]))))
-    data = sorted(list(data), key=lambda x: x['kekule'])
-    assert(len(data) == 2)
-    for doc, test_doc in zip(data, test_dataset):
-        assert(doc == test_doc)
+    assert repo.get_datasets() == found_datasets
 
 
-def test_hdf5_repository_save_load_ids_single(hdf5_repository):
-    group = 'sidechains'
-    ids = hdf5_repository.save(group, TEST_SIDECHAIN_1)
+def test_hdf5_obj_repository_find(obj_repository_w_saved_data):
+    _, repo, _, ids = obj_repository_w_saved_data
+
+    locations = repo.find(ids)
+
+    found_ids = []
+    for path, indices in locations.items():
+        with hdf5.HDF5File() as file:
+            dataset = file[path]
+            for _id, idx in dataset.attrs.items():
+                if idx in indices:
+                    found_ids.append(_id)
+
+    assert sorted(found_ids) == ids
+
+
+def test_hdf5_array_repository_find(array_repository_w_saved_data):
+    _, repo, _, ids = array_repository_w_saved_data
+
+    locations = repo.find(ids)
+
+    found_ids = []
+    for path, indices in locations.items():
+        with hdf5.HDF5File() as file:
+            dataset = file[path]
+            for _id, idx in dataset.attrs.items():
+                if idx in indices:
+                    found_ids.append(_id)
+
+    assert sorted(found_ids) == ids
+
+
+def test_hdf5_obj_repository_remove_records(obj_repository_w_saved_data):
+    _, repo, _, ids = obj_repository_w_saved_data
+
+    prev_indices = {}
+    for index in repo.indices:
+        prev_indices[index] = repo.get_index(index)
+
+    removed_ids = ranges.Key([ids[0]])
+    repo.remove_records(removed_ids)
+
+    removed_locations = repo.find(removed_ids)
+    locations = repo.find(ids)
+
+    found_ids = []
+    for path, indices in locations.items():
+        with hdf5.HDF5File() as file:
+            dataset = file[path]
+            for _id, idx in dataset.attrs.items():
+                if idx in indices:
+                    found_ids.append(_id)
+
+    assert repo.get_num_records() == len(ids) - 1
+    assert len(removed_locations) == 0
+    assert len(found_ids) == len(ids) - 1
+    assert sorted(found_ids) != ids
+
+    for index in repo.indices:
+        assert prev_indices[index] != repo.get_index(index)
+
+
+def test_hdf5_array_repository_remove_records(array_repository_w_saved_data):
+    _, repo, _, ids = array_repository_w_saved_data
+
+    prev_indices = {}
+    for index in repo.indices:
+        prev_indices[index] = repo.get_index(index)
+
+    removed_ids = ranges.Key([ids[0]])
+    repo.remove_records(removed_ids)
+
+    removed_locations = repo.find(removed_ids)
+    locations = repo.find(ids)
+
+    found_ids = []
+    for path, indices in locations.items():
+        with hdf5.HDF5File() as file:
+            dataset = file[path]
+            for _id, idx in dataset.attrs.items():
+                if idx in indices:
+                    found_ids.append(_id)
+
+    assert repo.get_num_records() == len(ids) - 1
+    assert len(removed_locations) == 0
+    assert len(found_ids) == len(ids) - 1
+    assert sorted(found_ids) != ids
+
+    for index in repo.indices:
+        assert prev_indices[index] != repo.get_index(index)
+
+
+def test_hdf5_obj_repository_remove_dataset(obj_repository_w_saved_data):
+    _, repo, datasets, ids = obj_repository_w_saved_data
+
+    prev_indices = {}
+    for index in repo.indices:
+        prev_indices[index] = repo.get_index(index)
+
+    repo.remove_dataset(datasets[0])
 
     with hdf5.HDF5File() as file:
-        assert(list(file[group].keys()) == ['0'])
-        assert(len(file[group]['0']) == 1)
+        group = file[repo.GROUP]
+        found_datasets = sorted(list(group.keys()))
 
-    _, data = zip(*list(hdf5_repository.load(group, ids)))
-    assert(len(data) == 1)
-    assert(data[0] == TEST_SIDECHAIN_1)
+        assert datasets != found_datasets
+        for index in repo.indices:
+            assert prev_indices[index] != repo.get_index(index)
 
 
-def test_hdf5_repository_save_load_ids_multi(sidechain_repo):
-    repo, ids, group, dataset_1, dataset_2 = sidechain_repo
-    test_dataset = sorted(dataset_1 + dataset_2, key=lambda x: x['kekule'])
+def test_hdf5_array_repository_remove_dataset(array_repository_w_saved_data):
+    _, repo, datasets, ids = array_repository_w_saved_data
+
+    prev_indices = {}
+    for index in repo.indices:
+        prev_indices[index] = repo.get_index(index)
+
+    repo.remove_dataset(datasets[0])
 
     with hdf5.HDF5File() as file:
-        assert(list(file[group].keys()) == ['0', '1'])
-        assert(len(file[group]['0']) == 2)
-        assert(len(file[group]['1']) == 2)
+        group = file[repo.GROUP]
+        found_datasets = sorted(list(group.keys()))
 
-    _, data = zip(*list(repo.load(group, ids)))
-    data = sorted(list(data), key=lambda x: x['kekule'])
-    assert(len(data) == 4)
-    for doc, test_doc in zip(data, test_dataset):
-        assert(doc == test_doc)
+        assert datasets != found_datasets
+        for index in repo.indices:
+            assert prev_indices[index] != repo.get_index(index)
 
 
-@pytest.mark.parametrize('dataset1,dataset2,expected_result,hdf5_repository', [
-    ([TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3], [TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6], 6, ''),
-    ([], [], 0, '')], indirect=['hdf5_repository'])
-def test_hdf5_get_num_records(dataset1, dataset2, expected_result, hdf5_repository):
-    ids = hdf5_repository.save('monomers', dataset1)
-    ids.extend(hdf5_repository.save('monomers', dataset2))
+def test_hdf5_obj_repository_remove_index(obj_repository_w_saved_data):
+    _, repo, datasets, ids = obj_repository_w_saved_data
 
-    assert(hdf5_repository.get_num_records('monomers') == expected_result)
+    prev_indices = list(repo.indices)
 
+    if len(prev_indices) > 0:
+        repo.remove_index(prev_indices[0])
 
-def test_hdf5_find(monomer_repo):
-    repo, ids, group = monomer_repo
-
-    key = [ids[0], ids[3], ids[4]]
-    locations = repo.find(group, key)
-    values = sorted(list(locations.values()))
-    for value in values:
-        value.sort()
-
-    assert(len(key) == 0)
-    assert(len(locations) == 2)
-    assert(sorted(list(locations.keys())) == ['/' + group + '/0', '/' + group + '/1'])
-    assert(values == [[0], [0, 1]])
+        assert list(repo.indices) != prev_indices
 
 
-def test_hdf5_find_fail(monomer_repo):
-    repo, ids, group = monomer_repo
+def test_hdf5_array_repository_remove_index(array_repository_w_saved_data):
+    _, repo, datasets, ids = array_repository_w_saved_data
 
-    key = ['dne']
-    locations = repo.find(group, key)
+    prev_indices = list(repo.indices)
 
-    assert(len(key) == 1)
-    assert(len(locations) == 0)
+    if len(prev_indices) > 0:
+        repo.remove_index(prev_indices[0])
 
-
-def test_hdf5_remove(monomer_repo):
-    repo, ids, group = monomer_repo
-    key = [ids[0], ids[3], ids[4]]
-
-    assert(repo.remove(group, copy(key)))
-    with hdf5.HDF5File() as file:
-        assert(len(file[group]['0']) == 2)
-        assert(len(file[group]['1']) == 1)
-
-    locations = repo.find(group, key)
-    assert(len(key) == 3)
-    assert(len(locations) == 0)
+        assert list(repo.indices) != prev_indices
 
 
-def test_hdf5_move(monomer_repo):
-    repo, ids, group = monomer_repo
-    key = [ids[0], ids[3], ids[4]]
-    dest_group = 'misc/monomers'
+def test_hdf5_obj_repository_deactivate_records(obj_repository_w_inactive_records):
+    _, repo, datasets, ids = obj_repository_w_inactive_records
 
-    # assert remove operation worked
-    assert(repo.move(group, copy(key), dest_group))
-    with hdf5.HDF5File() as file:
-        assert(len(file[group]['0']) == 2)
-        assert(len(file[group]['1']) == 1)
-    locations = repo.find(group, key)
-    assert(len(key) == 3)
-    assert(len(locations) == 0)
+    found_datasets = repo.get_datasets()
+    num_records = repo.get_num_records()
+    for dataset in list(datasets):
+        if repo.INDEX_DATASET in dataset:
+            datasets.remove(dataset)
 
-    # assert copy operation worked
-    locations = repo.find(dest_group, key)
-    assert(len(key) == 0)
-    assert(len(locations) == 1)
+    assert found_datasets != datasets
+    assert num_records != len(ids)
+    for index in repo.indices:
+        assert len(repo.get_index(index)) == 0
 
 
-def test_hdf5_deactivate_records(monomer_repo):
-    repo, ids, group = monomer_repo
-    key = [ids[0], ids[3], ids[4]]
-    dest_group = 'inactives/monomers'
+def test_hdf5_array_repository_deactivate_records(array_repository_w_inactive_records):
+    _, repo, datasets, ids = array_repository_w_inactive_records
 
-    # assert remove operation worked
-    assert(repo.deactivate_records(group, copy(key)))
-    with hdf5.HDF5File() as file:
-        assert(len(file[group]['0']) == 2)
-        assert(len(file[group]['1']) == 1)
-    locations = repo.find(group, key)
-    assert(len(key) == 3)
-    assert(len(locations) == 0)
+    found_datasets = repo.get_datasets()
+    num_records = repo.get_num_records()
+    for dataset in list(datasets):
+        if repo.INDEX_DATASET in dataset:
+            datasets.remove(dataset)
 
-    # assert copy operation worked
-    locations = repo.find(dest_group, key)
-    assert(len(key) == 0)
-    assert(len(locations) == 1)
+    assert found_datasets != datasets
+    assert num_records != len(ids)
+    for index in repo.indices:
+        assert len(repo.get_index(index)) == 0
 
 
-def test_hdf5_activate_records(monomer_repo):
-    repo, ids, group = monomer_repo
-    key = [ids[0], ids[3], ids[4]]
-    dest_group = 'inactives/monomers'
-    repo.deactivate_records(group, copy(key))
+def test_hdf5_obj_repository_activate_records(obj_repository_w_inactive_records):
+    _, repo, datasets, ids = obj_repository_w_inactive_records
 
-    # assert remove operation worked
-    assert(repo.activate_records(group, copy(key)))
-    with hdf5.HDF5File() as file:
-        with pytest.raises(KeyError):
-            file[dest_group]['0']
-            file[dest_group]['1']
-        assert(len(file[group]) == 3)
-    locations = repo.find(dest_group, key)
-    assert(len(key) == 3)
-    assert(len(locations) == 0)
+    repo.activate_records(ids)
 
-    # assert copy operation worked
-    locations = repo.find(group, key)
-    assert(len(key) == 0)
-    assert(len(locations) == 1)
+    found_datasets = repo.get_datasets()
+    num_records = repo.get_num_records()
+    for dataset in list(datasets):
+        if repo.INDEX_DATASET in dataset:
+            datasets.remove(dataset)
+
+    assert found_datasets == datasets
+    assert num_records == len(ids)
+    for index in repo.indices:
+        assert len(repo.get_index(index)) == len(ids)
+
+
+def test_hdf5_array_repository_activate_records(array_repository_w_inactive_records):
+    _, repo, datasets, ids = array_repository_w_inactive_records
+
+    repo.activate_records(ids)
+
+    found_datasets = repo.get_datasets()
+    num_records = repo.get_num_records()
+    for dataset in list(datasets):
+        if repo.INDEX_DATASET in dataset:
+            datasets.remove(dataset)
+
+    assert found_datasets == datasets
+    assert num_records == len(ids)
+    for index in repo.indices:
+        assert len(repo.get_index(index)) == len(ids)

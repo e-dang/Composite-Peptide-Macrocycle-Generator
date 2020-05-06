@@ -7,7 +7,7 @@ import numpy as np
 
 import cpmg.config as config
 import cpmg.utils as utils
-from cpmg.ranges import Range
+from cpmg.ranges import Range, Key, WholeRange, IndexKey
 
 
 def serialize(data):
@@ -19,11 +19,11 @@ def deserialize(data):
 
 
 def serialize_chunk(data):
-    return [serialize(doc) for doc in data]
+    return [serialize(record) for record in data]
 
 
 def deserialize_chunk(data):
-    return [deserialize(doc) for doc in data]
+    return [deserialize(record) for record in data]
 
 
 class HDF5File(h5py.File):
@@ -45,73 +45,235 @@ class HDF5File(h5py.File):
         return super().create_group(group, track_order=track_order)
 
 
-class HDF5Initializer:
+class AbstractHDF5RepositoryImpl:
+    GROUP = None
+    DEFAULT_INDICES = None
+    INDEX_DATASET = 'index'
+    # def __repr__(self):
+    #     def recursive_print(obj, level):
+    #         spacing = '  ' * level
+    #         if level == 0:
+    #             print(obj.name + ' - ' + str(len(obj)))
+    #         else:
+    #             print(spacing + obj.name.split('/')[-1] + ' - ' + str(len(obj)))
+    #         if isinstance(obj, h5py.Dataset):
+    #             return
+    #         else:
+    #             for sub_obj in obj:
+    #                 recursive_print(obj[sub_obj], level + 1)
+
+    #     file = HDF5File()
+    #     recursive_print(file, 0)
+    #     return ''
+
     def __init__(self):
-        self.data_types = ['backbone', 'connections', 'templates', 'sidechains', 'monomers', 'peptides',
-                           'template_peptides', 'macrocycles', 'reactions', 'regiosqm', 'pka']
-
-    def initialize(self):
         with HDF5File() as file:
-            for data_type in self.data_types:
-                file.create_group(data_type)
+            group = file.create_group(self.GROUP)
+            self._init_index(group)
 
+    def load(self, key):
+        group = self._refine_group_from_key(self.GROUP, key)
+        return self._load(group, key)
 
-class HDF5Repository:
-    ENCODING = 'ascii'
-
-    def __repr__(self):
-        def recursive_print(obj, level):
-            spacing = '  ' * level
-            if level == 0:
-                print(obj.name + ' - ' + str(len(obj)))
-            else:
-                print(spacing + obj.name.split('/')[-1] + ' - ' + str(len(obj)))
-            if isinstance(obj, h5py.Dataset):
-                return
-            else:
-                for sub_obj in obj:
-                    recursive_print(obj[sub_obj], level + 1)
-
-        file = HDF5File()
-        recursive_print(file, 0)
-        return ''
-
-    def load(self, group, key):
-        if isinstance(key, list) and isinstance(key[0], str):
-            return self._load_ids(group, key)
-        else:
-            return self._load_range(group, key)
-
-    def save(self, group, data):
+    def save(self, data):
         data = utils.to_list(data)
         if len(data) == 0:
             return []
 
-        serialized_data = serialize_chunk(data)
-        max_bin_len = utils.get_maximum(serialized_data, len)
+        group = self._refine_group_from_data(self.GROUP, data)
+        return Key(self._save(group, data))
+
+    def remove_records(self, key):
+        return self._remove_records(self.GROUP, key)
+
+    def remove_dataset(self, datasets):
+        datasets = utils.to_list(datasets)
+        with HDF5File() as file:
+            group = file[self.GROUP]
+            for dataset in self._get_datasets(group):
+                if dataset in datasets:
+                    self._remove_index_data(self.GROUP, Key(list(group[dataset].attrs.keys())))
+                    del group[dataset]
+
+        return True
+
+    def remove_index(self, index):
+        with HDF5File() as file:
+            index_dataset = file[self.GROUP][self.INDEX_DATASET]
+            index_name = index_dataset.attrs[index]
+            del index_dataset.attrs[index]
+            del file[self.GROUP][index_name]
+            del self.indices[index]
+
+    def remove_inactive_dataset(self):
+        with HDF5File() as file:
+            del file['inactives'][self.GROUP]
+
+    def find(self, key):
+        return self._find(self.GROUP, key)
+
+    def deactivate_records(self, key):
+        src_group = self._refine_group_from_key(self.GROUP, key)
+        dest_group = self._refine_group('inactives', src_group)
+        return self._move(src_group, key, dest_group)
+
+    def activate_records(self, key):
+        src_group = self._refine_group_from_key(self._refine_group('inactives', self.GROUP), key)
+        return self._move(src_group, key, self.GROUP)
+
+    def get_num_records(self, dataset=None):
+        return self._get_num_records(self.GROUP, dataset)
+
+    def load_inactivate_records(self, key):
+        return self._load(self._refine_group_from_key(self._refine_group('inactives', self.GROUP), key), key)
+
+    def get_index(self, index):
+        try:
+            with HDF5File() as file:
+                dataset = file[self.GROUP][self.indices[index]]
+                return dict(dataset.attrs.items())
+        except KeyError:
+            raise KeyError(f'Index {index} does not exist!')
+
+    def get_datasets(self):
+        with HDF5File() as file:
+            return sorted(self._get_datasets(file[self.GROUP]))
+
+    def create_index(self, index):
+        with HDF5File() as file:
+            group = file[self.GROUP]
+            index_dataset = self._create_index_dataset(file[self.GROUP], group[self.INDEX_DATASET], index)
+            zipped_data = zip(*self.load(Key(WholeRange())))
+            ids, data = zipped_data
+            for record_index, _id in zip(self._extract_index_data(index, data), ids):
+                index_dataset.attrs[record_index] = _id
+
+    def _save(self, group, data, ids=None):
+        """
+        To be overriden by subclasses
+        """
+
+        pass
+
+    def _get_record(self, dataset, idx, _id):
+        """
+        To be overriden by subclasses
+        """
+
+        pass
+
+    def _init_index(self, group):
+        indices_dataset = group.require_dataset(self.INDEX_DATASET, shape=(0,), dtype='f', exact=True)
+        self.indices = dict(indices_dataset.attrs.items())
+        for index in self.DEFAULT_INDICES:
+            if index not in self.indices:
+                self._create_index_dataset(group, indices_dataset, index)
+
+    def _create_index_dataset(self, group, indices_dataset, index):
+        index_name = '_'.join([index, self.INDEX_DATASET])
+        indices_dataset.attrs[index] = index_name
+        self.indices[index] = index_name
+        return group.create_dataset(index_name, shape=(0,), dtype='f')
+
+    def _get_num_records(self, group, dataset=None):
+        num_records = 0
+        with HDF5File() as file:
+            if dataset is None:
+                for dataset in self._get_datasets(file[group]):
+                    num_records += len(file[group][dataset])
+            else:
+                num_records += len(file[group][dataset])
+
+        return num_records
+
+    def _load(self, group, key):
+        if isinstance(key.key, IndexKey):
+            return self._load_from_ids(group, self._convert_to_id_key(key))
+        else:
+            return self._load_from_range(group, key)
+
+    def _convert_to_id_key(self, key):
+        if key.index == 'id':
+            return key
+
+        return Key(list(self._get_ids_from_index(key)), peptide_length=key.peptide_length)
+
+    def _get_ids_from_index(self, key):
+        try:
+            with HDF5File() as file:
+                dataset = file[self.GROUP][self.indices[key.index]]
+                for index_val in key:
+                    try:
+                        yield dataset.attrs[index_val]
+                    except KeyError:
+                        print(f'The index {key.index} does not contain the value {index_val}! Skipping...')
+        except KeyError:
+            raise KeyError(f'{key.index} is not a recognized index!')
+
+    def _load_from_range(self, group, key):
+        with HDF5File() as file:
+            range_index = 0
+            try:
+                for dataset in self._get_datasets(file[group]):
+                    dataset = file[group][dataset]
+                    if key in Range(range_index, range_index + len(dataset)):
+                        # items must be sorted manually until track_order argument is fixed in h5py
+                        for _id, idx in sorted(dataset.attrs.items(), key=lambda x: x[1]):
+                            if range_index in key:
+                                yield self._get_record(dataset, idx, _id)
+                            range_index += 1
+                    else:
+                        range_index += len(dataset)
+            except KeyError:
+                return []
+
+    def _load_from_ids(self, group, key):
+        with HDF5File() as file:
+            try:
+                for dataset in self._get_datasets(file[group]):
+                    dataset = file[group][dataset]
+                    for _id, idx in dataset.attrs.items():
+                        if _id in key:
+                            yield self._get_record(dataset, idx, _id)
+            except KeyError:
+                return []
+
+    def _get_datasets(self, group):
+        paths = []
+
+        def find_dataset_path(name, obj):
+            if isinstance(obj, h5py.Dataset) and self.INDEX_DATASET not in name:
+                paths.append(name)
+
+        group.visititems(find_dataset_path)
+
+        return np.sort(paths)
+
+    def _find(self, group, key):
+        id_key = self._convert_to_id_key(key)
+        locations, func = self._get_finder(id_key)
 
         with HDF5File() as file:
-            dataset = self._create_dataset(file[group], len(serialized_data), str(max_bin_len))
-            ids = self._write(dataset, serialized_data, self._get_unique_ids(dataset))
-
-        return ids
-
-    def find(self, group, key):
-        locations = defaultdict(list)
-        with HDF5File() as file:
-            for dataset in file[group]:
-                dataset = file[group][dataset]
-                for _id, idx in dataset.attrs.items():
-                    if _id in key:
-                        locations[dataset.name].append(idx)
-                        key.remove(_id)
-                if dataset.name in locations:
-                    locations[dataset.name].sort()
+            file[group].visititems(func)
 
         return locations
 
-    def remove(self, group, key):
-        locations = self.find(group, key)
+    def _get_finder(self, key):
+        locations = defaultdict(list)
+
+        def find_ids(name, obj):
+            if isinstance(obj, h5py.Dataset):
+                for _id, idx in obj.attrs.items():
+                    if _id in key:
+                        locations[obj.name].append(idx)
+                if obj.name in locations:
+                    locations[obj.name].sort()
+
+        return locations, find_ids
+
+    def _remove_records(self, group, key):
+        id_key = self._convert_to_id_key(key)
+        locations = self._find(group, id_key)
         with HDF5File() as file:
             for path, indices in locations.items():
                 dataset = file[path]
@@ -123,47 +285,35 @@ class HDF5Repository:
                 else:
                     del file[path]
 
-        return True
-
-    def move(self, src_group, key, dest_group):
-        ids, data = zip(*self.load(src_group, key))
-        data = serialize_chunk(data)
-        max_bin_len = utils.get_maximum(data, len)
-
-        with HDF5File() as file:
-            dataset = self._create_dataset(file.create_group(dest_group), len(ids), str(max_bin_len))
-            self._write(dataset, data, ids)
-            self.remove(src_group, key)
+        self._remove_index_data(group, id_key)
 
         return True
 
-    def deactivate_records(self, group, key):
-        return self.move(group, key, '/'.join(['inactives', group]))
-
-    def activate_records(self, group, key):
-        return self.move('/'.join(['inactives', group]), key, group)
-
-    def get_num_records(self, group):
-        num_records = 0
+    def _remove_index_data(self, group, key):
         with HDF5File() as file:
-            for dataset in file[group]:
-                num_records += len(file[group][dataset])
+            for _, index_dataset in self.indices.items():
+                try:
+                    index_dataset = file[group][index_dataset]
+                    for index_value, _id in index_dataset.attrs.items():
+                        if _id in key:
+                            del index_dataset.attrs[index_value]
+                except KeyError:
+                    continue
 
-        return num_records
+    def _move(self, src_group, key, dest_group):
+        ids, data = zip(*self._load(src_group, key))
+        data = list(data)
 
-    def _write(self, dataset, data, ids):
-        used_ids = []
-        for i, (doc, _id) in enumerate(zip(data, ids)):
-            dataset[i] = doc.encode(self.ENCODING)
-            dataset.attrs[_id] = i
-            used_ids.append(_id)
+        dest_group = self._refine_group_from_data(dest_group, data)
+        self._save(dest_group, data, ids=ids)
+        self._remove_records(src_group, key)
 
-        return used_ids
+        return True
 
     def _remove_values(self, dataset, indices):
         data = dataset[indices]
-        dataset[: len(data)] = data
-        dataset.resize((len(data),))
+        dataset[:len(data)] = data
+        dataset.resize(data.shape)
 
     def _remove_ids(self, dataset, indices):
         items = list(filter(lambda x: x[1] in indices, dataset.attrs.items()))
@@ -181,30 +331,287 @@ class HDF5Repository:
             if _id not in dataset.attrs:
                 yield _id
 
-    def _create_dataset(self, group, rows, dlen):
+    def _get_next_dataset_name(self, group):
         max_idx = utils.get_maximum(group, int)
         max_idx = -1 if max_idx is None else max_idx
-        return group.create_dataset(str(max_idx + 1), (rows,), maxshape=(None,), chunks=True, dtype='S' + dlen,
+        return str(max_idx + 1)
+
+    def _refine_group(self, group, *args):
+        return '/'.join([group, *args])
+
+    def _refine_group_from_key(self, group, key):
+        return group
+
+    def _refine_group_from_data(self, group, data):
+        return group
+
+    def _extract_index_data(self, index, data):
+        for record in data:
+            yield record[index]
+
+
+class HDF5ObjRepositoryImpl(AbstractHDF5RepositoryImpl):
+    ENCODING = 'ascii'
+
+    def _save(self, group, data, ids=None):
+        serialized_data = serialize_chunk(data)
+        max_bin_len = utils.get_maximum(serialized_data, len)
+
+        with HDF5File() as file:
+            dataset = self._create_dataset(file.create_group(group), len(serialized_data), str(max_bin_len))
+            ids = self._write(dataset, serialized_data, ids or self._get_unique_ids(dataset))
+
+        self._update_indices(data, ids)
+
+        return ids
+
+    def _create_dataset(self, group, rows, dlen):
+        dataset = self._get_next_dataset_name(group)
+        return group.create_dataset(dataset, (rows,), maxshape=(None,), chunks=True, dtype='S' + dlen,
                                     compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
 
-    def _load_range(self, group, key):
+    def _update_indices(self, data, ids):
         with HDF5File() as file:
-            range_index = 0
-            for dataset in file[group]:
-                dataset = file[group][dataset]
-                if key in Range(range_index, range_index + len(dataset)):
-                    # items must be sorted manually until track_order argument is fixed in h5py
-                    for _id, idx in sorted(dataset.attrs.items(), key=lambda x: x[1]):
-                        if range_index in key:
-                            yield (_id, deserialize(dataset[idx].decode(self.ENCODING)))
-                        range_index += 1
-                else:
-                    range_index += len(dataset)
+            for index, index_dataset in self.indices.items():
+                index_dataset = file[self.GROUP][index_dataset]
+                for record_index, _id in zip(self._extract_index_data(index, data), ids):
+                    index_dataset.attrs[record_index] = _id
 
-    def _load_ids(self, group, key):
+    def _write(self, dataset, data, ids):
+        used_ids = []
+        for i, (record, _id) in enumerate(zip(data, ids)):
+            dataset[i] = record.encode(self.ENCODING)
+            dataset.attrs[_id] = i
+            used_ids.append(_id)
+
+        return used_ids
+
+    def _get_record(self, dataset, idx, _id):
+        return (_id, deserialize(dataset[idx].decode(self.ENCODING)))
+
+
+class HDF5ArrayRepositoryImpl(AbstractHDF5RepositoryImpl):
+    GROUP = 'array'
+    DEFAULT_INDICES = []
+
+    def _save(self, group, data, ids=None):
         with HDF5File() as file:
-            for dataset in file[group]:
-                dataset = file[group][dataset]
-                for _id, idx in dataset.attrs.items():
-                    if _id in key:
-                        yield (_id, deserialize(dataset[idx].decode(self.ENCODING)))
+            dataset = self._create_dataset(file.create_group(group), data)
+            return self._write(dataset, ids or self._get_unique_ids(dataset))
+
+    def _create_dataset(self, group, data):
+        dataset = self._get_next_dataset_name(group)
+        return group.create_dataset(dataset, data=data, chunks=True, compression=config.COMPRESSION,
+                                    compression_opts=config.COMPRESSION_OPTS)
+
+    def _write(self, dataset, ids):
+        used_ids = []
+        for i, (_, _id) in enumerate(zip(dataset, ids)):
+            dataset.attrs[_id] = i
+            used_ids.append(_id)
+
+        return used_ids
+
+    def _get_record(self, dataset, idx, _id):
+        return (_id, dataset[idx])
+
+
+class ConnectionHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'connections'
+    DEFAULT_INDICES = ['kekule']
+
+
+class BackboneHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'sidechains'
+    DEFAULT_INDICES = ['mapped_kekule']
+
+
+class TemplateHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'templates'
+    DEFAULT_INDICES = ['kekule']
+
+
+class SidechainHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'sidechains'
+    DEFAULT_INDICES = ['kekule']
+
+
+class MonomerHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'monomers'
+    DEFAULT_INDICES = ['kekule']
+
+
+class PeptideHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'peptides'
+    DEFAULT_INDICES = ['kekule']
+
+    def _refine_group_from_key(self, group, key):
+        try:
+            peptide_length = key.peptide_length
+            if peptide_length is not None:
+                group = self._refine_group(group, str(peptide_length))
+        except AttributeError:
+            pass
+
+        return group
+
+    def _refine_group_from_data(self, group, data):
+        peptide_length = str(data[0]['length'])
+        return self._refine_group(group, peptide_length)
+
+
+class TemplatePeptideHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'template_peptides'
+    DEFAULT_INDICES = ['kekule']
+
+    def _refine_group_from_key(self, group, key):
+        try:
+            peptide_length = key.peptide_length
+            if peptide_length is not None:
+                group = self._refine_group(group, str(peptide_length))
+        except AttributeError:
+            pass
+
+        return group
+
+    def _refine_group_from_data(self, group, data):
+        peptide_length = str(data[0]['peptide']['length'])
+        return self._refine_group(group, peptide_length)
+
+
+class ReactionHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'reactions'
+    DEFAULT_INDICES = []
+
+
+class RegioSQMHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'regiosqm'
+    DEFAULT_INDICES = ['reacting_mol']
+
+
+class pKaHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = 'pka'
+    DEFAULT_INDICES = ['reacting_mol']
+
+
+class PeptidePlanHDF5Repository(HDF5ArrayRepositoryImpl):
+    GROUP = 'peptide_plan'
+    DEFAULT_INDICES = []
+
+    def _save(self, group, data, ids=None):
+        try:
+            temp_group = self._refine_group(group, 'no_cap')
+            _ids = super()._save(temp_group, data.reg_combos, ids)
+
+            temp_group = self._refine_group(group, 'cap')
+            _ids.extend(super()._save(temp_group, data.cap_combos, ids))
+        except AttributeError:  # used when moving data
+            peptide_length = [int(s) for s in group.split('/') if s.isdigit()][0]
+            no_cap_data, cap_data = utils.split(data, lambda x: len(x) == peptide_length)
+
+            if len(no_cap_data) != 0:
+                temp_group = self._refine_group(group, 'no_cap')
+                _ids = super()._save(temp_group, np.array(no_cap_data), ids[:len(no_cap_data)])
+
+            if len(cap_data) != 0:
+                temp_group = self._refine_group(group, 'cap')
+                _ids.extend(super()._save(temp_group, np.array(cap_data), ids[len(no_cap_data):]))
+
+        return _ids
+
+    def _refine_group_from_key(self, group, key):
+        try:
+            peptide_length = key.peptide_length
+            if peptide_length is not None:
+                group = self._refine_group(group, str(peptide_length))
+        except AttributeError:
+            pass
+
+        return group
+
+    def _refine_group_from_data(self, group, data):
+        try:
+            peptide_length = str(data.length)
+        except AttributeError:
+            lengths = np.unique(list(map(len, data)))
+            if len(lengths) == 1:
+                peptide_length = str(lengths[0])
+            else:
+                peptide_length = str(min(lengths))
+
+        return self._refine_group(group, peptide_length)
+
+
+# class HDF5Repository:
+#     def __init__(self):
+#         self.connection_repo = ConnectionHDF5Repository()
+#         self.backbone_repo = BackboneHDF5Repository()
+#         self.template_repo = TemplateHDF5Repository()
+#         self.sidechain_repo = SidechainHDF5Repository()
+#         self.monomer_repo = MonomerHDF5Repository()
+#         self.peptide_repo = PeptideHDF5Repository()
+#         self.template_peptide_repo = TemplatePeptideHDF5Repository()
+#         self.macrocycle_repo = MacrocycleHDF5Repository()
+#         self.reaction_repo =
+
+# repo = HDF5ObjRepositoryImpl()
+# repo.remove_dataset(list(map(str, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])))
+# repo.deactivate_records(['016e32e4-b314-48fe-b5c8-83a7627b8258', 'da59be8d-80f1-406e-9075-0454a57f2198'])
+# ids = repo.save([{'a': 1}, {'a': 2}])
+# print(ids)
+# print(repo.find(ids))
+# print(list(repo.load(ids)))
+
+# arr_repo = HDF5ArrayRepositoryImpl()
+# ids = arr_repo.save(np.array([[1, 2, 3], [4, 5, 6]]))
+# print(ids)
+# print(arr_repo.find(ids))
+# print(list(arr_repo.load(ids)))
+
+
+# pep_repo = PeptideHDF5Repository()
+# pep_repo.remove_dataset(list(map(lambda x: '4/' + str(x), range(1))))
+# pep_repo.remove_index('test_val')
+# pep_repo.remove_inactive_dataset()
+# ids = pep_repo.save([{'peptide_length': 4, 'a': 1, 'kekule': 'CCC', 'test_val': '10'},
+#                      {'peptide_length': 4, 'a': 2, 'kekule': 'CCCC', 'test_val': '11'}])
+# pep_repo.create_index('test_val')
+# pep_repo.print_index('test_val')
+# pep_repo.print_index('kekule')
+# print(list(pep_repo.load(Key(['C', 'CC'], index='kekule'))))
+# print(pep_repo.find(Key(['C', 'CC'], index='kekule')))
+# pep_repo.remove_records(Key(['C'], index='kekule'))
+
+
+# pep_repo.print_index('kekule')
+# pep_repo.deactivate_records(Key(['CC'], index='kekule'))
+# pep_repo.print_index('kekule')
+# inactives = list(pep_repo.load_inactivate_records(Key(WholeRange())))
+# print(inactives)
+# pep_repo.activate_records(Key([inactives[0][0]]))
+# print(list(pep_repo.load_inactivate_records(Key(WholeRange()))))
+# pep_repo.print_index('kekule')
+# print(list(pep_repo.load(Key(['CC'], index='kekule'))))
+
+
+# print(ids)
+# print(pep_repo.find(ids))
+# print(list(pep_repo.load(ids)))
+# print(list(pep_repo.load(Key(WholeRange(), peptide_length=4))))
+# records = list(pep_repo.load(Key(WholeRange())))
+# ids = [record[0] for record in records]
+# pep_repo.remove_records(ids)
+# print(list(pep_repo.load(Key(WholeRange()))))
+
+
+# plan_repo = PeptidePlanHDF5Repository()
+# plan_repo.deactivate_records(Key(['99b8fbcc-ac4e-4c77-8753-a9027fa811d6', 'c65bac42-5884-4d0f-9e7e-49242c4ed2a3', 'd3040dfa-099e-47bc-bd13-548f64b6b1bf',
+#                                   '5dab3cb2-0314-4e06-b6f3-68da94073e04', 'ab0963ff-b6cc-4ec7-9317-3bc54cf305e7', 'babea952-a315-4173-b9cd-715273e1aac1'], peptide_length=3))
+# ids = plan_repo.save((np.asarray([[1, 2, 3], [1, 2, 4], [3, 4, 5]]),
+#                       np.asarray([[1, 2, 3, 4], [1, 2, 4, 3], [3, 4, 5, 7]])))
+# print(plan_repo.find(ids))
+# print(list(plan_repo.load(ids)))
+# records = list(plan_repo.load(Key(WholeRange(), peptide_length=None)))
+# ids = [record[0] for record in records]
+# plan_repo.remove_records(Key(ids))
+# print(list(plan_repo.load(Key(WholeRange(), peptide_length=None))))
