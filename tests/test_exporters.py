@@ -4,14 +4,13 @@ import pytest
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-import conftest
 import cpmg.config as config
 import cpmg.exporters as exporters
 from cpmg.io_formats import load_json
 
 
 @pytest.fixture()
-def import_paths(monkeypatch, hdf5_repository_with_imports):
+def import_paths(monkeypatch, initialized_repository):
     sidechain_import_path = os.path.join(config.IMPORT_DIR, 'sidechains.json')
     monomer_import_path = os.path.join(config.IMPORT_DIR, 'monomers.json')
     yield sidechain_import_path, monomer_import_path

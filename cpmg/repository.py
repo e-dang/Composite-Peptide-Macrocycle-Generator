@@ -22,7 +22,7 @@ class AbstractRepository:
         self.impl = impl
         self.failed_instances = []
 
-    def load(self, key=WholeRange()):
+    def load(self, key=Key(WholeRange())):
         for _id, data in self.impl.load(key):
             yield self.TYPE.from_dict(data, _id=_id)
 

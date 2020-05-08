@@ -4,11 +4,6 @@ import cpmg.repository as repo
 from data.mols import *
 
 
-@pytest.fixture(autouse=True)
-def reset(hdf5_reset):
-    yield None
-
-
 @pytest.mark.parametrize('impl,expected_result', [(repo.HDF5, repo.hdf5.HDF5Repository)])
 def test_repository_impl_from_string(impl, expected_result):
 

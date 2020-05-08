@@ -348,24 +348,25 @@ class Monomer(AbstractMolecule):
 
 
 class Peptide(AbstractMolecule):
-    def __init__(self, binary, kekule, has_cap, monomers, _id=None):
+    def __init__(self, binary, kekule, length, has_cap, monomers, _id=None):
         super().__init__(binary, kekule, _id)
+        self.length = length
         self.has_cap = has_cap
         self.monomers = monomers
 
     def __eq__(self, other):
-        return self.kekule == other.kekule and self.has_cap == other.has_cap and self.monomers == other.monomers
+        return self.kekule == other.kekule and self.length == other.length and self.has_cap == other.has_cap and self.monomers == other.monomers
 
     @classmethod
-    def from_mol(cls, mol, has_cap, monomers):
+    def from_mol(cls, mol, length, has_cap, monomers):
         Chem.Kekulize(mol)
         monomers = [{'_id': monomer._id, 'sidechain': monomer.sidechain,
                      'proline': monomer.proline} for monomer in monomers]
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), has_cap, monomers)
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), length, has_cap, monomers)
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], data['has_cap'], data['monomers'], _id=_id)
+        return cls(data['binary'], data['kekule'], data['length'], data['has_cap'], data['monomers'], _id=_id)
 
 
 class TemplatePeptide(AbstractMolecule):
@@ -467,6 +468,9 @@ class AbstractPrediction:
         self.reacting_mol = reacting_mol
         self.solvent = solvent
 
+    def __eq__(self, other):
+        return self.predictions == other.predictions and self.reacting_mol == other.reacting_mol and self.solvent == other.solvent
+
     def to_dict(self):
         data = deepcopy(self.__dict__)
         data.pop('_id')
@@ -477,6 +481,9 @@ class RegioSQMPrediction(AbstractPrediction):
     def __init__(self, predictions, reacting_mol, solvent, cutoff, _id=None):
         super().__init__(predictions, reacting_mol, solvent, _id)
         self.cutoff = cutoff
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.cutoff == other.cutoff
 
     @classmethod
     def from_dict(cls, data, _id=None):
@@ -496,6 +503,7 @@ class PeptidePlan:
     PeptidePlanData = namedtuple('peptide_plan_data', 'reg_combos cap_combos length')
 
     def __init__(self, peptide_length):
+        self.ids = None
         self.reg_combinations = set()
         self.cap_combinations = set()
         self.reg_length = peptide_length
@@ -515,10 +523,10 @@ class PeptidePlan:
     def from_array_tuple(cls, peptide_length, array_tuple):
         peptide_plan = cls(peptide_length)
         peptide_plan.reg_combinations, peptide_plan.cap_combinations = utils.split(
-            array_tuple, pred=lambda x: x == peptide_length)
+            array_tuple, pred=lambda x: len(x[1]) == peptide_length)
 
-        peptide_plan.reg_combinations = set(peptide_plan.reg_combinations)
-        peptide_plan.cap_combinations = set(peptide_plan.cap_combinations)
+        peptide_plan.reg_combinations = peptide_plan.reg_combinations
+        peptide_plan.cap_combinations = peptide_plan.cap_combinations
 
         return peptide_plan
 
@@ -532,7 +540,7 @@ class PeptidePlan:
         elif len(combination) == self.cap_length:
             self.cap_combinations.add(combination)
         else:
-            raise RuntimeError('Cannot add to peptide plan once uniqueness checks have been switched off!')
+            raise RuntimeError('The combination does not meet the peptide plan\'s requirements!')
 
     def data(self):
         reg_combinations = np.array(list(self.reg_combinations))

@@ -3,7 +3,6 @@ import os
 import pytest
 from rdkit.Chem import AllChem
 
-import conftest
 import cpmg.config as config
 import cpmg.exceptions as exceptions
 import cpmg.importers as importers
@@ -14,7 +13,7 @@ from data.mols import *
 
 
 @pytest.fixture()
-def json_importer(hdf5_repository):
+def json_importer():
     yield importers.JsonImporter()
 
 
@@ -190,7 +189,7 @@ def test_pka_prediction_importer(mol_importers):
         test_data.remove(prediction.to_dict())
 
 
-def test_create_importers(hdf5_repository):
+def test_create_importers():
     instances = importers.create_importers()
     types = list(map(type, instances))
     assert(len(instances) == 5)

@@ -90,7 +90,7 @@ class PeptideGenerator():
             self.peptide = self.decarboxylate_c_term()
             has_c_cap = True
 
-        return [models.Peptide.from_mol(self.peptide, has_c_cap, monomers)]
+        return [models.Peptide.from_mol(self.peptide, self.peptide_length, has_c_cap, monomers)]
 
     def initialize_peptide(self, monomer):
         self.pep_size = 1
