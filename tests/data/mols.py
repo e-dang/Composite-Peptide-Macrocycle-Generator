@@ -82,6 +82,28 @@ TEST_MONOMER_6 = {'binary': Chem.MolFromSmiles('NCCCC[C@H](N)C(=O)O').ToBinary()
                   'connection': None, 'imported': True}
 TEST_MONOMERS = [TEST_MONOMER_1, TEST_MONOMER_2, TEST_MONOMER_3, TEST_MONOMER_4, TEST_MONOMER_5, TEST_MONOMER_6]
 
+TEST_MONOMER_IDX_1 = {'binary': Chem.MolFromSmiles('O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1').ToBinary(
+), 'kekule': 'O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1', 'index': 1, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'},
+    'sidechain': None, 'connection': None, 'imported': True}
+TEST_MONOMER_IDX_2 = {'binary': Chem.MolFromSmiles('COC1=CC=C2C(O[C@@H]3CN[C@H](C(=O)O)C3)=CC(C3=CC=CC=C3)=NC2=C1').ToBinary(
+), 'kekule': 'COC1=CC=C2C(O[C@@H]3CN[C@H](C(=O)O)C3)=CC(C3=CC=CC=C3)=NC2=C1', 'index': 2, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'},
+    'sidechain': None, 'connection': None, 'imported': True}
+TEST_MONOMER_IDX_3 = {'binary': Chem.MolFromSmiles('NC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O').ToBinary(
+), 'kekule': 'NC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O', 'index': 3, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'},
+    'sidechain': 'af', 'connection': 'C', 'imported': False}
+TEST_MONOMER_IDX_4 = {'binary': Chem.MolFromSmiles('NC(CC(=O)O)CC1=CC=CC2=N[NH]C(=O)N12').ToBinary(
+), 'kekule': 'NC(CC(=O)O)CC1=CC=CC2=N[NH]C(=O)N12', 'index': 4, 'backbone': {'_id': 'beta2', 'kekule': 'NCCC(=O)O'},
+    'sidechain': 'af', 'connection': 'C', 'imported': False}
+TEST_MONOMER_IDX_5 = {'binary': Chem.MolFromSmiles('NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O').ToBinary(
+), 'kekule': 'NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O', 'index': 5, 'backbone': {'_id': 'beta3', 'kekule': 'NCCC(=O)O'},
+    'sidechain': 'af', 'connection': 'C', 'imported': False}
+TEST_MONOMER_IDX_6 = {'binary': Chem.MolFromSmiles('NCCCC[C@H](N)C(=O)O').ToBinary(), 'kekule': 'NCCCC[C@H](N)C(=O)O',
+                      'index': 6, 'backbone': {'_id': 'alpha', 'kekule': 'NCC(=O)O'}, 'sidechain': None,
+                      'connection': None, 'imported': True}
+
+TEST_MONOMERS_W_IDXS = [TEST_MONOMER_IDX_1, TEST_MONOMER_IDX_2,
+                        TEST_MONOMER_IDX_3, TEST_MONOMER_IDX_4, TEST_MONOMER_IDX_5, TEST_MONOMER_IDX_6]
+
 TEST_PEPTIDE_1 = {'binary': Chem.MolFromSmiles(
     'NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1').ToBinary(),
     'kekule': 'NCC(=O)NC(CC(=O)NC(CC(=O)NCC(CC1=CC2=C(OC=C2)S1)C(=O)NC(CC1=CC=C2C=CC=CC=C21)C(=O)O)CC1=CC=CO1)CC1=C2C=CSC2=NS1',
@@ -217,6 +239,8 @@ TEST_MACROCYCLE_2 = {'binary': Chem.MolFromSmiles('C#CC[C@@]12CCCN1C(=O)[C@H](CC
                      'reactions': [{'_id': str(uuid.uuid4()), 'type': rxns.AldehydeCyclization.TYPE},
                                    {'_id': str(uuid.uuid4()), 'type': rxns.FriedelCrafts.TYPE}]}
 
+TEST_MACROCYCLES = [TEST_MACROCYCLE_1, TEST_MACROCYCLE_2]
+
 TEST_REACTION_1 = {'type': 'tsuji_trost', 'binary': AllChem.ReactionFromSmarts('(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1').ToBinary(),
                    'smarts': '(c1c([*:3])ccc([OH:4])c1.C(=C/[*:50])\\[CH3:2])>>C(=C/[*:50])\\[CH2:2][O:4]c1ccc([*:3])cc1',
                    'template': 'temp1',
@@ -267,7 +291,7 @@ PYR_RESULT_SMARTS_1 = [f'(c1ccc2c(c1)[nH][cH:{rxns.Pyrroloindoline.ADJ_CARBON_MA
 TPS_RESULTS_SMARTS_1 = [f'(C#CCCC[C@@](CC(=O)[NH:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}][*:{models.Template.WC_MAP_NUM_1}])(Cc1cc([*:{models.Template.WC_MAP_NUM_2}])cc[cH:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1)[CH:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]=O)>>C#CCCC[C@]12CC(=O)[N:{rxns.TemplatePictetSpangler.NITROGEN_MAP_NUM}]([*:{models.Template.WC_MAP_NUM_1}])[C@H:{rxns.TemplatePictetSpangler.ALDEHYDE_C_MAP_NUM}]1[c:{rxns.TemplatePictetSpangler.EAS_MAP_NUM}]1ccc([*:{models.Template.WC_MAP_NUM_2}])cc1C2']
 ALD_RESULT_SMARTS_1 = [f'(O=[C:{rxns.AldehydeCyclization.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]([C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C[CH:{rxns.AldehydeCyclization.ALDEHYDE_C_MAP_NUM}]=O)[NH:{rxns.AldehydeCyclization.BACKBONE_NITROGEN_MAP_NUM}][*:{rxns.AldehydeCyclization.BACKBONE_CARBOXYL_MAP_NUM}])>>O=[C:{rxns.AldehydeCyclization.TEMPLATE_OLIGOMERIZATION_MAP_NUM}]1[C@@H](C[*:{models.Template.WC_MAP_NUM_1}])C=[CH:{rxns.AldehydeCyclization.ALDEHYDE_C_MAP_NUM}][N:{rxns.AldehydeCyclization.BACKBONE_NITROGEN_MAP_NUM}]1[*:{rxns.AldehydeCyclization.BACKBONE_CARBOXYL_MAP_NUM}]']
 
-TEST_PEPTIDE_PLAN_LEN_3 = models.PeptidePlan.PeptidePlanData([(1, 2, 3), (3, 4, 5)], [(6, 7, 8, 9)], 3)
+TEST_PEPTIDE_PLAN_LEN_3 = models.PeptidePlan.PeptidePlanData([(1, 2, 3), (3, 4, 5)], [(1, 2, 3, 4)], 3)
 TEST_PEPTIDE_PLAN_LEN_4 = models.PeptidePlan.PeptidePlanData(
-    [(1, 23, 4, 5), (1, 3, 5, 5)], [(12, 4, 5, 64, 3), (1, 3, 5, 43, 2)], 4)
-TEST_PEPTIDE_PLAN_LEN_5 = models.PeptidePlan.PeptidePlanData([(1, 3, 4, 5, 3), (123, 493, 123, 45, 24)], [], 5)
+    [(1, 2, 3, 4), (1, 3, 5, 5)], [(1, 4, 5, 6, 3), (1, 3, 5, 4, 2)], 4)
+TEST_PEPTIDE_PLAN_LEN_5 = models.PeptidePlan.PeptidePlanData([(1, 3, 4, 5, 3), (1, 3, 2, 5, 4)], [], 5)

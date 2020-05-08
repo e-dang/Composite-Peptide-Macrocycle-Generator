@@ -1,10 +1,25 @@
 import os
+import uuid
+from copy import deepcopy
+
 import pytest
-import cpmg.hdf5 as hdf5
+
 import cpmg.config as config
-from cpmg.initializer import CPMGInitializer
+import cpmg.hdf5 as hdf5
 import cpmg.models as models
+from cpmg.initializer import CPMGInitializer
 from data.mols import *
+
+
+def gen_ids(num_ids):
+    return [str(uuid.uuid4()) for i in range(num_ids)]
+
+
+def add_ids(data):
+    data = deepcopy(data)
+    for doc in data:
+        doc['_id'] = str(uuid.uuid4())
+    return data
 
 
 @pytest.fixture(autouse=True)
@@ -67,7 +82,10 @@ def model_sort_key():
 @pytest.fixture(autouse=True)
 def models_from_dict():
     def func(model, *args):
-        return [model.from_dict(doc) for doc in args]
+        try:
+            return [model.from_dict(doc, _id=doc['_id']) for doc in args]
+        except KeyError:
+            return [model.from_dict(doc) for doc in args]
 
     return func
 
@@ -102,8 +120,18 @@ def connection_dicts(dict_sort_key):
 
 
 @pytest.fixture()
+def connection_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_CONNECTIONS), key=dict_sort_key)
+
+
+@pytest.fixture()
 def backbone_dicts(dict_sort_key):
     return sorted(TEST_BACKBONES, key=lambda x: x['mapped_kekule'])
+
+
+@pytest.fixture()
+def backbone_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_BACKBONES), key=lambda x: x['mapped_kekule'])
 
 
 @pytest.fixture()
@@ -112,13 +140,28 @@ def template_dicts(dict_sort_key):
 
 
 @pytest.fixture()
+def template_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_TEMPLATES), key=dict_sort_key)
+
+
+@pytest.fixture()
 def sidechain_dicts(dict_sort_key):
     return sorted(TEST_SIDECHAINS, key=dict_sort_key)
 
 
 @pytest.fixture()
+def sidechain_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_SIDECHAINS), key=dict_sort_key)
+
+
+@pytest.fixture()
 def monomer_dicts(dict_sort_key):
     return sorted(TEST_MONOMERS, key=dict_sort_key)
+
+
+@pytest.fixture()
+def monomer_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_MONOMERS_W_IDXS), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -142,6 +185,11 @@ def peptide_dicts(dict_sort_key):
 
 
 @pytest.fixture()
+def peptide_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_PEPTIDES_LEN_3 + TEST_PEPTIDES_LEN_4 + TEST_PEPTIDES_LEN_5), key=dict_sort_key)
+
+
+@pytest.fixture()
 def template_peptide_len_3_dicts(dict_sort_key):
     return sorted(TEST_TEMPLATE_PEPTIDES_LEN_3, key=dict_sort_key)
 
@@ -162,8 +210,23 @@ def template_peptide_dicts(dict_sort_key):
 
 
 @pytest.fixture()
+def template_peptide_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_TEMPLATE_PEPTIDES_LEN_3 + TEST_TEMPLATE_PEPTIDES_LEN_4 + TEST_TEMPLATE_PEPTIDES_LEN_5), key=dict_sort_key)
+
+
+@pytest.fixture()
+def macrocycle_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_MACROCYCLES), key=dict_sort_key)
+
+
+@pytest.fixture()
 def reaction_dicts(dict_sort_key):
     return sorted(TEST_REACTIONS, key=dict_sort_key)
+
+
+@pytest.fixture()
+def reaction_w_id_dicts(dict_sort_key):
+    return sorted(add_ids(TEST_REACTIONS), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -197,8 +260,18 @@ def connection_mols(connection_dicts, models_from_dict):
 
 
 @pytest.fixture()
+def connection_mols_w_ids(connection_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Connection, *connection_w_id_dicts)
+
+
+@pytest.fixture()
 def backbone_mols(backbone_dicts, models_from_dict):
     return models_from_dict(models.Backbone, *backbone_dicts)
+
+
+@pytest.fixture()
+def backbone_w_id_mols(backbone_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Backbone, *backbone_w_id_dicts)
 
 
 @pytest.fixture()
@@ -207,13 +280,28 @@ def template_mols(template_dicts, models_from_dict):
 
 
 @pytest.fixture()
+def template_w_id_mols(template_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Template, *template_w_id_dicts)
+
+
+@pytest.fixture()
 def sidechain_mols(sidechain_dicts, models_from_dict):
     return models_from_dict(models.Sidechain, *sidechain_dicts)
 
 
 @pytest.fixture()
+def sidechain_w_id_mols(sidechain_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Sidechain, *sidechain_w_id_dicts)
+
+
+@pytest.fixture()
 def monomer_mols(monomer_dicts, models_from_dict):
     return models_from_dict(models.Monomer, *monomer_dicts)
+
+
+@pytest.fixture()
+def monomer_w_idx_mols(monomer_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Monomer, *monomer_w_id_dicts)
 
 
 @pytest.fixture()
@@ -237,13 +325,33 @@ def peptide_mols(peptide_dicts, models_from_dict):
 
 
 @pytest.fixture()
+def peptide_w_id_mols(peptide_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Peptide, *peptide_w_id_dicts)
+
+
+@pytest.fixture()
 def template_peptide_mols(template_peptide_dicts, models_from_dict):
     return models_from_dict(models.TemplatePeptide, *template_peptide_dicts)
 
 
 @pytest.fixture()
+def template_peptide_w_id_mols(template_peptide_w_id_dicts, models_from_dict):
+    return models_from_dict(models.TemplatePeptide, *template_peptide_w_id_dicts)
+
+
+@pytest.fixture()
+def macrocycle_w_id_mols(macrocycle_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Macrocycle, *macrocycle_w_id_dicts)
+
+
+@pytest.fixture()
 def reactions(reaction_dicts, models_from_dict):
     return models_from_dict(models.Reaction, *reaction_dicts)
+
+
+@pytest.fixture()
+def reactions_w_ids(reaction_w_id_dicts, models_from_dict):
+    return models_from_dict(models.Reaction, *reaction_w_id_dicts)
 
 
 @pytest.fixture()
