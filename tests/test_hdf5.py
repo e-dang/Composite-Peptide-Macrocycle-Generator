@@ -180,7 +180,7 @@ def test_hdf5_file_create_group():
         assert group1.name == group2.name
 
 
-def test_hdf5_repository_save(obj_repository_w_saved_data):
+def test_hdf5_obj_repository_save(obj_repository_w_saved_data):
     dicts, repo, datasets, _ = obj_repository_w_saved_data
 
     # verify datasets have been made properly

@@ -7,7 +7,7 @@ import numpy as np
 
 import cpmg.config as config
 import cpmg.utils as utils
-from cpmg.ranges import Range, Key, WholeRange, IndexKey
+from cpmg.ranges import IndexKey, Key, Range, WholeRange
 
 
 def serialize(data):
@@ -49,22 +49,16 @@ class AbstractHDF5RepositoryImpl:
     GROUP = None
     DEFAULT_INDICES = None
     INDEX_DATASET = 'index'
-    # def __repr__(self):
-    #     def recursive_print(obj, level):
-    #         spacing = '  ' * level
-    #         if level == 0:
-    #             print(obj.name + ' - ' + str(len(obj)))
-    #         else:
-    #             print(spacing + obj.name.split('/')[-1] + ' - ' + str(len(obj)))
-    #         if isinstance(obj, h5py.Dataset):
-    #             return
-    #         else:
-    #             for sub_obj in obj:
-    #                 recursive_print(obj[sub_obj], level + 1)
 
-    #     file = HDF5File()
-    #     recursive_print(file, 0)
-    #     return ''
+    def __repr__(self):
+        def recursive_print(name, obj):
+            print(obj.name + ' - ' + str(len(obj)))
+
+        with HDF5File() as file:
+            group = file[self.GROUP]
+            group.visititems(recursive_print)
+
+        return ''
 
     def __init__(self):
         with HDF5File() as file:
@@ -391,8 +385,6 @@ class HDF5ObjRepositoryImpl(AbstractHDF5RepositoryImpl):
 
 
 class HDF5ArrayRepositoryImpl(AbstractHDF5RepositoryImpl):
-    GROUP = 'array'
-    DEFAULT_INDICES = []
 
     def _save(self, group, data, ids=None):
         with HDF5File() as file:
@@ -422,7 +414,7 @@ class ConnectionHDF5Repository(HDF5ObjRepositoryImpl):
 
 
 class BackboneHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'sidechains'
+    GROUP = 'backbones'
     DEFAULT_INDICES = ['mapped_kekule']
 
 
@@ -542,76 +534,22 @@ class PeptidePlanHDF5Repository(HDF5ArrayRepositoryImpl):
         return self._refine_group(group, peptide_length)
 
 
-# class HDF5Repository:
-#     def __init__(self):
-#         self.connection_repo = ConnectionHDF5Repository()
-#         self.backbone_repo = BackboneHDF5Repository()
-#         self.template_repo = TemplateHDF5Repository()
-#         self.sidechain_repo = SidechainHDF5Repository()
-#         self.monomer_repo = MonomerHDF5Repository()
-#         self.peptide_repo = PeptideHDF5Repository()
-#         self.template_peptide_repo = TemplatePeptideHDF5Repository()
-#         self.macrocycle_repo = MacrocycleHDF5Repository()
-#         self.reaction_repo =
+class HDF5Repository:
+    def __init__(self):
+        self.connection_repo = ConnectionHDF5Repository()
+        self.backbone_repo = BackboneHDF5Repository()
+        self.template_repo = TemplateHDF5Repository()
+        self.sidechain_repo = SidechainHDF5Repository()
+        self.monomer_repo = MonomerHDF5Repository()
+        self.peptide_repo = PeptideHDF5Repository()
+        self.template_peptide_repo = TemplatePeptideHDF5Repository()
+        self.reaction_repo = ReactionHDF5Repository()
+        self.regiosqm_repo = RegioSQMHDF5Repository()
+        self.pka_repo = pKaHDF5Repository()
+        self.peptide_plan_repo = PeptidePlanHDF5Repository()
 
-# repo = HDF5ObjRepositoryImpl()
-# repo.remove_dataset(list(map(str, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])))
-# repo.deactivate_records(['016e32e4-b314-48fe-b5c8-83a7627b8258', 'da59be8d-80f1-406e-9075-0454a57f2198'])
-# ids = repo.save([{'a': 1}, {'a': 2}])
-# print(ids)
-# print(repo.find(ids))
-# print(list(repo.load(ids)))
-
-# arr_repo = HDF5ArrayRepositoryImpl()
-# ids = arr_repo.save(np.array([[1, 2, 3], [4, 5, 6]]))
-# print(ids)
-# print(arr_repo.find(ids))
-# print(list(arr_repo.load(ids)))
-
-
-# pep_repo = PeptideHDF5Repository()
-# pep_repo.remove_dataset(list(map(lambda x: '4/' + str(x), range(1))))
-# pep_repo.remove_index('test_val')
-# pep_repo.remove_inactive_dataset()
-# ids = pep_repo.save([{'peptide_length': 4, 'a': 1, 'kekule': 'CCC', 'test_val': '10'},
-#                      {'peptide_length': 4, 'a': 2, 'kekule': 'CCCC', 'test_val': '11'}])
-# pep_repo.create_index('test_val')
-# pep_repo.print_index('test_val')
-# pep_repo.print_index('kekule')
-# print(list(pep_repo.load(Key(['C', 'CC'], index='kekule'))))
-# print(pep_repo.find(Key(['C', 'CC'], index='kekule')))
-# pep_repo.remove_records(Key(['C'], index='kekule'))
-
-
-# pep_repo.print_index('kekule')
-# pep_repo.deactivate_records(Key(['CC'], index='kekule'))
-# pep_repo.print_index('kekule')
-# inactives = list(pep_repo.load_inactivate_records(Key(WholeRange())))
-# print(inactives)
-# pep_repo.activate_records(Key([inactives[0][0]]))
-# print(list(pep_repo.load_inactivate_records(Key(WholeRange()))))
-# pep_repo.print_index('kekule')
-# print(list(pep_repo.load(Key(['CC'], index='kekule'))))
-
-
-# print(ids)
-# print(pep_repo.find(ids))
-# print(list(pep_repo.load(ids)))
-# print(list(pep_repo.load(Key(WholeRange(), peptide_length=4))))
-# records = list(pep_repo.load(Key(WholeRange())))
-# ids = [record[0] for record in records]
-# pep_repo.remove_records(ids)
-# print(list(pep_repo.load(Key(WholeRange()))))
-
-
-# plan_repo = PeptidePlanHDF5Repository()
-# plan_repo.deactivate_records(Key(['99b8fbcc-ac4e-4c77-8753-a9027fa811d6', 'c65bac42-5884-4d0f-9e7e-49242c4ed2a3', 'd3040dfa-099e-47bc-bd13-548f64b6b1bf',
-#                                   '5dab3cb2-0314-4e06-b6f3-68da94073e04', 'ab0963ff-b6cc-4ec7-9317-3bc54cf305e7', 'babea952-a315-4173-b9cd-715273e1aac1'], peptide_length=3))
-# ids = plan_repo.save((np.asarray([[1, 2, 3], [1, 2, 4], [3, 4, 5]]),
-#                       np.asarray([[1, 2, 3, 4], [1, 2, 4, 3], [3, 4, 5, 7]])))
-# print(plan_repo.find(ids))
-# print(list(plan_repo.load(ids)))
-# records = list(plan_repo.load(Key(WholeRange(), peptide_length=None)))
-# ids = [record[0] for record in records]
-# plan_repo.remove_records(Key(ids))
-# print(list(plan_repo.load(Key(WholeRange(), peptide_length=None))))
+    @classmethod
+    def instance(cls):
+        if not hasattr(cls, '_instance'):
+            cls._instance = cls()
+        return cls._instance
