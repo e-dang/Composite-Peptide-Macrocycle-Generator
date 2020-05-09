@@ -49,12 +49,17 @@ class AbstractHDF5RepositoryImpl:
     GROUP = None
     DEFAULT_INDICES = None
     INDEX_DATASET = 'index'
+    INDENT = '   '
 
     def __repr__(self):
         def recursive_print(name, obj):
-            print(obj.name + ' - ' + str(len(obj)))
+            path = obj.name.split('/')
+            path.remove('')
+            num = len(path)
+            print((self.INDENT * num) + name + ' - ' + str(len(obj)))
 
         with HDF5File() as file:
+            print(f'{self.INDENT}{self.GROUP}')
             group = file[self.GROUP]
             group.visititems(recursive_print)
 
@@ -547,6 +552,14 @@ class HDF5Repository:
         self.regiosqm_repo = RegioSQMHDF5Repository()
         self.pka_repo = pKaHDF5Repository()
         self.peptide_plan_repo = PeptidePlanHDF5Repository()
+
+    def __repr__(self):
+
+        print('/')
+        for _, instance in self.__dict__.items():
+            instance.__repr__()
+
+        return ''
 
     @classmethod
     def instance(cls):

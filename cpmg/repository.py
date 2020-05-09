@@ -22,6 +22,9 @@ class AbstractRepository:
         self.impl = impl
         self.failed_instances = []
 
+    def __repr__(self):
+        return self.impl.__repr__()
+
     def load(self, key=Key(WholeRange())):
         for _id, data in self.impl.load(key):
             yield self.TYPE.from_dict(data, _id=_id)
@@ -203,7 +206,9 @@ class PeptidePlanRepository(AbstractRepository):
             return data.data()
 
 
-def repository_impl_from_string(impl):
+def repository_impl_from_string(impl=None):
+    impl = impl or config.DATA_FORMAT
+
     if impl == HDF5:
         return hdf5.HDF5Repository.instance()
 
