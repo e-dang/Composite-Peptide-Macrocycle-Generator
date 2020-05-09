@@ -10,7 +10,7 @@ from cpmg.io_formats import load_json
 
 
 @pytest.fixture()
-def import_paths(monkeypatch, initialized_repository):
+def import_paths(partial_initialized_repository):
     sidechain_import_path = os.path.join(config.IMPORT_DIR, 'sidechains.json')
     monomer_import_path = os.path.join(config.IMPORT_DIR, 'monomers.json')
     yield sidechain_import_path, monomer_import_path

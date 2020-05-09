@@ -192,9 +192,12 @@ def test_pka_prediction_importer(mol_importers):
 def test_create_importers():
     instances = importers.create_importers()
     types = list(map(type, instances))
-    assert(len(instances) == 5)
-    assert(importers.ConnectionImporter in types)
-    assert(importers.BackboneImporter in types)
-    assert(importers.TemplateImporter in types)
-    assert(importers.SidechainImporter in types)
-    assert(importers.MonomerImporter in types)
+
+    assert len(instances) == 7
+    assert importers.ConnectionImporter in types
+    assert importers.BackboneImporter in types
+    assert importers.TemplateImporter in types
+    assert importers.SidechainImporter in types
+    assert importers.MonomerImporter in types
+    assert importers.RegioSQMPredictionImporter in types
+    assert importers.pKaPredictionImporter in types

@@ -8,6 +8,7 @@ import cpmg.config as config
 import cpmg.hdf5 as hdf5
 import cpmg.models as models
 from cpmg.initializer import CPMGInitializer
+from cpmg.exporters import RegioSQMExporter
 from data.mols import *
 
 
@@ -43,9 +44,18 @@ def hdf5_reset():
 
 
 @pytest.fixture()
-def initialized_repository():
+def partial_initialized_repository():
     initializer = CPMGInitializer()
-    initializer.initialize()
+    initializer.initialize_mols_only()
+    yield None
+
+
+@pytest.fixture()
+def initialized_repository(partial_initialized_repository):
+    exporter = RegioSQMExporter()
+    exporter.export_regiosqm_smiles_file()
+    initializer = CPMGInitializer()
+    initializer.initialize_predictions_only()
     yield None
 
 

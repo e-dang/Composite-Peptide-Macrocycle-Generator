@@ -140,9 +140,9 @@ class RegioSQMPredictionImporter:
         self.saver = repo.create_regiosqm_repository()
         self.solvent = solvent
         self.cutoff = cutoff
-        self._hash_mols()
 
     def import_data(self):
+        self._hash_mols()
 
         data = []
         for row, text in enumerate(load_csv(os.path.join(config.IMPORT_DIR, 'regiosqm.csv'))):
@@ -163,6 +163,7 @@ class RegioSQMPredictionImporter:
         for line in load_text(config.REGIOSQM_SMILES_FILEPATH):
             idx, smiles = line.split(' ')
             self.idx_to_smiles[idx] = smiles.strip('\n')
+        print(self.idx_to_smiles, config.REGIOSQM_SMILES_FILEPATH)
 
     def _check_predictions(self, idx, prediction):
         reacting_mol = Chem.MolFromSmiles(self.idx_to_smiles[idx])
@@ -225,9 +226,17 @@ class pKaPredictionImporter:
                 raise InvalidPrediction('pKa predictions must correspond to heteroatoms with at least 1 hydrogen')
 
 
-def create_importers(data_format_importer=JsonImporter()):
+def create_mol_importers(data_format_importer=JsonImporter()):
     return [ConnectionImporter(data_format_importer),
             BackboneImporter(data_format_importer),
             TemplateImporter(data_format_importer),
             SidechainImporter(data_format_importer),
             MonomerImporter(data_format_importer)]
+
+
+def create_prediction_importers():
+    return [RegioSQMPredictionImporter(), pKaPredictionImporter()]
+
+
+def create_importers(data_format_importer=JsonImporter()):
+    return create_mol_importers(data_format_importer) + create_prediction_importers()
