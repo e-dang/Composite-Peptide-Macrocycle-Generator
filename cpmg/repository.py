@@ -202,14 +202,6 @@ def repository_impl_from_string(impl=None):
     raise ValueError('Unrecognized repository implementation!')
 
 
-# def create_repository_initializer(impl=None):
-#     impl = impl or config.DATA_FORMAT
-#     if impl == HDF5:
-#         return RepositoryInitializer(HDF5Initializer())
-#     else:
-#         raise ValueError('Unrecognized repository implementation!')
-
-
 def get_repository(repository):
 
     def repository_closure(impl=None):
