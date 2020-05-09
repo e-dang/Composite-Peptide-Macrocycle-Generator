@@ -570,10 +570,4 @@ class PeptidePlan:
         return self.PeptidePlanData(reg_combinations, cap_combinations, self.reg_length)
 
 
-def get_all_model_strings():
-    import inspect
-    import sys
-
-    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-
-    return [member.STRING for _, member in classmembers if hasattr(member, 'STRING')]
+get_all_model_strings = utils.get_module_strings(__name__)
