@@ -57,7 +57,7 @@ def test_connection_importer(json_importer):
 
     connection_repo = repo.create_connection_repository()
     data = list(connection_repo.load(ids))
-    docs = json_importer.load(connection_importer.saver.CATEGORY)
+    docs = json_importer.load(connection_importer.saver.TYPE.STRING)
     kekules = [doc['kekule'] for doc in docs]
 
     assert(len(data) == 2)
@@ -73,7 +73,7 @@ def test_backbone_importer(json_importer):
 
     backbone_repo = repo.create_backbone_repository()
     data = list(backbone_repo.load(ids))
-    docs = json_importer.load(backbone_importer.saver.CATEGORY)
+    docs = json_importer.load(backbone_importer.saver.TYPE.STRING)
     kekules = [doc['kekule'] for doc in docs]
 
     assert(len(data) == 3)
@@ -84,10 +84,10 @@ def test_backbone_importer(json_importer):
 
 
 def test_backbone_importer_fail(monkeypatch, json_importer):
-    monkeypatch.setattr(importers.repo.BackboneRepository, 'CATEGORY', 'invalid_backbones')
+    monkeypatch.setattr(importers.repo.BackboneRepository.TYPE, 'STRING', 'invalid_backbones')
     backbone_importer = importers.BackboneImporter(json_importer)
     with pytest.raises(exceptions.InvalidMolecule):
-        ids = backbone_importer.import_data()
+        _ = backbone_importer.import_data()
 
 
 def test_template_importer(json_importer):
@@ -96,7 +96,7 @@ def test_template_importer(json_importer):
 
     template_repo = repo.create_template_repository()
     data = list(template_repo.load(ids))
-    docs = json_importer.load(template_importer.saver.CATEGORY)
+    docs = json_importer.load(template_importer.saver.TYPE.STRING)
     kekules = [doc['kekule'] for doc in docs]
 
     assert(len(data) == 3)
@@ -113,7 +113,7 @@ def test_sidechain_importer(json_importer, independent_importers):
     sidechain_repo = repo.create_sidechain_repository()
     connection_repo = repo.create_connection_repository()
     sidechain_data = list(sidechain_repo.load(ids))
-    sidechain_docs = json_importer.load(sidechain_importer.saver.CATEGORY)
+    sidechain_docs = json_importer.load(sidechain_importer.saver.TYPE.STRING)
     connection_data = list(connection_repo.load())
     kekules = [doc['kekule'] for doc in sidechain_docs]
     connections = [mol.kekule for mol in connection_data]
@@ -134,7 +134,7 @@ def test_monomer_importer(json_importer, independent_importers):
     monomer_repo = repo.create_monomer_repository()
     backbone_repo = repo.create_backbone_repository()
     monomer_data = list(monomer_repo.load(ids))
-    monomer_docs = json_importer.load(monomer_importer.saver.CATEGORY)
+    monomer_docs = json_importer.load(monomer_importer.saver.TYPE.STRING)
     backbone_data = list(backbone_repo.load())
     kekules = [doc['kekule'] for doc in monomer_docs]
     backbones = [mol.to_reduced_dict() for mol in backbone_data]

@@ -356,7 +356,7 @@ class Monomer(AbstractMolecule):
 
 
 class Peptide(AbstractMolecule):
-    STRING = 'Peptide'
+    STRING = 'peptide'
 
     def __init__(self, binary, kekule, length, has_cap, monomers, _id=None):
         super().__init__(binary, kekule, _id)

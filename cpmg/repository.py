@@ -16,7 +16,6 @@ class RepositoryInitializer:
 
 class AbstractRepository:
     TYPE = None
-    CATEGORY = None
 
     def __init__(self, impl):
         self.impl = impl
@@ -48,7 +47,6 @@ class AbstractRepository:
 
 class BackboneRepository(AbstractRepository):
     TYPE = models.Backbone
-    CATEGORY = 'backbone'
 
     def __init__(self, impl):
         super().__init__(impl.backbone_repo)
@@ -59,7 +57,6 @@ class BackboneRepository(AbstractRepository):
 
 class ConnectionRepository(AbstractRepository):
     TYPE = models.Connection
-    CATEGORY = 'connections'
 
     def __init__(self, impl):
         super().__init__(impl.connection_repo)
@@ -70,7 +67,6 @@ class ConnectionRepository(AbstractRepository):
 
 class TemplateRepository(AbstractRepository):
     TYPE = models.Template
-    CATEGORY = 'templates'
 
     def __init__(self, impl):
         super().__init__(impl.template_repo)
@@ -81,7 +77,6 @@ class TemplateRepository(AbstractRepository):
 
 class SidechainRepository(AbstractRepository):
     TYPE = models.Sidechain
-    CATEGORY = 'sidechains'
 
     def __init__(self, impl):
         super().__init__(impl.sidechain_repo)
@@ -92,7 +87,6 @@ class SidechainRepository(AbstractRepository):
 
 class MonomerRepository(AbstractRepository):
     TYPE = models.Monomer
-    CATEGORY = 'monomers'
 
     def __init__(self, impl):
         super().__init__(impl.monomer_repo)
@@ -116,7 +110,6 @@ class MonomerRepository(AbstractRepository):
 
 class PeptideRepository(AbstractRepository):
     TYPE = models.Peptide
-    CATEGORY = 'peptides'
 
     def __init__(self, impl):
         super().__init__(impl.peptide_repo)
@@ -127,7 +120,6 @@ class PeptideRepository(AbstractRepository):
 
 class TemplatePeptideRepository(AbstractRepository):
     TYPE = models.TemplatePeptide
-    CATEGORY = 'template_peptides'
 
     def __init__(self, impl):
         super().__init__(impl.template_peptide_repo)
@@ -138,7 +130,6 @@ class TemplatePeptideRepository(AbstractRepository):
 
 class MacrocycleRepository(AbstractRepository):
     TYPE = models.Macrocycle
-    CATEGORY = 'macrocycles'
 
     def __init__(self, impl):
         super().__init__(impl.macrocycle_repo)
@@ -149,7 +140,6 @@ class MacrocycleRepository(AbstractRepository):
 
 class ReactionRepository(AbstractRepository):
     TYPE = models.Reaction
-    CATEGORY = 'reactions'
 
     def __init__(self, impl):
         super().__init__(impl.reaction_repo)
@@ -160,7 +150,6 @@ class ReactionRepository(AbstractRepository):
 
 class RegioSQMRepository(AbstractRepository):
     TYPE = models.RegioSQMPrediction
-    CATEGORY = 'regiosqm'
 
     def __init__(self, impl):
         super().__init__(impl.regiosqm_repo)
@@ -171,7 +160,6 @@ class RegioSQMRepository(AbstractRepository):
 
 class pKaRepository(AbstractRepository):
     TYPE = models.pKaPrediction
-    CATEGORY = 'pka'
 
     def __init__(self, impl):
         super().__init__(impl.pka_repo)
@@ -182,7 +170,6 @@ class pKaRepository(AbstractRepository):
 
 class PeptidePlanRepository(AbstractRepository):
     TYPE = models.PeptidePlan
-    CATEGORY = 'peptide_plan'
 
     def __init__(self, impl):
         super().__init__(impl.peptide_plan_repo)

@@ -32,7 +32,7 @@ class ConnectionImporter:
 
     def import_data(self):
         data = [models.Connection.from_mol(Chem.MolFromSmiles(connection['kekule']))
-                for connection in self.loader.load(self.saver.CATEGORY)]
+                for connection in self.loader.load(self.saver.TYPE.STRING)]
         return self.saver.save(data)
 
 
@@ -43,7 +43,8 @@ class BackboneImporter:
 
     def import_data(self):
         data = []
-        for backbone in self.loader.load(self.saver.CATEGORY):
+        print(self.saver.TYPE.STRING)
+        for backbone in self.loader.load(self.saver.TYPE.STRING):
             backbone['binary'] = Chem.MolFromSmiles(backbone['mapped_kekule']).ToBinary()
             data.append(models.Backbone.from_dict(backbone))
 
@@ -57,7 +58,7 @@ class TemplateImporter:
 
     def import_data(self):
         data = []
-        for template in self.loader.load(self.saver.CATEGORY):
+        for template in self.loader.load(self.saver.TYPE.STRING):
             template['binary'] = Chem.MolFromSmiles(template['kekule']).ToBinary()
             data.append(models.Template.from_dict(template))
 
@@ -74,7 +75,7 @@ class SidechainImporter:
         self._check_connections()
 
         data = []
-        for sidechain in self.loader.load(self.saver.CATEGORY):
+        for sidechain in self.loader.load(self.saver.TYPE.STRING):
             if sidechain['connection'] not in self.connections:
                 print(f'Skipping sidechain with unrecognized connection. Sidechain - {sidechain}')
                 continue
@@ -109,7 +110,7 @@ class MonomerImporter:
         mock_sidechain = namedtuple('sidechain', 'shared_id connection')
 
         data = []
-        for monomer in self.loader.load(self.saver.CATEGORY):
+        for monomer in self.loader.load(self.saver.TYPE.STRING):
             data.append(models.Monomer.from_mol(Chem.MolFromSmiles(
                 monomer['kekule']), self._match_backbone(monomer['backbone']), mock_sidechain(None, None), True))
 

@@ -8,6 +8,7 @@ import numpy as np
 import cpmg.config as config
 import cpmg.utils as utils
 from cpmg.ranges import IndexKey, Key, Range, WholeRange
+import cpmg.models as models
 
 
 def serialize(data):
@@ -414,32 +415,32 @@ class HDF5ArrayRepositoryImpl(AbstractHDF5RepositoryImpl):
 
 
 class ConnectionHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'connections'
+    GROUP = models.Connection.STRING
     DEFAULT_INDICES = ['kekule']
 
 
 class BackboneHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'backbones'
+    GROUP = models.Backbone.STRING
     DEFAULT_INDICES = ['mapped_kekule']
 
 
 class TemplateHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'templates'
+    GROUP = models.Template.STRING
     DEFAULT_INDICES = ['kekule']
 
 
 class SidechainHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'sidechains'
+    GROUP = models.Sidechain.STRING
     DEFAULT_INDICES = ['kekule']
 
 
 class MonomerHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'monomers'
+    GROUP = models.Monomer.STRING
     DEFAULT_INDICES = ['kekule']
 
 
 class PeptideHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'peptides'
+    GROUP = models.Peptide.STRING
     DEFAULT_INDICES = ['kekule']
 
     def _refine_group_from_key(self, group, key):
@@ -458,7 +459,7 @@ class PeptideHDF5Repository(HDF5ObjRepositoryImpl):
 
 
 class TemplatePeptideHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'template_peptides'
+    GROUP = models.TemplatePeptide.STRING
     DEFAULT_INDICES = ['kekule']
 
     def _refine_group_from_key(self, group, key):
@@ -477,22 +478,22 @@ class TemplatePeptideHDF5Repository(HDF5ObjRepositoryImpl):
 
 
 class ReactionHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'reactions'
+    GROUP = models.Reaction.STRING
     DEFAULT_INDICES = []
 
 
 class RegioSQMHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'regiosqm'
+    GROUP = models.RegioSQMPrediction.STRING
     DEFAULT_INDICES = ['reacting_mol']
 
 
 class pKaHDF5Repository(HDF5ObjRepositoryImpl):
-    GROUP = 'pka'
+    GROUP = models.pKaPrediction.STRING
     DEFAULT_INDICES = ['reacting_mol']
 
 
 class PeptidePlanHDF5Repository(HDF5ArrayRepositoryImpl):
-    GROUP = 'peptide_plan'
+    GROUP = models.PeptidePlan.STRING
     DEFAULT_INDICES = []
 
     def _save(self, group, data, ids=None):
