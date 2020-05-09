@@ -207,5 +207,9 @@ def test_create_generator_from_string_reactions(string, args, expected):
 
 
 def test_create_generator_from_string_fail():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as err:
         generators.create_generator_from_string('dne')
+        exception = str(err.value)
+
+        assert 'dne' in exception
+        assert 'generator' in exception
