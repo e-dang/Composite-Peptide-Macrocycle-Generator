@@ -1,5 +1,6 @@
 import numpy as np
 from rdkit import Chem
+from types import GeneratorType
 
 
 def split(data, pred):
@@ -28,10 +29,10 @@ def to_list(data):
     if isinstance(data, (list, tuple)):
         return data
 
-    if isinstance(data, (dict, str)):
-        return [data]
+    if isinstance(data, (GeneratorType, map, filter)):
+        return list(data)
 
-    return list(data)
+    return [data]
 
 
 def has_atom_map_nums(mol):
