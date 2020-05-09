@@ -500,3 +500,23 @@ class AldehydeCyclization(IntraMolecularReaction):
         # connect backbone nitrogen to aldehyde carbon
         map_nums = (self.BACKBONE_NITROGEN_MAP_NUM, self.ALDEHYDE_C_MAP_NUM)
         self.products.append(utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False))
+
+
+def get_intermolecular_reactions():
+    import inspect
+    import sys
+
+    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+
+    return [member() for _, member in classmembers if issubclass(member, InterMolecularReaction)
+            and member is not InterMolecularReaction]
+
+
+def get_intramolecular_reactions():
+    import inspect
+    import sys
+
+    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+
+    return [member() for _, member in classmembers if issubclass(member, IntraMolecularReaction)
+            and member is not IntraMolecularReaction]

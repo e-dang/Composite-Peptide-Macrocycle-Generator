@@ -159,3 +159,15 @@ def test_aldehyde_cyclization_fail(model_mol):
 
     with pytest.raises(InvalidMolecule):
         _ = reaction.generate(model_mol)
+
+
+def test_get_intermolecular_reactions():
+    reactions = set(type(rxn) for rxn in rxns.get_intermolecular_reactions())
+
+    assert reactions == {rxns.FriedelCrafts, rxns.TsujiTrost, rxns.PictetSpangler, rxns.Pyrroloindoline}
+
+
+def test_get_intramolecular_reactions():
+    reactions = set(type(rxn) for rxn in rxns.get_intramolecular_reactions())
+
+    assert reactions == {rxns.AldehydeCyclization, rxns.TemplatePictetSpangler}
