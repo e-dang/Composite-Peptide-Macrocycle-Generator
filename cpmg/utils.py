@@ -1,6 +1,3 @@
-import inspect
-import sys
-
 import numpy as np
 from rdkit import Chem
 
@@ -79,9 +76,18 @@ def remove_atom(mol, atom_idx):
     return mol
 
 
+def get_classmembers(module):
+    import inspect
+    import sys
+    return inspect.getmembers(sys.modules[module], inspect.isclass)
+
+
 def get_module_strings(module):
     def get_module_strings_closure():
-        classmembers = inspect.getmembers(sys.modules[module], inspect.isclass)
-        return [member.STRING for _, member in classmembers if hasattr(member, 'STRING')]
+        return [member.STRING for _, member in get_classmembers(module) if hasattr(member, 'STRING')]
 
     return get_module_strings_closure
+
+
+def get_filtered_classmembers(module, pred):
+    return [member for _, member in get_classmembers(module) if pred(member)]

@@ -161,13 +161,13 @@ def test_aldehyde_cyclization_fail(model_mol):
         _ = reaction.generate(model_mol)
 
 
-def test_get_intermolecular_reactions():
-    reactions = set(type(rxn) for rxn in rxns.get_intermolecular_reactions())
+def test_create_intermolecular_reactions():
+    reactions = set(type(rxn) for rxn in rxns.create_intermolecular_reactions())
 
     assert reactions == {rxns.FriedelCrafts, rxns.TsujiTrost, rxns.PictetSpangler, rxns.Pyrroloindoline}
 
 
-def test_get_intramolecular_reactions():
-    reactions = set(type(rxn) for rxn in rxns.get_intramolecular_reactions())
+def test_create_intramolecular_reactions():
+    reactions = set(type(rxn) for rxn in rxns.create_intramolecular_reactions())
 
     assert reactions == {rxns.AldehydeCyclization, rxns.TemplatePictetSpangler}

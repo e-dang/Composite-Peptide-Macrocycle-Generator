@@ -5,6 +5,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 import cpmg.models as models
+import cpmg.utils as temp_utils
 import macrocycles.utils as utils
 from cpmg.exceptions import InvalidMolecule
 
@@ -502,21 +503,15 @@ class AldehydeCyclization(IntraMolecularReaction):
         self.products.append(utils.connect_mols(reactant, map_nums=map_nums, clear_map_nums=False))
 
 
-def get_intermolecular_reactions():
-    import inspect
-    import sys
+def create_reactions_closure(predicate):
+    def closure():
+        return [rxn() for rxn in temp_utils.get_filtered_classmembers(__name__, predicate)]
 
-    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-
-    return [member() for _, member in classmembers if issubclass(member, InterMolecularReaction)
-            and member is not InterMolecularReaction]
+    return closure
 
 
-def get_intramolecular_reactions():
-    import inspect
-    import sys
+create_intermolecular_reactions = create_reactions_closure(
+    lambda x: issubclass(x, InterMolecularReaction) and x is not InterMolecularReaction)
 
-    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-
-    return [member() for _, member in classmembers if issubclass(member, IntraMolecularReaction)
-            and member is not IntraMolecularReaction]
+create_intramolecular_reactions = create_reactions_closure(
+    lambda x: issubclass(x, IntraMolecularReaction) and x is not IntraMolecularReaction)
