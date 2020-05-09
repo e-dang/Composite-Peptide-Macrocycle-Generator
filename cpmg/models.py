@@ -39,6 +39,7 @@ class AbstractMolecule:
 
 
 class Backbone(AbstractMolecule):
+    STRING = 'backbone'
     MAP_NUM = 1
 
     def __init__(self, binary, kekule, mapped_kekule, _id=None):
@@ -82,6 +83,8 @@ class Backbone(AbstractMolecule):
 
 
 class Connection(AbstractMolecule):
+    STRING = 'connection'
+
     def __init__(self, binary, kekule, _id=None):
         super().__init__(binary, kekule, _id)
 
@@ -96,6 +99,8 @@ class Connection(AbstractMolecule):
 
 
 class Template(AbstractMolecule):
+    STRING = 'template'
+
     OLIGOMERIZATION_MAP_NUM = 1
     EAS_MAP_NUM = 200
     WC_MAP_NUM_1 = 201
@@ -258,6 +263,7 @@ class Template(AbstractMolecule):
 
 
 class Sidechain(AbstractMolecule):
+    STRING = 'sidechain'
     MAP_NUM = 2
 
     def __init__(self, binary, kekule, attachment_point, connection, shared_id, _id=None):
@@ -302,6 +308,8 @@ class Sidechain(AbstractMolecule):
 
 
 class Monomer(AbstractMolecule):
+    STRING = 'monomer'
+
     def __init__(self, binary, kekule, required, backbone, sidechain, connection, proline, imported, _id=None, index=None):
         super().__init__(binary, kekule, _id)
         self.index = index
@@ -348,6 +356,8 @@ class Monomer(AbstractMolecule):
 
 
 class Peptide(AbstractMolecule):
+    STRING = 'Peptide'
+
     def __init__(self, binary, kekule, length, has_cap, monomers, _id=None):
         super().__init__(binary, kekule, _id)
         self.length = length
@@ -370,6 +380,8 @@ class Peptide(AbstractMolecule):
 
 
 class TemplatePeptide(AbstractMolecule):
+    STRING = 'template_peptide'
+
     def __init__(self, binary, kekule, template, peptide, _id=None):
         super().__init__(binary, kekule, _id)
         self.template = template
@@ -391,6 +403,8 @@ class TemplatePeptide(AbstractMolecule):
 
 
 class Macrocycle(AbstractMolecule):
+    STRING = 'macrocycle'
+
     def __init__(self, binary, kekule, modifications, has_cap, template_peptide, template, reactions, _id=None):
         super().__init__(binary, kekule, _id)
         self.modifications = modifications
@@ -423,6 +437,8 @@ class Macrocycle(AbstractMolecule):
 
 
 class Reaction:
+    STRING = 'reaction'
+
     def __init__(self, rxn_type, binary, smarts, template, reacting_mol, rxn_atom_idx, _id=None):
         self._id = _id
         self.type = rxn_type
@@ -478,6 +494,8 @@ class AbstractPrediction:
 
 
 class RegioSQMPrediction(AbstractPrediction):
+    STRING = 'regiosqm'
+
     def __init__(self, predictions, reacting_mol, solvent, cutoff, _id=None):
         super().__init__(predictions, reacting_mol, solvent, _id)
         self.cutoff = cutoff
@@ -491,6 +509,8 @@ class RegioSQMPrediction(AbstractPrediction):
 
 
 class pKaPrediction(AbstractPrediction):
+    STRING = 'pka'
+
     def __init__(self, predictions, reacting_mol, solvent, _id=None):
         super().__init__(predictions, reacting_mol, solvent, _id)
 
@@ -500,6 +520,8 @@ class pKaPrediction(AbstractPrediction):
 
 
 class PeptidePlan:
+    STRING = 'peptide_plan'
+
     PeptidePlanData = namedtuple('peptide_plan_data', 'reg_combos cap_combos length')
 
     def __init__(self, peptide_length):
@@ -546,3 +568,12 @@ class PeptidePlan:
         reg_combinations = np.array(list(self.reg_combinations))
         cap_combinations = np.array(list(self.cap_combinations))
         return self.PeptidePlanData(reg_combinations, cap_combinations, self.reg_length)
+
+
+def get_all_model_strings():
+    import inspect
+    import sys
+
+    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+
+    return [member.STRING for _, member in classmembers if hasattr(member, 'STRING')]
