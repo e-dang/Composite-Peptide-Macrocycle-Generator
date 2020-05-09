@@ -9,3 +9,5 @@ class CPMGInitializer:
     def initialize(self):
         for importer in self.importers:
             importer.import_data()
+
+        return True
