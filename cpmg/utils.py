@@ -91,3 +91,17 @@ def get_module_strings(module):
 
 def get_filtered_classmembers(module, pred):
     return [member for _, member in get_classmembers(module) if pred(member)]
+
+
+def create_factory_function_closure(module, obj_type):
+    def factory_function_closure(string, *args):
+        for _, member in get_classmembers(module):
+            try:
+                if string == member.STRING:
+                    return member(*args)
+            except AttributeError:
+                pass
+
+        raise ValueError(f'Unrecognized {obj_type} string: {string}')
+
+    return factory_function_closure

@@ -309,17 +309,4 @@ class IntraMolecularReactionGenerator:
 
 get_all_generator_strings = temp_utils.get_module_strings(__name__)
 
-
-def create_generator_from_string(string, *args):
-    import inspect
-    import sys
-
-    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-    for _, member in classmembers:
-        try:
-            if string == member.STRING:
-                return member(*args)
-        except AttributeError:
-            pass
-
-    raise ValueError(f'Unrecognized generator string: {string}')
+create_generator_from_string = temp_utils.create_factory_function_closure(__name__, 'generator')
