@@ -199,7 +199,7 @@ def test_create_generator_from_string_reactions(string, args, expected):
 
     assert isinstance(generator, expected)
     if args is not None:
-        assert [generator.impl] == args
+        assert generator.impl == args
     else:
         assert len(generator.impl) != 0
         assert all([isinstance(impl, (rxns.InterMolecularReaction, rxns.IntraMolecularReaction))

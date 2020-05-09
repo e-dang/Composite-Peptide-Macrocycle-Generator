@@ -245,6 +245,7 @@ class InterMolecularReactionGenerator:
 
     def __init__(self, impl=None):
         self.impl = impl or rxns.create_intermolecular_reactions()
+        self.impl = temp_utils.to_list(self.impl)
         self.backbones = list(map(lambda x: x.mol, repo.create_backbone_repository().load()))
 
     @filters.pka_filter
@@ -257,16 +258,17 @@ class InterMolecularReactionGenerator:
 
         reactions = []
         for atom in [nucleophile_mol.GetAtomWithIdx(atom_idx) for atom_idx in non_symmetric_atom_idxs]:
-            atom.SetAtomMapNum(self.impl.NUCLEOPHILE_EAS_MAP_NUM)
-            for template in templates:
-                try:
-                    smarts = self.impl.generate(deepcopy(nucleophile_mol), template, atom, nucleophile)
-                except InvalidMolecule:
-                    pass
-                else:
-                    for rxn_str in smarts:
-                        reactions.append(models.Reaction.from_mols(
-                            self.impl.TYPE, rxn_str, template, nucleophile, atom.GetIdx()))
+            for impl in self.impl:
+                atom.SetAtomMapNum(impl.NUCLEOPHILE_EAS_MAP_NUM)
+                for template in templates:
+                    try:
+                        smarts = impl.generate(deepcopy(nucleophile_mol), template, atom, nucleophile)
+                    except InvalidMolecule:
+                        pass
+                    else:
+                        for rxn_str in smarts:
+                            reactions.append(models.Reaction.from_mols(
+                                impl.TYPE, rxn_str, template, nucleophile, atom.GetIdx()))
 
             atom.SetAtomMapNum(0)
 
@@ -294,13 +296,15 @@ class IntraMolecularReactionGenerator:
 
     def __init__(self, impl=None):
         self.impl = impl or rxns.create_intramolecular_reactions()
+        self.impl = temp_utils.to_list(self.impl)
 
     def generate(self, reacting_mol):
         reactions = []
 
         try:
-            for smarts in self.impl.generate(reacting_mol):
-                reactions.append(models.Reaction.from_mols(self.impl.TYPE, smarts, reacting_mol, None, None))
+            for impl in self.impl:
+                for smarts in impl.generate(reacting_mol):
+                    reactions.append(models.Reaction.from_mols(impl.TYPE, smarts, reacting_mol, None, None))
         except InvalidMolecule:
             pass
 
