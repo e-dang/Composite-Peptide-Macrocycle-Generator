@@ -3,32 +3,16 @@ from itertools import product, chain
 
 import cpmg.repository as repo
 import cpmg.reactions as rxns
-import cpmg.ranges as ranges
+from cpmg.ranges import Key, WholeRange
 import cpmg.config as config
 
 
 class AbstractDataHandler:
     def __init__(self, saver):
         self.saver = saver
-        self.chunk = []
-        self.saved_ids = []
 
     def save(self, data):
         return self.saver.save(data)
-
-    # def __del__(self):
-    #     self.flush()
-
-    # def save(self, data):
-    #     self.chunk.extend(data)
-    #     if len(self.chunk) > config.CAPACITY:
-    #         self.flush()
-
-    # def flush(self):
-    #     if len(self.chunk) > 0:
-    #         self.saved_ids.extend(self.saver.save(self.chunk))
-    #         print(f'saved {len(self.chunk)} documents')
-    #         self.chunk = []
 
 
 class SidechainDataHandler(AbstractDataHandler):
@@ -37,7 +21,7 @@ class SidechainDataHandler(AbstractDataHandler):
         self.sidechain_repo = repo.create_sidechain_repository()
         super().__init__(self.sidechain_repo)
 
-    def load(self, key=ranges.WholeRange()):
+    def load(self, key=Key(WholeRange())):
         sidechains = self.sidechain_repo.load(key)
         connections = list(self.connection_repo.load(key))
         for sidechain in sidechains:
@@ -50,40 +34,43 @@ class MonomerDataHandler(AbstractDataHandler):
         self.sidechain_repo = repo.create_sidechain_repository()
         super().__init__(repo.create_monomer_repository())
 
-    def load(self):
-        sidechains = self.sidechain_repo.load()
-        backbones = list(self.backbone_repo.load())
+    def load(self, key=Key(WholeRange())):
+        sidechains = self.sidechain_repo.load(key)
+        backbones = list(self.backbone_repo.load(key))
         for sidechain in sidechains:
             yield [sidechain, backbones]
 
 
-# class PeptideDataHandler(AbstractDataHandler):
-#     def __init__(self, peptide_length):
-#         self.peptide_length = peptide_length
-#         self.plan_repo = repo.create_peptide_plan_repository()
-#         self.monomer_repo = repo.create_monomer_repository()
-#         super().__init__(repo.create_peptide_repository())
+class PeptideDataHandler(AbstractDataHandler):
+    def __init__(self):
+        self.plan_repo = repo.create_peptide_plan_repository()
+        self.monomer_repo = repo.create_monomer_repository()
+        super().__init__(repo.create_peptide_repository())
 
-#     def load(self):
-#         self._hash_monomers()
-#         self._hash_plan()
-#         self.plan = self.plan_repo.load()
-#         for indices in self.plan:
-#             monomers = [self.monomers[index] for index in indices]
-#             yield monomers
+    def load(self, key=Key(WholeRange())):
+        self._hash_monomers()
 
-#     def save(self, data):
-#         completed_combos = models.PeptidePlan(self.peptide_length)
-#         for peptide in data:
-#             completed_combos.add(peptide.get_indices())
-#             self.saver.save(peptide)
+        self.hashed_plan = {}
+        for _id, indices in self.plan_repo.load(key):
+            monomers = [self.index_hash[index] for index in indices]
+            self.hashed_plan[indices] = _id
+            yield monomers
 
-#         self.plan_repo.inactivate_records(completed_combos)
+    def save(self, data):
+        completed_combos = []
+        for peptide in data:
+            indices = tuple(self.id_hash[monomer['_id']] for monomer in peptide.monomers)
+            completed_combos.append(self.hashed_plan[indices])
 
-#     def _hash_monomers(self):
-#         self.monomers = {}
-#         for monomer in self.monomer_repo.load():
-#             self.monomers[monomer.index] = monomer
+        self.plan_repo.deactivate_records(Key(completed_combos))
+        return self.saver.save(data)
+
+    def _hash_monomers(self):
+        self.index_hash = {}
+        self.id_hash = {}
+        for monomer in self.monomer_repo.load():
+            self.index_hash[monomer.index] = monomer
+            self.id_hash[monomer._id] = monomer.index
 
 
 class TemplatePeptideDataHandler(AbstractDataHandler):
@@ -92,9 +79,9 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
         self.peptide_repo = repo.create_peptide_repository()
         super().__init__(repo.create_template_peptide_repository())
 
-    def load(self):
+    def load(self, key=Key(WholeRange())):
         peptides = self.peptide_repo.load()
-        templates = list(self.template_repo.load())
+        templates = list(self.template_repo.load(key))
         for peptide in peptides:
             yield [peptide, templates]
 
@@ -175,8 +162,8 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
         self.monomer_repo = repo.create_monomer_repository()
         super().__init__(repo.create_reaction_repository())
 
-    def load(self):
-        return list(self.sidechain_repo.load()) + list(self.monomer_repo.load())
+    def load(self, key=Key(WholeRange())):
+        return list(self.sidechain_repo.load(key)) + list(self.monomer_repo.load(key))
 
 
 class IntraMolecularReactionDataHandler(AbstractDataHandler):
@@ -184,5 +171,5 @@ class IntraMolecularReactionDataHandler(AbstractDataHandler):
         self.template_repo = repo.create_template_repository()
         super().__init__(repo.create_reaction_repository())
 
-    def load(self):
-        return self.template_repo.load()
+    def load(self, key=Key(WholeRange())):
+        return self.template_repo.load(key)
