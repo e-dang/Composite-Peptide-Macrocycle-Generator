@@ -5,6 +5,8 @@ import cpmg.repository as repo
 import cpmg.reactions as rxns
 from cpmg.ranges import Key, WholeRange
 import cpmg.config as config
+import cpmg.generators as generators
+import cpmg.utils as utils
 
 
 class AbstractDataHandler:
@@ -16,6 +18,8 @@ class AbstractDataHandler:
 
 
 class SidechainDataHandler(AbstractDataHandler):
+    STRING = generators.SidechainModifier.STRING
+
     def __init__(self):
         self.connection_repo = repo.create_connection_repository()
         self.sidechain_repo = repo.create_sidechain_repository()
@@ -29,6 +33,8 @@ class SidechainDataHandler(AbstractDataHandler):
 
 
 class MonomerDataHandler(AbstractDataHandler):
+    STRING = generators.MonomerGenerator.STRING
+
     def __init__(self):
         self.backbone_repo = repo.create_backbone_repository()
         self.sidechain_repo = repo.create_sidechain_repository()
@@ -42,6 +48,8 @@ class MonomerDataHandler(AbstractDataHandler):
 
 
 class PeptideDataHandler(AbstractDataHandler):
+    STRING = generators.PeptideGenerator.STRING
+
     def __init__(self):
         self.plan_repo = repo.create_peptide_plan_repository()
         self.monomer_repo = repo.create_monomer_repository()
@@ -74,6 +82,8 @@ class PeptideDataHandler(AbstractDataHandler):
 
 
 class TemplatePeptideDataHandler(AbstractDataHandler):
+    STRING = generators.TemplatePeptideGenerator.STRING
+
     def __init__(self):
         self.template_repo = repo.create_template_repository()
         self.peptide_repo = repo.create_peptide_repository()
@@ -157,6 +167,8 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
 
 
 class InterMolecularReactionDataHandler(AbstractDataHandler):
+    STRING = generators.InterMolecularReactionGenerator.STRING
+
     def __init__(self):
         self.sidechain_repo = repo.create_sidechain_repository()
         self.monomer_repo = repo.create_monomer_repository()
@@ -167,9 +179,16 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
 
 
 class IntraMolecularReactionDataHandler(AbstractDataHandler):
+    STRING = generators.IntraMolecularReactionGenerator.STRING
+
     def __init__(self):
         self.template_repo = repo.create_template_repository()
         super().__init__(repo.create_reaction_repository())
 
     def load(self, key=Key(WholeRange())):
         return self.template_repo.load(key)
+
+
+get_all_handler_strings = utils.get_module_strings(__name__)
+
+create_handler_from_string = utils.create_factory_function_closure(__name__, 'handler')

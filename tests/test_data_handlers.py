@@ -267,3 +267,28 @@ def test_intramolecular_reaction_data_handler_save(reactions_w_ids, reaction_rep
 
     reaction_repo.save.assert_called_once()
     assert(ids == extract_ids(reactions_w_ids))
+
+
+def test_get_all_handler_strings():
+    handler_strings = set(handlers.get_all_handler_strings())
+
+    assert handler_strings == {handlers.SidechainDataHandler.STRING,
+                               handlers.MonomerDataHandler.STRING,
+                               handlers.PeptideDataHandler.STRING,
+                               handlers.TemplatePeptideDataHandler.STRING,
+                               handlers.InterMolecularReactionDataHandler.STRING,
+                               handlers.IntraMolecularReactionDataHandler.STRING}
+
+
+@pytest.mark.parametrize('handler', [
+    (handlers.SidechainDataHandler),
+    (handlers.MonomerDataHandler),
+    (handlers.PeptideDataHandler),
+    (handlers.TemplatePeptideDataHandler),
+    (handlers.InterMolecularReactionDataHandler),
+    (handlers.IntraMolecularReactionDataHandler)
+])
+def test_create_handler_from_string(handler):
+    produced_handler = handlers.create_handler_from_string(handler.STRING)
+
+    assert isinstance(produced_handler, handler)
