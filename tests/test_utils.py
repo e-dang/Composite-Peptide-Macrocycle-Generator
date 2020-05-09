@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from rdkit import Chem
 
@@ -19,6 +20,19 @@ def empty_list_data():
     return []
 
 
+@pytest.mark.parametrize('data, pred, expected_len1, expected_len2', [
+    ([[1, 2, 3], [1, 2, 3, 4], [4, 3, 2, 4], [1, 2, 2], [1, 2, 3, 4]], lambda x: len(x) == 3, 2, 3),
+    (map(np.array, [[1, 2, 3], [1, 2, 3, 4], [4, 3, 2, 4], [1, 2, 2], [1, 2, 3, 4]]), lambda x: len(x) == 3, 2, 3),
+    (map(tuple, [[1, 2, 3], [1, 2, 3, 4], [4, 3, 2, 4], [1, 2, 2], [1, 2, 3, 4]]), lambda x: len(x) == 3, 2, 3),
+])
+def test_split(data, pred, expected_len1, expected_len2):
+
+    eq_len, neq_len = utils.split(data, pred=pred)
+
+    assert len(eq_len) == expected_len1
+    assert len(neq_len) == expected_len2
+
+
 def test_get_maximum_len(string_list_data):
     assert(utils.get_maximum(string_list_data, len) == 15)
 
@@ -27,12 +41,19 @@ def test_get_maximum_int(string_int_list_data):
     assert(utils.get_maximum(string_int_list_data, int) == 12)
 
 
-@pytest.mark.parametrize('data,length', [({'A': 1}, 1), ([{'A': 1}, {'B': 2}], 2), (map(lambda x: x, [{'A': 1}, {'B': 2}]), 2)])
+@pytest.mark.parametrize('data,length', [
+    ({'A': 1}, 1),
+    ([{'A': 1}, {'B': 2}], 2),
+    (({'A': 1}, {'B': 2}), 2),
+    (map(lambda x: x, [{'A': 1}, {'B': 2}]), 2),
+
+])
 def test_to_list(data, length):
     ls_data = utils.to_list(data)
-    assert(isinstance(ls_data, list))
-    assert(all(map(lambda x: isinstance(x, dict), ls_data)))
-    assert(len(ls_data) == length)
+
+    assert isinstance(ls_data, (list, tuple))
+    assert all(map(lambda x: isinstance(x, dict), ls_data))
+    assert len(ls_data) == length
 
 
 @pytest.mark.parametrize('empty_list_data,func', [('', int), ('', len)], indirect=['empty_list_data'])

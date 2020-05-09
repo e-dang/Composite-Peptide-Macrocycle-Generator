@@ -2,6 +2,21 @@ import numpy as np
 from rdkit import Chem
 
 
+def split(data, pred):
+    """
+    https://stackoverflow.com/questions/8793772/how-to-split-a-sequence-according-to-a-predicate
+    """
+
+    yes, no = [], []
+    for d in data:
+        if pred(d):
+            yes.append(d)
+        else:
+            no.append(d)
+
+    return [yes, no]
+
+
 def get_maximum(data, func):
     try:
         return np.max(list(map(func, data)))
@@ -10,10 +25,10 @@ def get_maximum(data, func):
 
 
 def to_list(data):
-    if isinstance(data, list) or isinstance(data, tuple):
+    if isinstance(data, (list, tuple)):
         return data
 
-    if isinstance(data, dict):
+    if isinstance(data, (dict, str)):
         return [data]
 
     return list(data)
