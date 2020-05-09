@@ -24,7 +24,7 @@ COMPRESSION = 'gzip'
 COMPRESSION_OPTS = 9
 
 ##################################################### RegioSQM ######################################################
-REGIOSQM_SMILES_FILEPATH = os.path.join(DATA_DIR, 'external', 'regiosqm_smiles.smiles')
+REGIOSQM_SMILES_FILEPATH = os.path.join(DATA_DIR, 'external', 'regiosqm_mols.smiles')
 
 ################################################ Filter Constants ################################################
 PKA_CUTOFF = 13.5
