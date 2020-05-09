@@ -332,7 +332,7 @@ class AbstractHDF5RepositoryImpl:
                 yield _id
 
     def _get_next_dataset_name(self, group):
-        max_idx = utils.get_maximum(group, int)
+        max_idx = utils.get_maximum(self._get_datasets(group), int)
         max_idx = -1 if max_idx is None else max_idx
         return str(max_idx + 1)
 
