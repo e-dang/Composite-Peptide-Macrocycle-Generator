@@ -11,10 +11,10 @@ import macrocycles.utils as utils
 from cpmg.exceptions import InvalidMolecule
 import cpmg.filters as filters
 import cpmg.reactions as rxns
-import cpmg.config as config
 
 
 class SidechainModifier:
+    STRING = models.Sidechain.STRING
 
     def generate(self, args):
         """
@@ -34,6 +34,7 @@ class SidechainModifier:
 
 
 class MonomerGenerator:
+    STRING = models.Monomer.STRING
     MAP_NUMS = (models.Backbone.MAP_NUM, models.Sidechain.MAP_NUM)
 
     def generate(self, args):
@@ -55,6 +56,7 @@ class MonomerGenerator:
 
 
 class PeptideGenerator():
+    STRING = models.Peptide.STRING
 
     MONOMER_NITROGEN_MAP_NUM = 1
     PEPTIDE_CARBON_MAP_NUM = 2
@@ -145,6 +147,8 @@ class PeptideGenerator():
 
 
 class TemplatePeptideGenerator:
+    STRING = models.TemplatePeptide.STRING
+
     # any primary amine or proline n-terminus, but no guanidine
     ELIGIBLE_NITROGENS = Chem.MolFromSmarts('[$([NH2]),$([NH;R]);!$([NH2]C(=O)*);!$([NH2]C(=[NH])[NH]*)]')
     PEPTIDE_NITROGEN_MAP_NUM = 2
@@ -174,6 +178,8 @@ class TemplatePeptideGenerator:
 
 
 class MacrocycleGenerator:
+    STRING = models.Macrocycle.STRING
+
     PS = rxns.PictetSpangler.TYPE
     TPS = rxns.TemplatePictetSpangler.TYPE
     ALDH = rxns.AldehydeCyclization.TYPE
@@ -235,9 +241,10 @@ class MacrocycleGenerator:
 
 
 class InterMolecularReactionGenerator:
+    STRING = 'inter_' + models.Reaction.STRING
 
-    def __init__(self, impl):
-        self.impl = impl
+    def __init__(self, impl=None):
+        self.impl = impl or rxns.create_intermolecular_reactions()
         self.backbones = list(map(lambda x: x.mol, repo.create_backbone_repository().load()))
 
     @filters.pka_filter
@@ -283,8 +290,10 @@ class InterMolecularReactionGenerator:
 
 
 class IntraMolecularReactionGenerator:
-    def __init__(self, impl):
-        self.impl = impl
+    STRING = 'intra_' + models.Reaction.STRING
+
+    def __init__(self, impl=None):
+        self.impl = impl or rxns.create_intramolecular_reactions()
 
     def generate(self, reacting_mol):
         reactions = []
@@ -296,3 +305,21 @@ class IntraMolecularReactionGenerator:
             pass
 
         return reactions
+
+
+get_all_generator_strings = temp_utils.get_module_strings(__name__)
+
+
+def create_generator_from_string(string, *args):
+    import inspect
+    import sys
+
+    classmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+    for _, member in classmembers:
+        try:
+            if string == member.STRING:
+                return member(*args)
+        except AttributeError:
+            pass
+
+    raise ValueError(f'Unrecognized generator string: {string}')

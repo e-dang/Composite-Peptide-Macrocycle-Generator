@@ -146,3 +146,66 @@ def test_intramolecular_reaction_generator(data, impl, num_results, expected_res
     assert(len(reactions) == num_results)
     for reaction, expected_result in zip(reactions, expected_results):
         assert(reaction == expected_result)
+
+
+def test_get_all_generator_strings():
+    generator_strings = set(generators.get_all_generator_strings())
+
+    assert generator_strings == {generators.SidechainModifier.STRING,
+                                 generators.MonomerGenerator.STRING,
+                                 generators.PeptideGenerator.STRING,
+                                 generators.PeptideGenerator.STRING,
+                                 generators.PeptideGenerator.STRING,
+                                 generators.TemplatePeptideGenerator.STRING,
+                                 generators.MacrocycleGenerator.STRING,
+                                 generators.InterMolecularReactionGenerator.STRING,
+                                 generators.IntraMolecularReactionGenerator.STRING}
+
+
+@pytest.mark.parametrize('string, args, expected', [
+    (models.Sidechain.STRING, None, generators.SidechainModifier),
+    (models.Monomer.STRING, None, generators.MonomerGenerator),
+    (models.Peptide.STRING, [3], generators.PeptideGenerator),
+    (models.Peptide.STRING, [4], generators.PeptideGenerator),
+    (models.Peptide.STRING, [5], generators.PeptideGenerator),
+    (models.TemplatePeptide.STRING, None, generators.TemplatePeptideGenerator),
+    (models.Macrocycle.STRING, None, generators.MacrocycleGenerator)
+])
+def test_create_generator_from_string(string, args, expected):
+    if args is None:
+        generator = generators.create_generator_from_string(string)
+    else:
+        generator = generators.create_generator_from_string(string, *args)
+
+    assert isinstance(generator, expected)
+    if args is not None:
+        assert list(generator.__dict__.values()) == args
+
+
+@pytest.mark.parametrize('string, args, expected', [
+    (generators.InterMolecularReactionGenerator.STRING, [rxns.FriedelCrafts()],
+     generators.InterMolecularReactionGenerator),
+    (generators.InterMolecularReactionGenerator.STRING, None,
+     generators.InterMolecularReactionGenerator),
+    (generators.IntraMolecularReactionGenerator.STRING, [
+     rxns.TemplatePictetSpangler()], generators.IntraMolecularReactionGenerator),
+    (generators.IntraMolecularReactionGenerator.STRING, None, generators.IntraMolecularReactionGenerator)
+])
+def test_create_generator_from_string_reactions(string, args, expected):
+    if args is None:
+        generator = generators.create_generator_from_string(string)
+    else:
+        generator = generators.create_generator_from_string(string, *args)
+
+    assert isinstance(generator, expected)
+    if args is not None:
+        assert [generator.impl] == args
+    else:
+        assert len(generator.impl) != 0
+        assert all([isinstance(impl, (rxns.InterMolecularReaction, rxns.IntraMolecularReaction))
+                    for impl in generator.impl])
+
+
+def test_create_generator_from_string_fail():
+    with pytest.raises(ValueError):
+        generators.create_generator_from_string('dne')
