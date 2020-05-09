@@ -16,3 +16,5 @@ class RegioSQMExporter:
         data = [str(i) + ' ' + mol.kekule + '\n' for i, mol in enumerate(data)]
 
         save_text(data, filepath)
+
+        return True
