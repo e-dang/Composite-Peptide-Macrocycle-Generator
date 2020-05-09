@@ -10,24 +10,46 @@ import cpmg.utils as utils
 from data.mols import *
 
 
-@pytest.fixture()
-def backbone_from_mol():
-    return models.Backbone.from_mol(Chem.MolFromSmiles('N[CH2:1]C(=O)O'))
+@pytest.fixture(params=['N[CH2:1]C(=O)O', 'N[CH2:1]CC(=O)O', 'NC[CH2:1]C(=O)O'])
+def backbone_kekule(request):
+    return request.param
+
+
+@pytest.fixture(params=['C', 'CC'])
+def connection_kekule(request):
+    return request.param
 
 
 @pytest.fixture()
-def backbone_from_dict():
-    return models.Backbone.from_dict(TEST_BACKBONE_1, _id='alpha')
+def backbone_from_mol(backbone_kekule):
+    mol = Chem.MolFromSmiles(backbone_kekule)
+    backbone = models.Backbone.from_mol(mol)
+    utils.clear_atom_map_nums(mol)
+    Chem.Kekulize(mol)
+    kekule = Chem.MolToSmiles(mol, kekuleSmiles=True)
+    binary = mol.ToBinary()
+    return backbone, binary, backbone_kekule, kekule
+
+
+@pytest.fixture(params=TEST_BACKBONES)
+def backbone_from_dict(request):
+    _id = str(uuid.uuid4())
+    return models.Backbone.from_dict(request.param, _id=_id), request.param, _id
 
 
 @pytest.fixture()
-def connection_from_mol():
-    return models.Connection.from_mol(Chem.MolFromSmiles('CC'))
+def connection_from_mol(connection_kekule):
+    mol = Chem.MolFromSmiles(connection_kekule)
+    connection = models.Connection.from_mol(mol)
+    Chem.Kekulize(mol)
+    binary = mol.ToBinary()
+    return connection, binary, connection_kekule
 
 
-@pytest.fixture()
-def connection_from_dict():
-    return models.Connection.from_dict(TEST_CONNECTION_1, _id='ethyl')
+@pytest.fixture(params=TEST_CONNECTIONS)
+def connection_from_dict(request):
+    _id = str(uuid.uuid4())
+    return models.Connection.from_dict(request.param, _id=_id), request.param, _id
 
 
 @pytest.fixture()
@@ -56,22 +78,41 @@ def template_from_dict(request):
 
 @pytest.fixture()
 def sidechain_from_mol():
-    return models.Sidechain.from_mol(Chem.MolFromSmiles('CC1=CC(=O)C2=C([NH]1)SC=C2'), models.Connection.from_dict(TEST_CONNECTION_1, _id='ethyl'), 'q')
+    kekule = 'CC1=CC(=O)C2=C([NH]1)SC=C2'
+    mol = Chem.MolFromSmiles(kekule)
+    connection_id = str(uuid.uuid4())
+    shared_id = str(uuid.uuid4())
+    connection = models.Connection.from_dict(TEST_CONNECTION_1, _id=connection_id)
+    sidechain = models.Sidechain.from_mol(mol, connection, shared_id)
+    Chem.Kekulize(mol)
+    return sidechain, mol.ToBinary(), kekule, connection, shared_id
 
 
-@pytest.fixture()
-def sidechain_from_dict():
-    return models.Sidechain.from_dict(TEST_SIDECHAIN_3, _id='12498dfhjwu')
+@pytest.fixture(params=TEST_SIDECHAINS)
+def sidechain_from_dict(request):
+    _id = str(uuid.uuid4())
+    return models.Sidechain.from_dict(request.param, _id=_id), request.param, _id
 
 
 @pytest.fixture()
 def monomer_from_mol():
-    return models.Monomer.from_mol(Chem.MolFromSmiles('NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O'), models.Backbone.from_dict(TEST_BACKBONE_3, _id='beta3'), models.Sidechain.from_mol(Chem.MolFromSmiles('CC1=CC=CC2=N[NH]C(=O)N12'), models.Connection.from_dict(TEST_CONNECTION_1, _id='methyl'), 'af'))
+    kekule = 'NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O'
+    mol = Chem.MolFromSmiles(kekule)
+    backbone_id = str(uuid.uuid4())
+    backbone = models.Backbone.from_dict(TEST_BACKBONE_3, _id=backbone_id)
+    connection = models.Connection.from_dict(TEST_CONNECTION_1, _id=str(uuid.uuid4()))
+    sidechain_shared_id = str(uuid.uuid4())
+    sidechain = models.Sidechain.from_mol(Chem.MolFromSmiles(
+        'CC1=CC=CC2=N[NH]C(=O)N12'), connection, sidechain_shared_id)
+    monomer = models.Monomer.from_mol(mol, backbone, sidechain)
+    Chem.Kekulize(mol)
+    return monomer, mol.ToBinary(), kekule, backbone, sidechain, connection
 
 
-@pytest.fixture()
-def monomer_from_dict():
-    return models.Monomer.from_dict(TEST_MONOMER_1, _id='qr398fhiusd')
+@pytest.fixture(params=TEST_MONOMERS_W_IDXS)
+def monomer_from_dict(request):
+    _id = str(uuid.uuid4())
+    return models.Monomer.from_dict(request.param, _id=_id), request.param, _id
 
 
 @pytest.fixture()
@@ -149,58 +190,72 @@ def peptide_plan_data():
 
 
 def test_backbone_from_mol(backbone_from_mol):
-    assert(backbone_from_mol._id == None)
-    assert(backbone_from_mol.binary != None)
-    assert(backbone_from_mol.kekule == 'NCC(=O)O')
-    assert(backbone_from_mol.mapped_kekule == 'N[CH2:1]C(=O)O')
+    backbone, binary, mapped_kekule, kekule = backbone_from_mol
+    assert backbone._id == None
+    assert backbone.binary == binary
+    assert backbone.kekule == kekule
+    assert backbone.mapped_kekule == mapped_kekule
 
 
 def test_backbone_from_dict(backbone_from_dict):
-    assert(backbone_from_dict._id == 'alpha')
-    assert(backbone_from_dict.binary != None)
-    assert(backbone_from_dict.kekule == 'NCC(=O)O')
-    assert(backbone_from_dict.mapped_kekule == 'N[CH2:1]C(=O)O')
+    backbone, backbone_dict, _id = backbone_from_dict
+    assert backbone._id == _id
+    assert backbone.binary == backbone_dict['binary']
+    assert backbone.kekule == backbone_dict['kekule']
+    assert backbone.mapped_kekule == backbone_dict['mapped_kekule']
 
 
 def test_backbone_to_dict(backbone_from_dict):
-    assert(backbone_from_dict.to_dict() == TEST_BACKBONE_1)
+    backbone, backbone_dict, _id = backbone_from_dict
+    assert backbone.to_dict() == backbone_dict
 
 
-@pytest.mark.parametrize('backbone', [(Chem.MolFromSmiles('N[CH2:1]C(=O)O')), (Chem.MolFromSmiles('N[CH2:1]CC(=O)O')), (Chem.MolFromSmiles('NC[CH2:1]C(=O)O'))])
-def test_backbone_validate(backbone):
-    assert(models.Backbone.validate(backbone))
+def test_backbone_validate(backbone_kekule):
+    assert models.Backbone.validate(Chem.MolFromSmiles(backbone_kekule))
 
 
-@pytest.mark.parametrize('backbone', [(Chem.MolFromSmiles('NCC(=O)O')), (Chem.MolFromSmiles('NCCC(=O)O'))])
+@pytest.mark.parametrize('backbone', [
+    (Chem.MolFromSmiles('NCC(=O)O')),
+    (Chem.MolFromSmiles('NCCC(=O)O'))
+])
 def test_validate_backbone_fail(backbone):
     with pytest.raises(exceptions.InvalidMolecule):
         models.Backbone.validate(backbone)
 
 
 def test_backbone_mol(backbone_from_dict):
-    backbone = backbone_from_dict.mol
-    assert(models.Backbone.validate(backbone))
+    backbone, _, _ = backbone_from_dict
+    backbone = backbone.mol
+    assert models.Backbone.validate(backbone)
 
 
 def test_backbone_eq(backbone_from_dict):
-    assert(backbone_from_dict == models.Backbone.from_dict(TEST_BACKBONE_1, _id='shouldnt matter'))
-    assert(backbone_from_dict != models.Backbone.from_dict(TEST_BACKBONE_2, _id='shouldnt matter'))
+    backbone, backbone_dict, _ = backbone_from_dict
+
+    backbones = deepcopy(TEST_BACKBONES)
+    backbones.remove(backbone_dict)
+
+    assert backbone == models.Backbone.from_dict(backbone_dict, _id='shouldnt matter')
+    assert backbone != models.Backbone.from_dict(backbones[0], _id='shouldnt matter')
 
 
 def test_connection_from_mol(connection_from_mol):
-    assert(connection_from_mol._id == None)
-    assert(connection_from_mol.binary != None)
-    assert(connection_from_mol.kekule == 'CC')
+    connection, binary, kekule = connection_from_mol
+    assert connection._id == None
+    assert connection.binary == binary
+    assert connection.kekule == kekule
 
 
 def test_connection_from_dict(connection_from_dict):
-    assert(connection_from_dict._id == 'ethyl')
-    assert(connection_from_dict.binary != None)
-    assert(connection_from_dict.kekule == 'C')
+    connection, connection_dict, _id = connection_from_dict
+    assert connection._id == _id
+    assert connection.binary == connection_dict['binary']
+    assert connection.kekule == connection_dict['kekule']
 
 
 def test_connection_to_dict(connection_from_dict):
-    assert(connection_from_dict.to_dict() == TEST_CONNECTION_1)
+    connection, connection_dict, _ = connection_from_dict
+    assert connection.to_dict() == connection_dict
 
 
 @pytest.mark.parametrize('func,template', [(models.Template.validate_oligomerization_mol,
@@ -236,7 +291,7 @@ def test_connection_to_dict(connection_from_dict):
                                            (models.Template.validate_aldehyde_cyclization_mol,
                                             Chem.MolFromSmiles(TEST_TEMPLATE_2['aldehyde_cyclization_kekule']))])
 def test_template_validate(func, template):
-    assert(func(template))
+    assert func(template)
 
 
 @pytest.mark.parametrize('func,template', [(models.Template.validate_oligomerization_mol,
@@ -289,84 +344,107 @@ def test_template_validate_fail(func, template):
 def test_template_from_mol(template_from_mol):
     (template, kekule, oligomerization_kekule, friedel_crafts_kekule, tsuji_trost_kekule, pictet_spangler_kekule,
      template_pictet_spangler_kekule, pyrroloindoline_kekule, aldehyde_cyclization_kekule) = template_from_mol
-    assert(template._id == None)
-    assert(template.binary != None)
-    assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
-    assert(template.kekule == kekule)
-    assert(template.oligomerization_kekule == oligomerization_kekule)
-    assert(template.friedel_crafts_kekule == friedel_crafts_kekule)
-    assert(template.tsuji_trost_kekule == tsuji_trost_kekule)
-    assert(template.pictet_spangler_kekule == pictet_spangler_kekule)
-    assert(template.template_pictet_spangler_kekule == template_pictet_spangler_kekule)
-    assert(template.pyrroloindoline_kekule == pyrroloindoline_kekule)
-    assert(template.aldehyde_cyclization_kekule == aldehyde_cyclization_kekule)
-    assert(len(template.__dict__) - 1 == len(template_from_mol))  # -1 for binary field
+    assert template._id == None
+    assert template.binary != None
+    assert isinstance(Chem.Mol(template.binary), Chem.Mol)
+    assert template.kekule == kekule
+    assert template.oligomerization_kekule == oligomerization_kekule
+    assert template.friedel_crafts_kekule == friedel_crafts_kekule
+    assert template.tsuji_trost_kekule == tsuji_trost_kekule
+    assert template.pictet_spangler_kekule == pictet_spangler_kekule
+    assert template.template_pictet_spangler_kekule == template_pictet_spangler_kekule
+    assert template.pyrroloindoline_kekule == pyrroloindoline_kekule
+    assert template.aldehyde_cyclization_kekule == aldehyde_cyclization_kekule
+    assert len(template.__dict__) - 1 == len(template_from_mol)  # -1 for binary field
 
 
 def test_template_from_dict(template_from_dict):
     template, template_dict, _id = template_from_dict
-    assert(template._id == _id)
-    assert(template.binary == template_dict['binary'])
-    assert(isinstance(Chem.Mol(template.binary), Chem.Mol))
-    assert(template.kekule == template_dict['kekule'])
-    assert(template.oligomerization_kekule == template_dict['oligomerization_kekule'])
-    assert(template.friedel_crafts_kekule == template_dict['friedel_crafts_kekule'])
-    assert(template.tsuji_trost_kekule == template_dict['tsuji_trost_kekule'])
-    assert(template.pictet_spangler_kekule == template_dict['pictet_spangler_kekule'])
-    assert(template.template_pictet_spangler_kekule == template_dict['template_pictet_spangler_kekule'])
-    assert(template.pyrroloindoline_kekule == template_dict['pyrroloindoline_kekule'])
-    assert(template.aldehyde_cyclization_kekule == template_dict['aldehyde_cyclization_kekule'])
-    assert(len(template.__dict__) - 1 == len(template_dict))
+    assert template._id == _id
+    assert template.binary == template_dict['binary']
+    assert isinstance(Chem.Mol(template.binary), Chem.Mol)
+    assert template.kekule == template_dict['kekule']
+    assert template.oligomerization_kekule == template_dict['oligomerization_kekule']
+    assert template.friedel_crafts_kekule == template_dict['friedel_crafts_kekule']
+    assert template.tsuji_trost_kekule == template_dict['tsuji_trost_kekule']
+    assert template.pictet_spangler_kekule == template_dict['pictet_spangler_kekule']
+    assert template.template_pictet_spangler_kekule == template_dict['template_pictet_spangler_kekule']
+    assert template.pyrroloindoline_kekule == template_dict['pyrroloindoline_kekule']
+    assert template.aldehyde_cyclization_kekule == template_dict['aldehyde_cyclization_kekule']
+    assert len(template.__dict__) - 1 == len(template_dict)
 
 
 def test_template_to_dict(template_from_dict):
     template, template_dict, _ = template_from_dict
-    assert(template.to_dict() == template_dict)
+    assert template.to_dict() == template_dict
 
 
 def test_sidechain_from_mol(sidechain_from_mol):
-    assert(sidechain_from_mol._id == None)
-    assert(sidechain_from_mol.binary != None)
-    assert(sidechain_from_mol.kekule == 'CC1=CC(=O)C2=C([NH]1)SC=C2')
-    assert(sidechain_from_mol.connection == 'C')
-    assert(sidechain_from_mol.shared_id == 'q')
-    assert(isinstance(sidechain_from_mol.attachment_point, int))
+    sidechain, binary, kekule, connection, shared_id = sidechain_from_mol
+    sidechain_mol = sidechain.mol
 
-    sidechain = sidechain_from_mol.mol
-    attachment_point = sidechain.GetAtomWithIdx(sidechain_from_mol.attachment_point)
-    assert(attachment_point.GetSymbol() == 'C')
-    assert(attachment_point.GetTotalNumHs() == 3)
+    assert sidechain._id == None
+    assert sidechain.binary == binary
+    assert sidechain.kekule == kekule
+    assert sidechain.connection == connection.kekule
+    assert sidechain.shared_id == shared_id
+    assert sidechain.attachment_point in list(range(len(sidechain_mol.GetAtoms())))
+
+    attachment_point = sidechain_mol.GetAtomWithIdx(sidechain.attachment_point)
+    assert attachment_point.GetSymbol() == 'C'
+    assert attachment_point.GetTotalNumHs() == 3
 
 
 def test_sidechain_from_dict(sidechain_from_dict):
-    assert(sidechain_from_dict._id == '12498dfhjwu')
-    assert(sidechain_from_dict.binary != None)
-    assert(sidechain_from_dict.kekule == 'CC1=CC(=O)C2=C([NH]1)SC=C2')
-    assert(sidechain_from_dict.connection == 'C')
-    assert(sidechain_from_dict.shared_id == 'q')
-    assert(isinstance(sidechain_from_dict.attachment_point, int))
+    sidechain, sidechain_dict, _id = sidechain_from_dict
+    sidechain_mol = sidechain.mol
 
-    sidechain = sidechain_from_dict.mol
-    attachment_point = sidechain.GetAtomWithIdx(sidechain_from_dict.attachment_point)
-    assert(attachment_point.GetSymbol() == 'C')
-    assert(attachment_point.GetTotalNumHs() == 3)
+    assert sidechain._id == _id
+    assert sidechain.binary == sidechain_dict['binary']
+    assert sidechain.kekule == sidechain_dict['kekule']
+    assert sidechain.connection == sidechain_dict['connection']
+    assert sidechain.shared_id == sidechain_dict['shared_id']
+    assert sidechain.attachment_point in list(range(len(sidechain_mol.GetAtoms())))
+
+    attachment_point = sidechain_mol.GetAtomWithIdx(sidechain.attachment_point)
+    assert attachment_point.GetSymbol() == 'C'
+    assert attachment_point.GetTotalNumHs() == 3
+
+
+@pytest.mark.parametrize('sidechain_kekule', [(doc['kekule']) for doc in TEST_SIDECHAINS])
+def test_sidechain_validate(sidechain_kekule):
+    sidechain = Chem.MolFromSmiles(sidechain_kekule)
+    attachment_point = models.Sidechain.validate(sidechain)
+    attachment_atom = sidechain.GetAtomWithIdx(attachment_point)
+
+    assert attachment_atom.GetSymbol() == 'C'
+    assert attachment_atom.GetTotalNumHs() == 3
 
 
 def test_sidechain_to_dict(sidechain_from_dict):
-    assert(sidechain_from_dict.to_dict() == TEST_SIDECHAIN_3)
+    sidechain, sidechain_dict, _ = sidechain_from_dict
+    assert sidechain.to_dict() == sidechain_dict
 
 
 def test_sidechain_eq(sidechain_from_dict):
-    assert(sidechain_from_dict == models.Sidechain.from_dict(TEST_SIDECHAIN_3, _id='shouldnt matter'))
-    assert(sidechain_from_dict != models.Sidechain.from_dict(TEST_SIDECHAIN_2, _id='shouldnt matter'))
+    sidechain, sidechain_dict, _ = sidechain_from_dict
+
+    sidechains = deepcopy(TEST_SIDECHAINS)
+    sidechains.remove(sidechain_dict)
+
+    assert sidechain == models.Sidechain.from_dict(sidechain_dict, _id='shouldnt matter')
+    assert sidechain != models.Sidechain.from_dict(sidechains[0], _id='shouldnt matter')
 
 
 def test_sidechain_mapped_mol(sidechain_from_dict):
-    sidechain = sidechain_from_dict.mapped_mol
-    atom_idx, map_num = zip(*utils.get_atom_map_nums(sidechain))
-    assert(len(atom_idx) == len(map_num) == 1)
-    assert(atom_idx[0] == sidechain_from_dict.attachment_point)
-    assert(map_num[0] == models.Sidechain.MAP_NUM)
+    sidechain, _, _ = sidechain_from_dict
+
+    mapped_mol = sidechain.mapped_mol
+    atom_idx, map_num = zip(*utils.get_atom_map_nums(mapped_mol))
+
+    assert len(atom_idx) == len(map_num) == 1
+    assert atom_idx[0] == sidechain.attachment_point
+    assert map_num[0] == models.Sidechain.MAP_NUM
 
 
 @pytest.mark.parametrize('mol,expected_result', [(Chem.MolFromSmiles('N=C(N)NCCCC(N)C(=O)O'), False), (Chem.MolFromSmiles('O=C(O)[C@@H]1C[C@H](O)CN1'), False), (Chem.MolFromSmiles('NC(CC(=O)O)CC1=CC=CO1'), True)])
@@ -380,36 +458,44 @@ def test_monomer_is_proline(mol, expected_result):
 
 
 def test_monomer_from_mol(monomer_from_mol):
-    assert(monomer_from_mol._id == None)
-    assert(monomer_from_mol.binary != None)
-    assert(monomer_from_mol.kekule == 'NCC(CC1=CC=CC2=N[NH]C(=O)N12)C(=O)O')
-    assert(monomer_from_mol.backbone['_id'] == 'beta3')
-    assert(monomer_from_mol.backbone['kekule'] == 'NCCC(=O)O')
-    assert(monomer_from_mol.sidechain == 'af')
-    assert(monomer_from_mol.connection == 'C')
-    assert(monomer_from_mol.proline == False)
-    assert(monomer_from_mol.imported == False)
+    monomer, binary, kekule, backbone, sidechain, connection = monomer_from_mol
+    assert monomer._id == None
+    assert monomer.binary == binary
+    assert monomer.kekule == kekule
+    assert monomer.backbone['_id'] == backbone._id
+    assert monomer.backbone['kekule'] == backbone.kekule
+    assert monomer.sidechain == sidechain.shared_id
+    assert monomer.connection == connection.kekule
+    assert monomer.proline == False
+    assert monomer.imported == False
+    assert monomer.index == None
 
 
 def test_monomer_from_dict(monomer_from_dict):
-    assert(monomer_from_dict._id == 'qr398fhiusd')
-    assert(monomer_from_dict.binary != None)
-    assert(monomer_from_dict.kekule == 'O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1')
-    assert(monomer_from_dict.backbone['_id'] == 'alpha')
-    assert(monomer_from_dict.backbone['kekule'] == 'NCC(=O)O')
-    assert(monomer_from_dict.sidechain == None)
-    assert(monomer_from_dict.connection == None)
-    assert(monomer_from_dict.proline == True)
-    assert(monomer_from_dict.imported == True)
+    monomer, monomer_dict, _id = monomer_from_dict
+    assert monomer._id == _id
+    assert monomer.binary == monomer_dict['binary']
+    assert monomer.kekule == monomer_dict['kekule']
+    assert monomer.backbone['_id'] == monomer_dict['backbone']['_id']
+    assert monomer.backbone['kekule'] == monomer_dict['backbone']['kekule']
+    assert monomer.sidechain == monomer_dict['sidechain']
+    assert monomer.connection == monomer_dict['connection']
+    assert monomer.index == monomer_dict['index']
 
 
 def test_monomer_to_dict(monomer_from_dict):
-    assert(monomer_from_dict.to_dict() == TEST_MONOMER_1)
+    monomer, monomer_dict, _ = monomer_from_dict
+    assert monomer.to_dict() == monomer_dict
 
 
 def test_monomer_eq(monomer_from_dict):
-    assert(monomer_from_dict == models.Monomer.from_dict(TEST_MONOMER_1, _id='shouldnt matter'))
-    assert(monomer_from_dict != models.Monomer.from_dict(TEST_MONOMER_2, _id='shouldnt matter'))
+    monomer, monomer_dict, _id = monomer_from_dict
+
+    monomers = deepcopy(TEST_MONOMERS_W_IDXS)
+    monomers.remove(monomer_dict)
+
+    assert monomer == models.Monomer.from_dict(monomer_dict, _id='shouldnt matter')
+    assert monomer != models.Monomer.from_dict(monomers[0], _id='shouldnt matter')
 
 
 def test_peptide_from_mol(peptide_from_mol):
