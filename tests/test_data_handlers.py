@@ -1,9 +1,7 @@
-import uuid
-
 import pytest
 import mock
 
-import cpmg.ranges as ranges
+from cpmg.ranges import Key
 import cpmg.data_handlers as handlers
 import cpmg.models as models
 from data.mols import *
@@ -19,7 +17,7 @@ def extract_ids(data):
 def connection_repo(connection_mols_w_ids):
     mock_connection_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_connection_repo.load.return_value = connection_mols_w_ids
-    mock_connection_repo.save.return_value = extract_ids(connection_mols_w_ids)
+    mock_connection_repo.save.return_value = Key(extract_ids(connection_mols_w_ids))
     with mock.patch('cpmg.repository.create_connection_repository', return_value=mock_connection_repo):
         yield mock_connection_repo
 
@@ -28,7 +26,7 @@ def connection_repo(connection_mols_w_ids):
 def backbone_repo(backbone_w_id_mols):
     mock_backbone_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_backbone_repo.load.return_value = backbone_w_id_mols
-    mock_backbone_repo.save.return_value = extract_ids(backbone_w_id_mols)
+    mock_backbone_repo.save.return_value = Key(extract_ids(backbone_w_id_mols))
     with mock.patch('cpmg.repository.create_backbone_repository', return_value=mock_backbone_repo):
         yield mock_backbone_repo
 
@@ -37,7 +35,7 @@ def backbone_repo(backbone_w_id_mols):
 def sidechain_repo(sidechain_w_id_mols):
     mock_sc_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_sc_repo.load.return_value = sidechain_w_id_mols
-    mock_sc_repo.save.return_value = extract_ids(sidechain_w_id_mols)
+    mock_sc_repo.save.return_value = Key(extract_ids(sidechain_w_id_mols))
     with mock.patch('cpmg.repository.create_sidechain_repository', return_value=mock_sc_repo):
         yield mock_sc_repo
 
@@ -46,7 +44,7 @@ def sidechain_repo(sidechain_w_id_mols):
 def template_repo(template_w_id_mols):
     mock_template_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_template_repo.load.return_value = template_w_id_mols
-    mock_template_repo.save.return_value = extract_ids(template_w_id_mols)
+    mock_template_repo.save.return_value = Key(extract_ids(template_w_id_mols))
     with mock.patch('cpmg.repository.create_template_repository', return_value=mock_template_repo):
         yield mock_template_repo
 
@@ -55,7 +53,7 @@ def template_repo(template_w_id_mols):
 def monomer_repo(monomer_w_idx_mols):
     mock_monomer_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_monomer_repo.load.return_value = monomer_w_idx_mols
-    mock_monomer_repo.save.return_value = extract_ids(monomer_w_idx_mols)
+    mock_monomer_repo.save.return_value = Key(extract_ids(monomer_w_idx_mols))
     with mock.patch('cpmg.repository.create_monomer_repository', return_value=mock_monomer_repo):
         yield mock_monomer_repo
 
@@ -64,7 +62,7 @@ def monomer_repo(monomer_w_idx_mols):
 def peptide_repo(peptide_w_id_mols):
     mock_peptide_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_peptide_repo.load.return_value = peptide_w_id_mols
-    mock_peptide_repo.save.return_value = extract_ids(peptide_w_id_mols)
+    mock_peptide_repo.save.return_value = Key(extract_ids(peptide_w_id_mols))
     with mock.patch('cpmg.repository.create_peptide_repository', return_value=mock_peptide_repo):
         yield mock_peptide_repo
 
@@ -73,7 +71,7 @@ def peptide_repo(peptide_w_id_mols):
 def template_peptide_repo(template_peptide_w_id_mols):
     mock_template_peptide_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_template_peptide_repo.load.return_value = template_peptide_w_id_mols
-    mock_template_peptide_repo.save.return_value = extract_ids(template_peptide_w_id_mols)
+    mock_template_peptide_repo.save.return_value = Key(extract_ids(template_peptide_w_id_mols))
     with mock.patch('cpmg.repository.create_template_peptide_repository', return_value=mock_template_peptide_repo):
         yield mock_template_peptide_repo
 
@@ -97,12 +95,20 @@ def reaction_repo(reactions_w_ids):
 
 
 @pytest.fixture
-def peptide_plan_repo(peptide_plans):
+def peptide_plan_repo(peptide_plans_w_ids):
     mock_peptide_plan_repo = mock.MagicMock(spec=REPO_SPEC)
-    mock_peptide_plan_repo.load.return_value = peptide_plans
-    mock_peptide_plan_repo.save.return_value = extract_ids(peptide_plans)
+    mock_peptide_plan_repo.load.return_value = peptide_plans_w_ids
+    mock_peptide_plan_repo.save.return_value = Key([_id for _id, combo in peptide_plans_w_ids])
     with mock.patch('cpmg.repository.create_peptide_plan_repository', return_value=mock_peptide_plan_repo):
-        yield mock_peptide_plan_repo, peptide_plans
+        yield mock_peptide_plan_repo, peptide_plans_w_ids
+
+
+@pytest.fixture
+def peptide_data_handler_loaded_repos(monomer_repo, peptide_plan_repo, peptide_repo):
+    plan_repo, peptide_plan = peptide_plan_repo
+    handler = handlers.PeptideDataHandler()
+
+    yield handler, list(handler.load()), monomer_repo, plan_repo, peptide_repo, peptide_plan
 
 
 def test_sidechain_data_handler_load(sidechain_repo, connection_repo, sidechain_w_id_mols):
@@ -124,7 +130,6 @@ def test_sidechain_data_handler_save(sidechain_w_id_mols, sidechain_repo, connec
     handler = handlers.SidechainDataHandler()
 
     ids = handler.save(sidechain_w_id_mols)
-    ids.sort()
 
     sidechain_repo.save.assert_called_once()
     assert(ids == extract_ids(sidechain_w_id_mols))
@@ -154,22 +159,36 @@ def test_monomer_data_handler_save(monomer_w_idx_mols, monomer_repo):
     assert(ids == extract_ids(monomer_w_idx_mols))
 
 
-# def test_peptide_data_handler_load(monomer_repo, peptide_plan_repo):
-#     plan_repo, peptide_plan = peptide_plan_repo
-#     handler = handlers.PeptideDataHandler()
+def test_peptide_data_handler_load(peptide_data_handler_loaded_repos):
+    _, data, monomer_repo, plan_repo, _, peptide_plan = peptide_data_handler_loaded_repos
 
-#     data = list(handler.load()
+    data_indices = []
+    for monomer_combination in data:
+        data_indices.append(tuple(monomer.index for monomer in monomer_combination))
 
-#     monomer_repo.load.assert_called_once()
-#     plan_repo.load.assert_called_once()
-#     assert len(data) == len(peptide_plan)
-#     indices = []
-#     for monomer_combination in data:
-#         combo_indices = []
-#         for monomer in monomer_combination:
-#             assert isinstance(monomer, models.Monomer)
-#             combo_indices.append(monomer.index)
-#         indices.append(tuple(combo_indices))
+    plan_indices = []
+    for _, indices in peptide_plan:
+        plan_indices.append(indices)
+
+    data_indices.sort()
+    plan_indices.sort()
+
+    monomer_repo.load.assert_called_once()
+    plan_repo.load.assert_called_once()
+    assert len(data) == len(peptide_plan)
+    assert data_indices == plan_indices
+    for monomer_combination in data:
+        for monomer in monomer_combination:
+            assert isinstance(monomer, models.Monomer)
+
+
+# def test_peptide_data_handler_save(peptide_w_id_mols, peptide_data_handler_loaded_repos):
+#     handler, _, _, _, peptide_repo, _ = peptide_data_handler_loaded_repos
+
+#     ids = handler.save(peptide_w_id_mols)
+
+#     peptide_repo.save.assert_called_once()
+#     assert ids == extract_ids(peptide_w_id_mols)
 
 
 def test_template_peptide_data_handler_load(peptide_repo, template_repo, peptide_w_id_mols, template_w_id_mols):
