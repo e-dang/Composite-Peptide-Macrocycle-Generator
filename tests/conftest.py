@@ -11,14 +11,18 @@ from cpmg.initializer import CPMGInitializer
 from data.mols import *
 
 
-def gen_ids(num_ids):
-    return [str(uuid.uuid4()) for i in range(num_ids)]
-
-
 def add_ids(data):
     data = deepcopy(data)
     for doc in data:
         doc['_id'] = str(uuid.uuid4())
+    return data
+
+
+def add_ids_to_peptide_plan_tuple(plan_tup):
+    data = []
+    for tup in plan_tup.reg_combos + plan_tup.cap_combos:
+        data.append((str(uuid.uuid4()), tup))
+
     return data
 
 
@@ -372,4 +376,11 @@ def peptide_plans(request):
     for tup in plan_tup.reg_combos + plan_tup.cap_combos:
         peptide_plan.add(tup)
 
+    return peptide_plan
+
+
+@pytest.fixture(params=['peptide_plan_tuple_len_3', 'peptide_plan_tuple_len_4', 'peptide_plan_tuple_len_5'])
+def peptide_plans_w_ids(request):
+    plan_tup = request.getfixturevalue(request.param)
+    peptide_plan = models.PeptidePlan.from_array_tuple(plan_tup.length, add_ids_to_peptide_plan_tuple(plan_tup))
     return peptide_plan
