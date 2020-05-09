@@ -43,7 +43,6 @@ class BackboneImporter:
 
     def import_data(self):
         data = []
-        print(self.saver.TYPE.STRING)
         for backbone in self.loader.load(self.saver.TYPE.STRING):
             backbone['binary'] = Chem.MolFromSmiles(backbone['mapped_kekule']).ToBinary()
             data.append(models.Backbone.from_dict(backbone))
@@ -163,7 +162,6 @@ class RegioSQMPredictionImporter:
         for line in load_text(config.REGIOSQM_SMILES_FILEPATH):
             idx, smiles = line.split(' ')
             self.idx_to_smiles[idx] = smiles.strip('\n')
-        print(self.idx_to_smiles, config.REGIOSQM_SMILES_FILEPATH)
 
     def _check_predictions(self, idx, prediction):
         reacting_mol = Chem.MolFromSmiles(self.idx_to_smiles[idx])
