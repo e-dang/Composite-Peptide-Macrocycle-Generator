@@ -1,6 +1,7 @@
 from collections import namedtuple
 from copy import deepcopy
 from itertools import chain
+from pprint import pprint
 
 import numpy as np
 from rdkit import Chem
@@ -19,6 +20,13 @@ ALPHA_BACKBONE = Chem.MolFromSmarts('NCC(=O)O')
 TAGGED_ALPHA_BACKBONE = Chem.MolFromSmarts('N[CH2:1]C(=O)[OH]')
 
 
+def print_model(obj_type, obj_dict):
+    data = {'type': obj_type}
+    data.update(obj_dict)
+    data.pop('binary')
+    pprint(data)
+
+
 class AbstractMolecule:
     def __init__(self, binary, kekule, _id=None):
         self._id = _id
@@ -27,6 +35,11 @@ class AbstractMolecule:
 
     def __eq__(self, other):
         return self.kekule == other.kekule
+
+    def __repr__(self):
+        print_model(self.STRING, self.__dict__)  # pylint: disable=no-member
+
+        return ''
 
     @property
     def mol(self):
@@ -452,6 +465,10 @@ class Reaction:
         return self.type == other.type and self.smarts == other.smarts and self.template == other.template \
             and self.reacting_mol == other.reacting_mol and self.rxn_atom_idx == other.rxn_atom_idx
 
+    def __repr__(self):
+        print_model(self.STRING, self.__dict__)
+        return ''
+
     @classmethod
     def from_mols(cls, rxn_type, smarts, template, reacting_mol, rxn_atom_idx):
 
@@ -486,6 +503,10 @@ class AbstractPrediction:
 
     def __eq__(self, other):
         return self.predictions == other.predictions and self.reacting_mol == other.reacting_mol and self.solvent == other.solvent
+
+    def __repr__(self):
+        print_model(self.STRING, self.__dict__)  # pylint: disable=no-member
+        return ''
 
     def to_dict(self):
         data = deepcopy(self.__dict__)
@@ -540,6 +561,12 @@ class PeptidePlan:
 
     def __len__(self):
         return len(self.reg_combinations) + len(self.cap_combinations)
+
+    def __repr__(self):
+        print('peptide length:', self.reg_length)
+        print('combinations:\n')
+        for _id, combination in self:
+            print(_id, combination)
 
     @classmethod
     def from_array_tuple(cls, peptide_length, array_tuple):
