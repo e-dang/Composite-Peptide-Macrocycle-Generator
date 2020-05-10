@@ -1,58 +1,60 @@
 from argparse import ArgumentParser
 import cpmg.repository as r
-import cpmg.models as m
-
-ROOT = 'all'
+from cpmg.ranges import Key
 
 
-def get_print_options():
-    model_strings = m.get_all_model_strings()
-    model_strings.append(ROOT)
-    return model_strings
+def print_database(args):
+    print(r.create_repository_from_string(args.repo))
+
+    return True
 
 
-def print_database(model_type):
-    if model_type == ROOT:
-        repo = r.repository_impl_from_string()
-    elif model_type == m.Connection.STRING:
-        repo = r.create_connection_repository()
-    elif model_type == m.Backbone.STRING:
-        repo = r.create_backbone_repository()
-    elif model_type == m.Template.STRING:
-        repo = r.create_template_repository()
-    elif model_type == m.Sidechain.STRING:
-        repo = r.create_sidechain_repository()
-    elif model_type == m.Monomer.STRING:
-        repo = r.create_monomer_repository()
-    elif model_type == m.Peptide.STRING:
-        repo = r.create_peptide_repository()
-    elif model_type == m.TemplatePeptide.STRING:
-        repo = r.create_template_peptide_repository()
-    elif model_type == m.Macrocycle.STRING:
-        repo = r.create_macrocycle_repository()
-    elif model_type == m.RegioSQMPrediction.STRING:
-        repo = r.create_regiosqm_repository()
-    elif model_type == m.pKaPrediction.STRING:
-        repo = r.create_pka_repository()
-    elif model_type == m.PeptidePlan.STRING:
-        repo = r.create_peptide_plan_repository()
+def execute_find(args):
+    if args.kekule is not None:
+        return print_records_from_kekule(args.kekule)
 
-    print(repo)
+
+def print_records_from_kekule(kekules):
+    repo = r.CPMGRepository()
+    for record in repo.load(Key(kekules, index='kekule')):
+        print(record, '\n')
+
+    return True
+
+
+def remove_dataset(args):
+    repo = r.create_repository_from_string(args.repo)
+    for dataset in args.dataset:
+        print(f'Removing dataset {dataset}...')
+        repo.remove_group(dataset)
 
 
 class QueryArgParser:
     def __init__(self):
         parser = ArgumentParser()
-        parser.add_argument('-p', '--print', choices=get_print_options(), default=ROOT, nargs='?', const=ROOT,
-                            help='Prints the number of records and structure if applicable in the repository for the specified type. Default type is all.')
+        subparsers = parser.add_subparsers()
 
-        self.args = parser.parse_args()
+        print_parser = subparsers.add_parser('print')
+        print_parser.add_argument('repo', choices=r.get_all_repository_strings(), nargs='?',
+                                  const=r.CPMGRepository.STRING,
+                                  default=r.CPMGRepository.STRING,
+                                  help='Prints the number of records and structure if applicable in the repository for the specified type. Default type is all.')
+        print_parser.set_defaults(func=print_database)
 
-    def execute(self):
-        if self.args.print is not None:
-            print_database(self.args.print)
+        find_parser = subparsers.add_parser('find')
+        find_parser.add_argument('-k', '--kekule', type=str, nargs='+',
+                                 help='Load and print the records corresponding to the specified kekule strings.')
+        find_parser.set_defaults(func=execute_find)
+
+        remove_parser = subparsers.add_parser('remove')
+        remove_parser.add_argument('repo', type=str,
+                                   help='The repository that contains the dataset to be removed.')
+        remove_parser.add_argument('-d', '--dataset', type=str, nargs='+', help='The dataset to remove.')
+        remove_parser.set_defaults(func=remove_dataset)
+
+        args = parser.parse_args()
+        self.return_val = args.func(args)
 
 
 if __name__ == "__main__":
     query_parser = QueryArgParser()
-    query_parser.execute()

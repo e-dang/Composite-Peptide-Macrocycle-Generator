@@ -28,6 +28,9 @@ class AbstractRepository:
     def get_num_records(self):
         return self.impl.get_num_records()
 
+    def remove_group(self, group):
+        return self.impl.remove_dataset(group)
+
     def _check_type(self, data):
         for model in data:
             if not isinstance(model, self.TYPE):
