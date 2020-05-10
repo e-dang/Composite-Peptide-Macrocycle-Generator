@@ -250,6 +250,13 @@ class CPMGRepository:
         self.pka_repo = create_pka_repository(impl)
         self.peptide_plan_repo = create_peptide_plan_repository(impl)
 
+    def __repr__(self):
+        print('/')
+        for repo in self.__dict__.values():
+            repo.__repr__()
+
+        return ''
+
     def load(self, key):
         for repo in self.__dict__.values():
             try:
