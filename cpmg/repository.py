@@ -2,16 +2,10 @@ import cpmg.config as config
 import cpmg.models as models
 import cpmg.hdf5 as hdf5
 from cpmg.ranges import WholeRange, Key
+import cpmg.utils as utils
 
+# impl enumeration
 HDF5 = 'hdf5'
-
-
-class RepositoryInitializer:
-    def __init__(self, impl):
-        self.impl = impl
-
-    def initialize(self):
-        self.impl.initialize()
 
 
 class AbstractRepository:
@@ -47,6 +41,7 @@ class AbstractRepository:
 
 class BackboneRepository(AbstractRepository):
     TYPE = models.Backbone
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.backbone_repo)
@@ -57,6 +52,7 @@ class BackboneRepository(AbstractRepository):
 
 class ConnectionRepository(AbstractRepository):
     TYPE = models.Connection
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.connection_repo)
@@ -67,6 +63,7 @@ class ConnectionRepository(AbstractRepository):
 
 class TemplateRepository(AbstractRepository):
     TYPE = models.Template
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.template_repo)
@@ -77,6 +74,7 @@ class TemplateRepository(AbstractRepository):
 
 class SidechainRepository(AbstractRepository):
     TYPE = models.Sidechain
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.sidechain_repo)
@@ -87,6 +85,7 @@ class SidechainRepository(AbstractRepository):
 
 class MonomerRepository(AbstractRepository):
     TYPE = models.Monomer
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.monomer_repo)
@@ -110,6 +109,7 @@ class MonomerRepository(AbstractRepository):
 
 class PeptideRepository(AbstractRepository):
     TYPE = models.Peptide
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.peptide_repo)
@@ -120,6 +120,7 @@ class PeptideRepository(AbstractRepository):
 
 class TemplatePeptideRepository(AbstractRepository):
     TYPE = models.TemplatePeptide
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.template_peptide_repo)
@@ -130,6 +131,7 @@ class TemplatePeptideRepository(AbstractRepository):
 
 class MacrocycleRepository(AbstractRepository):
     TYPE = models.Macrocycle
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.macrocycle_repo)
@@ -140,6 +142,7 @@ class MacrocycleRepository(AbstractRepository):
 
 class ReactionRepository(AbstractRepository):
     TYPE = models.Reaction
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.reaction_repo)
@@ -150,6 +153,7 @@ class ReactionRepository(AbstractRepository):
 
 class RegioSQMRepository(AbstractRepository):
     TYPE = models.RegioSQMPrediction
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.regiosqm_repo)
@@ -160,6 +164,7 @@ class RegioSQMRepository(AbstractRepository):
 
 class pKaRepository(AbstractRepository):
     TYPE = models.pKaPrediction
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.pka_repo)
@@ -170,6 +175,7 @@ class pKaRepository(AbstractRepository):
 
 class PeptidePlanRepository(AbstractRepository):
     TYPE = models.PeptidePlan
+    STRING = TYPE.STRING
 
     def __init__(self, impl):
         super().__init__(impl.peptide_plan_repo)
@@ -179,7 +185,7 @@ class PeptidePlanRepository(AbstractRepository):
 
     def load(self, key):
         if key.peptide_length is None:
-            raise ValueError('Must specify a peptide length when loading a peptide plan!')
+            return None
 
         return self.TYPE.from_array_tuple(key.peptide_length, self.impl.load(key))
 
@@ -205,7 +211,11 @@ def repository_impl_from_string(impl=None):
 def get_repository(repository):
 
     def repository_closure(impl=None):
-        return repository(repository_impl_from_string(impl or config.DATA_FORMAT))
+        impl = impl or config.DATA_FORMAT
+        if isinstance(impl, str):
+            return repository(repository_impl_from_string(impl))
+
+        return repository(impl)
 
     return repository_closure
 
@@ -222,3 +232,42 @@ create_reaction_repository = get_repository(ReactionRepository)
 create_regiosqm_repository = get_repository(RegioSQMRepository)
 create_pka_repository = get_repository(pKaRepository)
 create_peptide_plan_repository = get_repository(PeptidePlanRepository)
+
+
+class CPMGRepository:
+    STRING = 'all'
+
+    def __init__(self, impl=None):
+        self.connection_repo = create_connection_repository(impl)
+        self.backbone_repo = create_backbone_repository(impl)
+        self.template_repo = create_template_repository(impl)
+        self.sidechain_repo = create_sidechain_repository(impl)
+        self.monomer_repo = create_monomer_repository(impl)
+        self.peptide_repo = create_peptide_repository(impl)
+        self.template_peptide_repo = create_template_peptide_repository(impl)
+        self.reaction_repo = create_reaction_repository(impl)
+        self.regiosqm_repo = create_regiosqm_repository(impl)
+        self.pka_repo = create_pka_repository(impl)
+        self.peptide_plan_repo = create_peptide_plan_repository(impl)
+
+    def load(self, key):
+        for repo in self.__dict__.values():
+            try:
+                for record in repo.load(key):
+                    yield record
+            except (KeyError, TypeError):
+                continue
+
+
+get_all_repository_strings = utils.get_module_strings(__name__)
+
+
+def create_repository_from_string(string, impl=None):
+    for _, member in utils.get_classmembers(__name__):
+        try:
+            if string == member.STRING:
+                return member(repository_impl_from_string(impl))
+        except AttributeError as error:
+            pass
+
+    raise ValueError(f'Unrecognized repository string: {string}')

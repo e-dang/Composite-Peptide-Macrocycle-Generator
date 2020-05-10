@@ -212,3 +212,42 @@ def test_peptide_plan_repository(peptide_plans):
     assert cap_combos == peptide_plans.cap_combinations
     assert data.reg_length == peptide_plans.reg_length
     assert data.cap_length == peptide_plans.cap_length
+
+
+def test_get_all_repository_strings():
+    repo_strings = set(repo.get_all_repository_strings())
+
+    assert repo_strings == {repo.BackboneRepository.STRING,
+                            repo.ConnectionRepository.STRING,
+                            repo.TemplateRepository.STRING,
+                            repo.SidechainRepository.STRING,
+                            repo.MonomerRepository.STRING,
+                            repo.PeptideRepository.STRING,
+                            repo.TemplatePeptideRepository.STRING,
+                            repo.MacrocycleRepository.STRING,
+                            repo.ReactionRepository.STRING,
+                            repo.RegioSQMRepository.STRING,
+                            repo.pKaRepository.STRING,
+                            repo.PeptidePlanRepository.STRING,
+                            repo.CPMGRepository.STRING}
+
+
+@pytest.mark.parametrize('repository', [
+    (repo.BackboneRepository),
+    (repo.ConnectionRepository),
+    (repo.TemplateRepository),
+    (repo.SidechainRepository),
+    (repo.MonomerRepository),
+    (repo.PeptideRepository),
+    (repo.TemplatePeptideRepository),
+    (repo.MacrocycleRepository),
+    (repo.ReactionRepository),
+    (repo.RegioSQMRepository),
+    (repo.pKaRepository),
+    (repo.PeptidePlanRepository),
+    (repo.CPMGRepository)
+])
+def test_create_repository_from_string(repository):
+    produced_repository = repo.create_repository_from_string(repository.STRING)
+
+    assert isinstance(produced_repository, repository)

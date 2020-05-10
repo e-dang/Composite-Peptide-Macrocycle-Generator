@@ -206,7 +206,7 @@ class AbstractHDF5RepositoryImpl:
                     try:
                         yield dataset.attrs[index_val]
                     except KeyError:
-                        print(f'The index {key.index} does not contain the value {index_val}! Skipping...')
+                        continue
         except KeyError:
             raise KeyError(f'{key.index} is not a recognized index!')
 
@@ -477,6 +477,11 @@ class TemplatePeptideHDF5Repository(HDF5ObjRepositoryImpl):
         return self._refine_group(group, peptide_length)
 
 
+class MacrocycleHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = models.Macrocycle.STRING
+    DEFAULT_INDICES = ['kekule']
+
+
 class ReactionHDF5Repository(HDF5ObjRepositoryImpl):
     GROUP = models.Reaction.STRING
     DEFAULT_INDICES = []
@@ -549,6 +554,7 @@ class HDF5Repository:
         self.monomer_repo = MonomerHDF5Repository()
         self.peptide_repo = PeptideHDF5Repository()
         self.template_peptide_repo = TemplatePeptideHDF5Repository()
+        self.macrocycle_repo = MacrocycleHDF5Repository()
         self.reaction_repo = ReactionHDF5Repository()
         self.regiosqm_repo = RegioSQMHDF5Repository()
         self.pka_repo = pKaHDF5Repository()
@@ -557,7 +563,7 @@ class HDF5Repository:
     def __repr__(self):
 
         print('/')
-        for _, instance in self.__dict__.items():
+        for instance in self.__dict__.values():
             instance.__repr__()
 
         return ''
