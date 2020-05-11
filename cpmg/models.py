@@ -565,8 +565,14 @@ class PeptidePlan:
     def __repr__(self):
         print('peptide length:', self.reg_length)
         print('combinations:\n')
-        for _id, combination in self:
-            print(_id, combination)
+        try:
+            for _id, combination in self:
+                print(_id, combination)
+        except ValueError:
+            for combination in self:
+                print(combination)
+
+        return ''
 
     @classmethod
     def from_array_tuple(cls, peptide_length, array_tuple):
