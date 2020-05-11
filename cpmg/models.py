@@ -11,6 +11,7 @@ import cpmg.config as config
 import cpmg.exceptions as exceptions
 import cpmg.utils as utils
 
+METHANE = 'C'
 SC_ATTACHMENT_POINT = Chem.MolFromSmarts('[CH3;!13CH3]')  # methyls marked with C13 aren't used as attachment points
 METHYL = Chem.MolFromSmarts('[CH3]')
 CARBOXYL = Chem.MolFromSmarts('C(=O)[OH]')

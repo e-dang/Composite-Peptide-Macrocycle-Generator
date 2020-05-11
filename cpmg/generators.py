@@ -60,7 +60,6 @@ class MonomerGenerator:
 class PeptidePlanGenerator:
     STRING = models.PeptidePlan.STRING
 
-    METHYL = 'C'
     ALPHA_BACKBONE = Chem.MolToSmiles(models.ALPHA_BACKBONE)
     MAX_MW = config.MAX_MW - 258  # 258 is average of template MW
     OVER_SAMPLE_FACTOR = 5
@@ -114,7 +113,7 @@ class PeptidePlanGenerator:
                 break
 
     def _get_c_cap_monomers(self, monomers):
-        return list(filter(lambda x: x.backbone['kekule'] == self.ALPHA_BACKBONE and x.connection == self.METHYL and x.required, monomers))
+        return list(filter(lambda x: x.backbone['kekule'] == self.ALPHA_BACKBONE and x.connection == models.METHANE and x.required, monomers))
 
     def _validate_monomers(self, monomers, peptide_length):
 
