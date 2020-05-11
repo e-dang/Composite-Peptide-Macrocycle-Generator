@@ -31,6 +31,12 @@ class AbstractRepository:
     def remove_group(self, group):
         return self.impl.remove_dataset(group)
 
+    def deactivate_records(self, key):
+        return self.impl.deactivate_records(key)
+
+    def activate_records(self, key):
+        return self.impl.activate_records(key)
+
     def _check_type(self, data):
         for model in data:
             if not isinstance(model, self.TYPE):
