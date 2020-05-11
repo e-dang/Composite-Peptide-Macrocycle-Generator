@@ -189,13 +189,15 @@ class pKaPredictionImporter:
             # atom map numbers can change the ordering of atoms in unpredictable ways, thus we must do this VERY
             # annoying round about way of mapping the predictions to the correct heteroatoms on the sidechains used to
             # create reactions
-            mol_w_map_nums = Chem.MolFromSmiles(smiles.strip(' '))
+            mol_w_map_nums = Chem.MolFromSmiles(smiles)
+            Chem.Kekulize(mol_w_map_nums)
+
             mol = deepcopy(mol_w_map_nums)
             utils.clear_atom_map_nums(mol)
-            Chem.Kekulize(mol_w_map_nums)
+            mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol))
             Chem.Kekulize(mol)
 
-            # map atom indexes and pkas to each other in sidechain_w_map_nums using atom map numbers
+            # map atom indexes and pkas to each other in mol_w_map_nums using atom map numbers
             pka_map = {}
             for atom in mol_w_map_nums.GetAtoms():
                 map_num = atom.GetAtomMapNum()
