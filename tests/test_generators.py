@@ -153,8 +153,7 @@ def test_get_all_generator_strings():
 
     assert generator_strings == {generators.SidechainModifier.STRING,
                                  generators.MonomerGenerator.STRING,
-                                 generators.PeptideGenerator.STRING,
-                                 generators.PeptideGenerator.STRING,
+                                 generators.PeptidePlanGenerator.STRING,
                                  generators.PeptideGenerator.STRING,
                                  generators.TemplatePeptideGenerator.STRING,
                                  generators.MacrocycleGenerator.STRING,
@@ -162,48 +161,46 @@ def test_get_all_generator_strings():
                                  generators.IntraMolecularReactionGenerator.STRING}
 
 
-@pytest.mark.parametrize('string, args, expected', [
-    (models.Sidechain.STRING, None, generators.SidechainModifier),
-    (models.Monomer.STRING, None, generators.MonomerGenerator),
-    (models.Peptide.STRING, [3], generators.PeptideGenerator),
-    (models.Peptide.STRING, [4], generators.PeptideGenerator),
-    (models.Peptide.STRING, [5], generators.PeptideGenerator),
-    (models.TemplatePeptide.STRING, None, generators.TemplatePeptideGenerator),
-    (models.Macrocycle.STRING, None, generators.MacrocycleGenerator)
+@pytest.mark.parametrize('generator, args', [
+    (generators.SidechainModifier, None),
+    (generators.MonomerGenerator, None),
+    (generators.PeptidePlanGenerator, [3, 10]),
+    (generators.PeptideGenerator, [3]),
+    (generators.PeptideGenerator, [4]),
+    (generators.PeptideGenerator, [5]),
+    (generators.TemplatePeptideGenerator, None),
+    (generators.MacrocycleGenerator, None)
 ])
-def test_create_generator_from_string(string, args, expected):
+def test_create_generator_from_string(generator, args):
     if args is None:
-        generator = generators.create_generator_from_string(string)
+        produced_generator = generators.create_generator_from_string(generator.STRING)
     else:
-        generator = generators.create_generator_from_string(string, *args)
+        produced_generator = generators.create_generator_from_string(generator.STRING, *args)
 
-    assert isinstance(generator, expected)
+    assert isinstance(produced_generator, generator)
     if args is not None:
-        assert list(generator.__dict__.values()) == args
+        assert list(produced_generator.__dict__.values()) == args
 
 
-@pytest.mark.parametrize('string, args, expected', [
-    (generators.InterMolecularReactionGenerator.STRING, [rxns.FriedelCrafts()],
-     generators.InterMolecularReactionGenerator),
-    (generators.InterMolecularReactionGenerator.STRING, None,
-     generators.InterMolecularReactionGenerator),
-    (generators.IntraMolecularReactionGenerator.STRING, [
-     rxns.TemplatePictetSpangler()], generators.IntraMolecularReactionGenerator),
-    (generators.IntraMolecularReactionGenerator.STRING, None, generators.IntraMolecularReactionGenerator)
+@pytest.mark.parametrize('generator, args', [
+    (generators.InterMolecularReactionGenerator, [rxns.FriedelCrafts()]),
+    (generators.InterMolecularReactionGenerator, None),
+    (generators.IntraMolecularReactionGenerator, [rxns.TemplatePictetSpangler()]),
+    (generators.IntraMolecularReactionGenerator, None)
 ])
-def test_create_generator_from_string_reactions(string, args, expected):
+def test_create_generator_from_string_reactions(generator, args):
     if args is None:
-        generator = generators.create_generator_from_string(string)
+        produced_generator = generators.create_generator_from_string(generator.STRING)
     else:
-        generator = generators.create_generator_from_string(string, *args)
+        produced_generator = generators.create_generator_from_string(generator.STRING, *args)
 
-    assert isinstance(generator, expected)
+    assert isinstance(produced_generator, generator)
     if args is not None:
-        assert generator.impl == args
+        assert produced_generator.impl == args
     else:
-        assert len(generator.impl) != 0
+        assert len(produced_generator.impl) != 0
         assert all([isinstance(impl, (rxns.InterMolecularReaction, rxns.IntraMolecularReaction))
-                    for impl in generator.impl])
+                    for impl in produced_generator.impl])
 
 
 def test_create_generator_from_string_fail():

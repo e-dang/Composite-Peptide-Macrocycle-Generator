@@ -47,6 +47,17 @@ class MonomerDataHandler(AbstractDataHandler):
             yield [sidechain, backbones]
 
 
+class PeptidePlanDataHandler(AbstractDataHandler):
+    STRING = generators.PeptidePlanGenerator.STRING
+
+    def __init__(self):
+        self.monomer_repo = repo.create_monomer_repository()
+        super().__init__(repo.create_peptide_plan_repository())
+
+    def load(self, key=Key(WholeRange())):
+        return [list(self.monomer_repo.load(key))]
+
+
 class PeptideDataHandler(AbstractDataHandler):
     STRING = generators.PeptideGenerator.STRING
 

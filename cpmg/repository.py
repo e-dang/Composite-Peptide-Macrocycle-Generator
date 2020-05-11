@@ -193,13 +193,14 @@ class PeptidePlanRepository(AbstractRepository):
         return self.TYPE.from_array_tuple(key.peptide_length, self.impl.load(key))
 
     def _check_type(self, data):
-        if not isinstance(data, self.TYPE):
-            print(
-                f'Type error! Repository of type {self.TYPE} cannot save model of type {type(data)}. The instance has '
-                f'been skipped and saved in instance variable \'self.failed_instances\'.')
-            self.failed_instances.append(data)
-        else:
-            return data.data()
+        for record in utils.to_list(data):
+            if not isinstance(record, self.TYPE):
+                print(
+                    f'Type error! Repository of type {self.TYPE} cannot save model of type {type(record)}. The instance has '
+                    f'been skipped and saved in instance variable \'self.failed_instances\'.')
+                self.failed_instances.append(record)
+            else:
+                return record.data()
 
 
 def repository_impl_from_string(impl=None):

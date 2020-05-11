@@ -1,16 +1,18 @@
 from copy import deepcopy
 from itertools import chain
+from random import choice, choices
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+import cpmg.filters as filters
 import cpmg.models as models
-import cpmg.utils as temp_utils
+import cpmg.reactions as rxns
 import cpmg.repository as repo
+import cpmg.utils as temp_utils
 import macrocycles.utils as utils
 from cpmg.exceptions import InvalidMolecule
-import cpmg.filters as filters
-import cpmg.reactions as rxns
+import cpmg.config as config
 
 
 class SidechainModifier:
@@ -55,7 +57,88 @@ class MonomerGenerator:
         return monomers
 
 
-class PeptideGenerator():
+class PeptidePlanGenerator:
+    STRING = models.PeptidePlan.STRING
+
+    METHYL = 'C'
+    ALPHA_BACKBONE = Chem.MolToSmiles(models.ALPHA_BACKBONE)
+    MAX_MW = config.MAX_MW - 258  # 258 is average of template MW
+    OVER_SAMPLE_FACTOR = 5
+
+    def __init__(self, peptide_length, num_peptides):
+        self.peptide_length = peptide_length
+        self.num_peptides = num_peptides
+
+    def generate(self, monomers):
+        c_cap_monomers = self._get_c_cap_monomers(monomers)
+        combinations = models.PeptidePlan(self.peptide_length)
+
+        self._create_minimum_list(monomers, c_cap_monomers, combinations)
+        self._create_remaining_list(monomers, c_cap_monomers, combinations)
+
+        return [combinations]
+
+    def _create_minimum_list(self, monomers, c_cap_monomers, combinations):
+
+        for position in range(self.peptide_length):
+            for selected_monomer in monomers:
+                for fillers in self._get_fillers(selected_monomer, monomers, c_cap_monomers):
+                    combinations.add(
+                        tuple(fillers[0:position] + [selected_monomer.index] + fillers[position:]))
+
+    def _create_remaining_list(self, monomers, c_cap_monomers, combinations):
+        monomers = [deepcopy(monomers) for _ in range(self.peptide_length)]
+        while True:
+            for random_sample in utils.random_sample_cartesian_product(*monomers, sample_size=self.num_peptides * self.OVER_SAMPLE_FACTOR):
+                if len(combinations) > self.num_peptides:
+                    break
+                if self._validate_monomers(random_sample, self.peptide_length):
+                    combinations.add(tuple(monomer.index for monomer in random_sample))
+                    if self._is_c_cap_eligible(random_sample, self.peptide_length):
+                        random_sample += [choice(c_cap_monomers)]
+                        combinations.add(tuple(monomer.index for monomer in random_sample))
+            else:
+                continue
+            break
+
+    def _get_fillers(self, desired_monomer, monomer_pool, c_cap_monomers):
+
+        while True:
+            monomers = list(choices(monomer_pool, k=self.peptide_length - 1))
+            monomers.append(desired_monomer)
+            if self._validate_monomers(monomers, self.peptide_length):
+                yield [monomer.index for monomer in monomers[:-1]]
+                if self._is_c_cap_eligible(monomers, self.peptide_length):
+                    c_cap = choice(c_cap_monomers)
+                    yield [monomer.index for monomer in monomers[:-1]] + [c_cap.index]
+                break
+
+    def _get_c_cap_monomers(self, monomers):
+        return list(filter(lambda x: x.backbone['kekule'] == self.ALPHA_BACKBONE and x.connection == self.METHYL and x.required, monomers))
+
+    def _validate_monomers(self, monomers, peptide_length):
+
+        mw = sum(map(AllChem.CalcExactMolWt, map(lambda x: x.mol, monomers)))
+        if mw > self.MAX_MW:
+            return False
+
+        if peptide_length < 5 and 3 > len(list(filter(lambda x: x.required, monomers))):
+            return True
+
+        if peptide_length == 5 and 4 > len(list(filter(lambda x: x.required, monomers))) > 0:
+            return True
+
+        return False
+
+    def _is_c_cap_eligible(self, monomers, peptide_length):
+
+        if peptide_length < 5 and 2 > len(list(filter(lambda x: x.required, monomers))):
+            return True
+
+        return False
+
+
+class PeptideGenerator:
     STRING = models.Peptide.STRING
 
     MONOMER_NITROGEN_MAP_NUM = 1

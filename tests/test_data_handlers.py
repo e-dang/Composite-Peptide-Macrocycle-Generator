@@ -274,6 +274,7 @@ def test_get_all_handler_strings():
 
     assert handler_strings == {handlers.SidechainDataHandler.STRING,
                                handlers.MonomerDataHandler.STRING,
+                               handlers.PeptidePlanDataHandler.STRING,
                                handlers.PeptideDataHandler.STRING,
                                handlers.TemplatePeptideDataHandler.STRING,
                                handlers.InterMolecularReactionDataHandler.STRING,
@@ -283,6 +284,7 @@ def test_get_all_handler_strings():
 @pytest.mark.parametrize('handler', [
     (handlers.SidechainDataHandler),
     (handlers.MonomerDataHandler),
+    (handlers.PeptidePlanDataHandler),
     (handlers.PeptideDataHandler),
     (handlers.TemplatePeptideDataHandler),
     (handlers.InterMolecularReactionDataHandler),
