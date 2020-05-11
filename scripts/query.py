@@ -25,7 +25,8 @@ def print_records_from_kekule(kekules):
 def remove_dataset(args):
     repo = r.create_repository_from_string(args.repo)
     for dataset in args.dataset:
-        print(f'Removing dataset {dataset}...')
+        full_path = '/'.join([args.repo, dataset])
+        print(f'Removing dataset {full_path}...')
         repo.remove_group(dataset)
 
 
