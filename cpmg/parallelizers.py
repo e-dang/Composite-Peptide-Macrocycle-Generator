@@ -13,11 +13,11 @@ class Parallelizer:
         if len(self.results) == config.CAPACITY:
             self._flush(data_handler)
 
-    def execute(self, generator, data_handler):
-        self._execute(generator, data_handler)
+    def execute(self, generator, data_handler, keys):
+        self._execute(generator, data_handler, keys)
         self._flush(data_handler)
 
-    def _execute(self, generator, data_handler):
+    def _execute(self, generator, data_handler, keys):
         pass
 
     def _flush(self, data_handler):
@@ -28,9 +28,9 @@ class Parallelizer:
 class SingleProcess(Parallelizer):
     STRING = 'single'
 
-    def _execute(self, generator, data_handler):
+    def _execute(self, generator, data_handler, keys):
 
-        for args in data_handler.load():
+        for args in data_handler.load(*keys):
             for result in generator.generate(args):
                 self.save_result(result, data_handler)
 
@@ -38,11 +38,11 @@ class SingleProcess(Parallelizer):
 class Multiprocess(Parallelizer):
     STRING = 'multi'
 
-    def _execute(self, generator, data_handler):
+    def _execute(self, generator, data_handler, keys):
 
         with multiprocessing.Pool(processes=config.NUM_PROCS - 1, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
             # try using callback function in data_handler.load() to calcualte the number of documents being loaded in order to calculate chunksize
-            for result in pool.imap_unordered(generator.generate, data_handler.load()):
+            for result in pool.imap_unordered(generator.generate, data_handler.load(*keys)):
                 self.save_result(result, data_handler)
 
 

@@ -2,13 +2,22 @@ from argparse import ArgumentParser
 import cpmg.generators as g
 import cpmg.data_handlers as h
 import cpmg.parallelizers as p
+from cpmg.ranges import Key, WholeRange
+
+
+def generate_keys_from_user_input(operation_string, peptide_length=None, num=None):
+    if operation_string == 'peptide':
+        return [Key(WholeRange(), peptide_length=peptide_length)]
+
+    return [Key(WholeRange())]
 
 
 def execute(operation_string, parallelizer_string, *args):
     generator = g.create_generator_from_string(operation_string, *args)
     data_handler = h.create_handler_from_string(operation_string)
+    keys = generate_keys_from_user_input(operation_string, *args)
     parallelizer = p.create_parallelizer_from_string(parallelizer_string)
-    return parallelizer.execute(generator, data_handler)
+    return parallelizer.execute(generator, data_handler, keys)
 
 
 def execute_general(args):
@@ -54,7 +63,7 @@ class GenerateArgParser:
         peptide_plan_parser.set_defaults(func=execute_peptide_plan)
 
         peptide_parser = subparsers.add_parser('peptide', parents=[parent_parser])
-        peptide_parser.set_defaults(func=execute_peptide_plan)
+        peptide_parser.set_defaults(func=execute_with_peptide_length)
 
         args = parser.parse_args()
         self.return_val = args.func(args)
