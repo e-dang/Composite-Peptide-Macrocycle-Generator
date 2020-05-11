@@ -108,7 +108,7 @@ class InterMolecularReaction:
         # create monomer
         map_nums = (self.BACKBONE_OLIGOMERIZATION_MAP_NUM,  # pylint: disable=maybe-no-member
                     self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)  # pylint: disable=maybe-no-member
-        print(Chem.MolToSmiles(self.reacting_mol))
+
         return utils.connect_mols(self.reacting_mol, backbone, map_nums=map_nums)
 
 
@@ -218,12 +218,15 @@ class PictetSpangler(InterMolecularReaction):
                 'The attachment point of the reacting sidechain must be two atoms away from the reacting atom in a pictet spangler reaction!')
 
     def _validate_monomer(self):
-        n_term_atom = utils.find_atom(self.reacting_mol, self.BACKBONE_NITROGEN_MAP_NUM)
-        paths = Chem.FindAllPathsOfLengthN(self.reacting_mol, 5, useBonds=False,
-                                           rootedAtAtom=self.reacting_atom.GetIdx())
-        atoms = set().union([atom for path in paths for atom in path])
-        if n_term_atom.GetIdx() not in atoms - set(atom.GetIdx() for atom in n_term_atom.GetNeighbors()):
-            raise InvalidMolecule('The reacting atom in the monomer must be 4 atoms away from the N-terminus!')
+        try:
+            n_term_atom = utils.find_atom(self.reacting_mol, self.BACKBONE_NITROGEN_MAP_NUM)
+            paths = Chem.FindAllPathsOfLengthN(self.reacting_mol, 5, useBonds=False,
+                                               rootedAtAtom=self.reacting_atom.GetIdx())
+            atoms = set().union([atom for path in paths for atom in path])
+            if n_term_atom.GetIdx() not in atoms - set(atom.GetIdx() for atom in n_term_atom.GetNeighbors()):
+                raise InvalidMolecule('The reacting atom in the monomer must be 4 atoms away from the N-terminus!')
+        except AttributeError:
+            raise InvalidMolecule
 
     def _create_reactants(self):
         self._process_nucleophile()
