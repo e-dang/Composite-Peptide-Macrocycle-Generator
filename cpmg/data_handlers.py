@@ -7,6 +7,7 @@ from cpmg.ranges import Key, WholeRange
 import cpmg.config as config
 import cpmg.generators as generators
 import cpmg.utils as utils
+from cpmg.models import METHANE
 
 
 class AbstractDataHandler:
@@ -183,10 +184,19 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
     def __init__(self):
         self.sidechain_repo = repo.create_sidechain_repository()
         self.monomer_repo = repo.create_monomer_repository()
+        self.template_repo = repo.create_template_repository()
         super().__init__(repo.create_reaction_repository())
 
     def load(self, key=Key(WholeRange())):
-        return list(self.sidechain_repo.load(key)) + list(self.monomer_repo.load(key))
+        templates = list(self.template_repo.load(key))
+        for component in self._get_filtered_sidechains(key) + self._get_filtered_monomers(key):
+            yield [component, templates]
+
+    def _get_filtered_sidechains(self, key):
+        return list(filter(lambda x: x.connection == METHANE, self.sidechain_repo.load(key)))
+
+    def _get_filtered_monomers(self, key):
+        return list(filter(lambda x: x.required and x.imported, self.monomer_repo.load(key)))
 
 
 class IntraMolecularReactionDataHandler(AbstractDataHandler):

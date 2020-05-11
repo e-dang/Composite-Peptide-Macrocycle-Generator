@@ -228,16 +228,20 @@ def test_template_peptide_data_handler_save(template_peptide_w_id_mols, template
 def test_intermolecular_reaction_data_handler_load(sidechain_repo, monomer_repo, sidechain_w_id_mols, monomer_w_idx_mols):
     handler = handlers.InterMolecularReactionDataHandler()
 
+    sidechains = list(filter(lambda x: x.connection == 'C', sidechain_w_id_mols))
+    monomers = list(filter(lambda x: x.required and x.imported, monomer_w_idx_mols))
+
     data = list(handler.load())
 
     sidechain_repo.load.assert_called_once()
     monomer_repo.load.assert_called_once()
-    assert len(data) == len(sidechain_w_id_mols) + len(monomer_w_idx_mols)
-    for i, doc in enumerate(data):
-        if i < len(sidechain_w_id_mols):
-            assert(isinstance(doc, models.Sidechain))
+    assert len(data) == len(sidechains) + len(monomers)
+    for i, (reacting_mol, templates) in enumerate(data):
+        assert all([isinstance(template) for template in templates])
+        if i < len(sidechains):
+            assert isinstance(reacting_mol, models.Sidechain)
         else:
-            assert(isinstance(doc, models.Monomer))
+            assert isinstance(reacting_mol, models.Monomer)
 
 
 def test_intremolecular_reaction_data_handler_save(reactions_w_ids, reaction_repo):
