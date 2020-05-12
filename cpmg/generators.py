@@ -13,6 +13,7 @@ import cpmg.utils as temp_utils
 import macrocycles.utils as utils
 from cpmg.exceptions import InvalidMolecule
 import cpmg.config as config
+import cpmg.decorators as decorators
 
 
 class SidechainModifier:
@@ -255,8 +256,14 @@ class MacrocycleGenerator:
     ALDH = rxns.AldehydeCyclization.TYPE
     MAX_ATOM_DIFFERENCE = 5
 
+    @decorators.apply_stereochemistry
+    @filters.tpsa_filter
+    @filters.rotatable_bond_filter
+    @filters.molecular_weight_filter
+    @decorators.methylate
+    @decorators.carboxyl_to_amide
+    @filters.aldehyde_filter
     def generate(self, template_peptide, reaction_combos):
-
         template_peptide_mol = template_peptide.mol
         num_atoms = len(template_peptide_mol.GetAtoms())
 
@@ -299,7 +306,7 @@ class MacrocycleGenerator:
             for macrocycle in macrocycles:
                 try:
                     final_macrocycles.append(models.Macrocycle.from_mol(
-                        Chem.MolFromSmiles(macrocycle), [], template_peptide, successful_rxns))
+                        Chem.MolFromSmiles(macrocycle), '', template_peptide, successful_rxns))
                 except InvalidMolecule:
                     continue
 
