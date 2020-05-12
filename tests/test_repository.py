@@ -138,13 +138,21 @@ def test_template_peptide_repository_fail():
     assert len(template_peptide_repo.failed_instances) == 1
 
 
-# def test_macrocycle_repository(hdf5_repository):
-#     macrocycle_repo = repo.create_macrocycle_repository()
-#     ids = macrocycle_repo.save(list(map(models.Macrocycle.from_dict, [TEST_MACROCYCLE_1])))
-#     data = models_to_dict(macrocycle_repo.load(ids))
+def test_macrocycle_repository(macrocycle_mols, model_sort_key):
+    macrocycle_repo = repo.create_macrocycle_repository()
+    ids = macrocycle_repo.save(macrocycle_mols)
+    data = list(macrocycle_repo.load(ids))
+    data.sort(key=model_sort_key)
 
-#     assert(len(data) == 1)
-#     assert(TEST_MACROCYCLE_1 == data[0])
+    assert data == macrocycle_mols
+
+
+def test_macrocycle_repository_fail():
+    macrocycle_repo = repo.create_macrocycle_repository()
+
+    _ = macrocycle_repo.save(['dne'])
+
+    assert len(macrocycle_repo.failed_instances) == 1
 
 
 def test_reaction_repository(reactions, model_sort_key):
@@ -229,7 +237,8 @@ def test_get_all_repository_strings():
                             repo.RegioSQMRepository.STRING,
                             repo.pKaRepository.STRING,
                             repo.PeptidePlanRepository.STRING,
-                            repo.CPMGRepository.STRING}
+                            repo.CPMGRepository.STRING,
+                            repo.InactivesRepository.STRING}
 
 
 @pytest.mark.parametrize('repository', [

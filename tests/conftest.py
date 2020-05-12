@@ -229,6 +229,11 @@ def template_peptide_w_id_dicts(dict_sort_key):
 
 
 @pytest.fixture()
+def macrocycle_dicts(dict_sort_key):
+    return sorted(TEST_MACROCYCLES, key=dict_sort_key)
+
+
+@pytest.fixture()
 def macrocycle_w_id_dicts(dict_sort_key):
     return sorted(add_ids(TEST_MACROCYCLES), key=dict_sort_key)
 
@@ -351,6 +356,11 @@ def template_peptide_mols(template_peptide_dicts, models_from_dict):
 @pytest.fixture()
 def template_peptide_w_id_mols(template_peptide_w_id_dicts, models_from_dict):
     return models_from_dict(models.TemplatePeptide, *template_peptide_w_id_dicts)
+
+
+@pytest.fixture()
+def macrocycle_mols(macrocycle_dicts, models_from_dict):
+    return models_from_dict(models.Macrocycle, *macrocycle_dicts)
 
 
 @pytest.fixture()
