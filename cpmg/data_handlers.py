@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from itertools import product, chain
 
 import cpmg.repository as repo
@@ -20,61 +20,63 @@ class AbstractDataHandler:
 
 class SidechainDataHandler(AbstractDataHandler):
     STRING = generators.SidechainModifier.STRING
+    RETURN_TUPLE = namedtuple('SidechainDataHandlerTuple', 'sidechain connections')
 
     def __init__(self):
         self.connection_repo = repo.create_connection_repository()
         self.sidechain_repo = repo.create_sidechain_repository()
         super().__init__(self.sidechain_repo)
 
-    def load(self, key=Key(WholeRange())):
-        sidechains = self.sidechain_repo.load(key)
-        connections = list(self.connection_repo.load(key))
-        for sidechain in sidechains:
-            yield [sidechain, list(filter(lambda x: x.kekule != sidechain.connection, connections))]
+    def load(self, *, sidechain_key=Key(WholeRange()), connection_key=Key(WholeRange())):
+        connections = list(self.connection_repo.load(connection_key))
+        for sidechain in self.sidechain_repo.load(sidechain_key):
+            yield self.RETURN_TUPLE(sidechain, list(filter(lambda x: x.kekule != sidechain.connection, connections)))
 
 
 class MonomerDataHandler(AbstractDataHandler):
     STRING = generators.MonomerGenerator.STRING
+    RETURN_TUPLE = namedtuple('MonomerDataHandlerTuple', 'sidechain backbones')
 
     def __init__(self):
         self.backbone_repo = repo.create_backbone_repository()
         self.sidechain_repo = repo.create_sidechain_repository()
         super().__init__(repo.create_monomer_repository())
 
-    def load(self, key=Key(WholeRange())):
-        sidechains = self.sidechain_repo.load(key)
-        backbones = list(self.backbone_repo.load(key))
-        for sidechain in sidechains:
-            yield [sidechain, backbones]
+    def load(self, sidechain_key=Key(WholeRange()), backbone_key=Key(WholeRange())):
+        backbones = list(self.backbone_repo.load(backbone_key))
+        for sidechain in self.sidechain_repo.load(sidechain_key):
+            yield self.RETURN_TUPLE(sidechain, backbones)
 
 
 class PeptidePlanDataHandler(AbstractDataHandler):
     STRING = generators.PeptidePlanGenerator.STRING
+    RETURN_TUPLE = namedtuple('PeptidePlanDataHandlerTuple', 'monomers peptide_length num_peptides')
 
     def __init__(self):
         self.monomer_repo = repo.create_monomer_repository()
         super().__init__(repo.create_peptide_plan_repository())
 
-    def load(self, key=Key(WholeRange())):
-        return [list(self.monomer_repo.load(key))]
+    def load(self, *, peptide_length, num_peptides, monomer_key=Key(WholeRange())):
+        yield self.RETURN_TUPLE(list(self.monomer_repo.load(monomer_key)), peptide_length, num_peptides)
 
 
 class PeptideDataHandler(AbstractDataHandler):
     STRING = generators.PeptideGenerator.STRING
+    RETURN_TUPLE = namedtuple('PeptideDataHandlerTuple', 'monomers peptide_length')
 
     def __init__(self):
         self.plan_repo = repo.create_peptide_plan_repository()
         self.monomer_repo = repo.create_monomer_repository()
         super().__init__(repo.create_peptide_repository())
 
-    def load(self, key=Key(WholeRange())):
-        self._hash_monomers()
+    def load(self, *, peptide_plan_key, monomer_key=Key(WholeRange())):
+        self._hash_monomers(monomer_key)
 
         self.hashed_plan = {}
-        for _id, indices in self.plan_repo.load(key):
+        for _id, indices in self.plan_repo.load(peptide_plan_key):
             monomers = [self.index_hash[index] for index in indices]
             self.hashed_plan[indices] = _id
-            yield monomers
+            yield self.RETURN_TUPLE(monomers, peptide_plan_key.peptide_length)
 
     def save(self, data):
         completed_combos = []
@@ -85,27 +87,32 @@ class PeptideDataHandler(AbstractDataHandler):
         self.plan_repo.deactivate_records(Key(completed_combos))
         return self.saver.save(data)
 
-    def _hash_monomers(self):
+    def _hash_monomers(self, key):
         self.index_hash = {}
         self.id_hash = {}
-        for monomer in self.monomer_repo.load():
+        for monomer in self.monomer_repo.load(key):
             self.index_hash[monomer.index] = monomer
             self.id_hash[monomer._id] = monomer.index
 
 
 class TemplatePeptideDataHandler(AbstractDataHandler):
     STRING = generators.TemplatePeptideGenerator.STRING
+    RETURN_TUPLE = namedtuple('TemplatePeptideDataHandlerTuple', 'peptide templates')
 
     def __init__(self):
         self.template_repo = repo.create_template_repository()
         self.peptide_repo = repo.create_peptide_repository()
         super().__init__(repo.create_template_peptide_repository())
 
-    def load(self, key=Key(WholeRange())):
-        peptides = self.peptide_repo.load()
-        templates = list(self.template_repo.load(key))
-        for peptide in peptides:
-            yield [peptide, templates]
+    def load(self, *, peptide_key, template_key=Key(WholeRange())):
+        templates = list(self.template_repo.load(template_key))
+        for peptide in self.peptide_repo.load(peptide_key):
+            yield self.RETURN_TUPLE(peptide, templates)
+
+    def save(self, data):
+        completed_peptides = set(template_peptide.peptide['_id'] for template_peptide in data)
+        self.peptide_repo.deactivate_records(Key(completed_peptides))
+        return self.saver.save(data)
 
 
 # class MacrocycleDataHandler(AbstractDataHandler):
@@ -180,6 +187,7 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
 
 class InterMolecularReactionDataHandler(AbstractDataHandler):
     STRING = generators.InterMolecularReactionGenerator.STRING
+    RETURN_TUPLE = namedtuple('InterMolecularReactionDataHandlerTuple', 'nucleophile templates')
 
     def __init__(self):
         self.sidechain_repo = repo.create_sidechain_repository()
@@ -187,10 +195,10 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
         self.template_repo = repo.create_template_repository()
         super().__init__(repo.create_reaction_repository())
 
-    def load(self, key=Key(WholeRange())):
-        templates = list(self.template_repo.load(key))
-        for component in self._get_filtered_sidechains(key) + self._get_filtered_monomers(key):
-            yield [component, templates]
+    def load(self, sidechain_key=Key(WholeRange()), monomer_key=Key(WholeRange()), template_key=Key(WholeRange())):
+        templates = list(self.template_repo.load(template_key))
+        for nucleophile in self._get_filtered_sidechains(sidechain_key) + self._get_filtered_monomers(monomer_key):
+            yield self.RETURN_TUPLE(nucleophile, templates)
 
     def _get_filtered_sidechains(self, key):
         return list(filter(lambda x: x.connection == METHANE, self.sidechain_repo.load(key)))
@@ -201,13 +209,15 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
 
 class IntraMolecularReactionDataHandler(AbstractDataHandler):
     STRING = generators.IntraMolecularReactionGenerator.STRING
+    RETURN_TUPLE = namedtuple('IntraMolecularReactionDataHandler', 'reacting_mol')
 
     def __init__(self):
         self.template_repo = repo.create_template_repository()
         super().__init__(repo.create_reaction_repository())
 
-    def load(self, key=Key(WholeRange())):
-        return self.template_repo.load(key)
+    def load(self, template_key=Key(WholeRange())):
+        for reacting_mol in self.template_repo.load(template_key):
+            yield self.RETURN_TUPLE(reacting_mol)
 
 
 get_all_handler_strings = utils.get_module_strings(__name__)

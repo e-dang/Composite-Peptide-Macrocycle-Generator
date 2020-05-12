@@ -1,12 +1,12 @@
 import pytest
 import mock
 
-from cpmg.ranges import Key
+from cpmg.ranges import Key, WholeRange
 import cpmg.data_handlers as handlers
 import cpmg.models as models
 from data.mols import *
 
-REPO_SPEC = ['load', 'save']
+REPO_SPEC = ['load', 'save', 'deactivate_records']
 
 
 def extract_ids(data):
@@ -63,6 +63,7 @@ def peptide_repo(peptide_w_id_mols):
     mock_peptide_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_peptide_repo.load.return_value = peptide_w_id_mols
     mock_peptide_repo.save.return_value = Key(extract_ids(peptide_w_id_mols))
+    mock_peptide_repo.deactivate_records.return_value = True
     with mock.patch('cpmg.repository.create_peptide_repository', return_value=mock_peptide_repo):
         yield mock_peptide_repo
 
@@ -108,7 +109,8 @@ def peptide_data_handler_loaded_repos(monomer_repo, peptide_plan_repo, peptide_r
     plan_repo, peptide_plan = peptide_plan_repo
     handler = handlers.PeptideDataHandler()
 
-    yield handler, list(handler.load()), monomer_repo, plan_repo, peptide_repo, peptide_plan
+    key = Key(WholeRange(), peptide_length=peptide_plan.reg_length)
+    yield handler, list(handler.load(peptide_plan_key=key)), monomer_repo, plan_repo, peptide_repo, peptide_plan
 
 
 def test_sidechain_data_handler_load(sidechain_repo, connection_repo, sidechain_w_id_mols):
@@ -118,12 +120,12 @@ def test_sidechain_data_handler_load(sidechain_repo, connection_repo, sidechain_
 
     sidechain_repo.load.assert_called_once()
     connection_repo.load.assert_called_once()
-    assert(len(data) == len(sidechain_w_id_mols))
+    assert len(data) == len(sidechain_w_id_mols)
     for sidechain, connections in data:
-        assert(isinstance(sidechain, models.Sidechain))
-        assert(isinstance(connections, list))
-        assert(len(connections) == 1)
-        assert(connections[0].to_dict() == TEST_CONNECTION_2)
+        assert isinstance(sidechain, models.Sidechain)
+        assert isinstance(connections, list)
+        assert len(connections) == 1
+        assert connections[0].to_dict() == TEST_CONNECTION_2
 
 
 def test_sidechain_data_handler_save(sidechain_w_id_mols, sidechain_repo, connection_repo):
@@ -132,7 +134,7 @@ def test_sidechain_data_handler_save(sidechain_w_id_mols, sidechain_repo, connec
     ids = handler.save(sidechain_w_id_mols)
 
     sidechain_repo.save.assert_called_once()
-    assert(ids == extract_ids(sidechain_w_id_mols))
+    assert ids == extract_ids(sidechain_w_id_mols)
 
 
 def test_monomer_data_handler_load(sidechain_repo, backbone_repo, sidechain_w_id_mols, backbone_w_id_mols):
@@ -142,12 +144,12 @@ def test_monomer_data_handler_load(sidechain_repo, backbone_repo, sidechain_w_id
 
     sidechain_repo.load.assert_called_once()
     backbone_repo.load.assert_called_once()
-    assert(len(data) == len(sidechain_w_id_mols))
+    assert len(data) == len(sidechain_w_id_mols)
     for sidechain, backbones in data:
-        assert(isinstance(sidechain, models.Sidechain))
-        assert(isinstance(backbones, list))
-        assert(len(backbones) == len(backbone_w_id_mols))
-        assert(all(map(lambda x: isinstance(x, models.Backbone), backbones)))
+        assert isinstance(sidechain, models.Sidechain)
+        assert isinstance(backbones, list)
+        assert len(backbones) == len(backbone_w_id_mols)
+        assert all(map(lambda x: isinstance(x, models.Backbone), backbones))
 
 
 def test_monomer_data_handler_save(monomer_w_idx_mols, monomer_repo):
@@ -156,14 +158,14 @@ def test_monomer_data_handler_save(monomer_w_idx_mols, monomer_repo):
     ids = handler.save(monomer_w_idx_mols)
 
     monomer_repo.save.assert_called_once()
-    assert(ids == extract_ids(monomer_w_idx_mols))
+    assert ids == extract_ids(monomer_w_idx_mols)
 
 
 def test_peptide_data_handler_load(peptide_data_handler_loaded_repos):
     _, data, monomer_repo, plan_repo, _, peptide_plan = peptide_data_handler_loaded_repos
 
     data_indices = []
-    for monomer_combination in data:
+    for monomer_combination, _ in data:
         data_indices.append(tuple(monomer.index for monomer in monomer_combination))
 
     plan_indices = []
@@ -177,7 +179,8 @@ def test_peptide_data_handler_load(peptide_data_handler_loaded_repos):
     plan_repo.load.assert_called_once()
     assert len(data) == len(peptide_plan)
     assert data_indices == plan_indices
-    for monomer_combination in data:
+    for monomer_combination, peptide_length in data:
+        assert peptide_length == peptide_plan.reg_length
         for monomer in monomer_combination:
             assert isinstance(monomer, models.Monomer)
 
@@ -194,25 +197,25 @@ def test_peptide_data_handler_load(peptide_data_handler_loaded_repos):
 def test_template_peptide_data_handler_load(peptide_repo, template_repo, peptide_w_id_mols, template_w_id_mols):
     handler = handlers.TemplatePeptideDataHandler()
 
-    data = list(handler.load())
+    data = list(handler.load(peptide_key=Key(WholeRange())))
 
     peptide_repo.load.assert_called_once()
     template_repo.load.assert_called_once()
-    assert(len(data) == len(peptide_w_id_mols))
+    assert len(data) == len(peptide_w_id_mols)
     for peptide, templates in data:
-        assert(isinstance(peptide, models.Peptide))
-        assert(isinstance(templates, list))
-        assert(len(templates) == len(template_w_id_mols))
-        assert(all(map(lambda x: isinstance(x, models.Template), templates)))
+        assert isinstance(peptide, models.Peptide)
+        assert isinstance(templates, list)
+        assert len(templates) == len(template_w_id_mols)
+        assert all(map(lambda x: isinstance(x, models.Template), templates))
 
 
-def test_template_peptide_data_handler_save(template_peptide_w_id_mols, template_peptide_repo):
+def test_template_peptide_data_handler_save(template_peptide_w_id_mols, template_peptide_repo, peptide_repo):
     handler = handlers.TemplatePeptideDataHandler()
 
     ids = handler.save(template_peptide_w_id_mols)
 
     template_peptide_repo.save.assert_called_once()
-    assert(ids == extract_ids(template_peptide_w_id_mols))
+    assert ids == extract_ids(template_peptide_w_id_mols)
 
 
 # def test_macrocycle_data_handler_load(template_peptide_repo, reaction_repo):
@@ -250,7 +253,7 @@ def test_intremolecular_reaction_data_handler_save(reactions_w_ids, reaction_rep
     ids = handler.save(reactions_w_ids)
 
     reaction_repo.save.assert_called_once()
-    assert(ids == extract_ids(reactions_w_ids))
+    assert ids == extract_ids(reactions_w_ids)
 
 
 def test_intramolecular_reaction_data_handler_load(template_repo):
@@ -259,9 +262,9 @@ def test_intramolecular_reaction_data_handler_load(template_repo):
     data = list(handler.load())
 
     template_repo.load.assert_called_once()
-    assert(len(data) == 3)
+    assert len(data) == 3
     for template in data:
-        assert(isinstance(template, models.Template))
+        assert isinstance(template.reacting_mol, models.Template)
 
 
 def test_intramolecular_reaction_data_handler_save(reactions_w_ids, reaction_repo):
@@ -270,7 +273,7 @@ def test_intramolecular_reaction_data_handler_save(reactions_w_ids, reaction_rep
     ids = handler.save(reactions_w_ids)
 
     reaction_repo.save.assert_called_once()
-    assert(ids == extract_ids(reactions_w_ids))
+    assert ids == extract_ids(reactions_w_ids)
 
 
 def test_get_all_handler_strings():
