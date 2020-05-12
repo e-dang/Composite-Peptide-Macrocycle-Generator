@@ -450,6 +450,15 @@ class Macrocycle(AbstractMolecule):
         return cls(data['binary'], data['kekule'], data['modifications'], data['has_cap'], data['length'],
                    data['template_peptide'], data['template'], data['reactions'], _id=_id)
 
+    @classmethod
+    def add_modification(cls, original_macrocycle, new_macrocycle, modification):
+        Chem.SanitizeMol(new_macrocycle)
+        Chem.Kekulize(new_macrocycle)
+        cls.validate(new_macrocycle)
+        return cls(new_macrocycle.ToBinary(), Chem.MolToSmiles(new_macrocycle, kekuleSmiles=True),
+                   original_macrocycle.modifications + modification, original_macrocycle.has_cap, original_macrocycle.length,
+                   original_macrocycle.template_peptide, original_macrocycle.template, original_macrocycle.reactions)
+
     @staticmethod
     def validate(mol):
         if not [ring for ring in mol.GetRingInfo().BondRings() if len(ring) >= config.MIN_MACRO_RING_SIZE]:
