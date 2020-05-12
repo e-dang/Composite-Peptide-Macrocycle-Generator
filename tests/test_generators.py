@@ -1,13 +1,14 @@
+import importlib
 import uuid
 from copy import deepcopy
 
 import mock
 import pytest
 
-import cpmg.models as models
-import cpmg.reactions as rxns
 import cpmg.decorators
 import cpmg.filters
+import cpmg.models as models
+import cpmg.reactions as rxns
 from data.mols import *
 
 mock.patch('cpmg.filters.tpsa_filter', lambda x: x).start()
@@ -19,6 +20,7 @@ mock.patch('cpmg.decorators.methylate', lambda x: x).start()
 mock.patch('cpmg.decorators.carboxyl_to_amide', lambda x: x).start()
 
 import cpmg.generators as generators  # nopep8
+importlib.reload(generators)
 
 SIDECHAIN_1 = models.Sidechain.from_dict(TEST_SIDECHAIN_1, _id=str(uuid.uuid4()))
 TEMPLATE_1 = models.Template.from_dict(TEST_TEMPLATE_1, _id='temp1')
