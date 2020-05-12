@@ -379,12 +379,12 @@ class IntraMolecularReactionGenerator:
     def generate(self, reacting_mol):
         reactions = []
 
-        try:
-            for impl in self.impl:
+        for impl in self.impl:
+            try:
                 for smarts in impl.generate(reacting_mol):
                     reactions.append(models.Reaction.from_mols(impl.TYPE, smarts, reacting_mol, None, None))
-        except InvalidMolecule:
-            pass
+            except InvalidMolecule:
+                pass
 
         return reactions
 
