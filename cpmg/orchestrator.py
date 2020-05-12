@@ -13,7 +13,21 @@ class ExecutionParameters:
         self.operation_parameters = self._extract_operation_parameters(command_line_args)
 
     def _extract_operation_parameters(self, command_line_args):
-        if self.operation == g.PeptideGenerator.STRING:
+        if self.operation == g.SidechainModifier.STRING:
+            operation_parameters = {
+                'sidechain_key': r.Key(r.WholeRange()),
+                'connection_key': r.Key(r.WholeRange())
+            }
+        elif self.operation == g.MonomerGenerator.STRING:
+            operation_parameters = {
+                'sidechain_key': r.Key(r.WholeRange()),
+                'backbone_key': r.Key(r.WholeRange())
+            }
+        elif self.operation == g.PeptidePlanGenerator.STRING:
+            operation_parameters = {
+                'monomer_key': r.Key(r.WholeRange())
+            }
+        elif self.operation == g.PeptideGenerator.STRING:
             operation_parameters = {
                 'peptide_plan_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
                 'monomer_key': r.Key(r.WholeRange())
@@ -23,9 +37,15 @@ class ExecutionParameters:
                 'peptide_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
                 'template_key': r.Key(r.WholeRange())
             }
-        else:
+        elif self.operation == g.InterMolecularReactionGenerator.STRING:
             operation_parameters = {
-                'key': r.Key(r.WholeRange())
+                'sidechain_key': r.Key(r.WholeRange()),
+                'monomer_key': r.Key(r.WholeRange()),
+                'template_key': r.Key(r.WholeRange())
+            }
+        elif self.operation == g.IntraMolecularReactionGenerator.STRING:
+            operation_parameters = {
+                'template_key': r.Key(r.WholeRange())
             }
 
         operation_parameters.update(command_line_args)
