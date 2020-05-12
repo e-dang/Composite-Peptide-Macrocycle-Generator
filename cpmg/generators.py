@@ -297,8 +297,11 @@ class MacrocycleGenerator:
                 successful_rxns.append(reaction_combo[i])
 
             for macrocycle in macrocycles:
-                final_macrocycles.append(models.Macrocycle.from_mol(
-                    Chem.MolFromSmiles(macrocycle), [], template_peptide, successful_rxns))
+                try:
+                    final_macrocycles.append(models.Macrocycle.from_mol(
+                        Chem.MolFromSmiles(macrocycle), [], template_peptide, successful_rxns))
+                except InvalidMolecule:
+                    continue
 
         return final_macrocycles
 

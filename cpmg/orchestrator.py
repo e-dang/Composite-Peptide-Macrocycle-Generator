@@ -37,6 +37,11 @@ class ExecutionParameters:
                 'peptide_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
                 'template_key': r.Key(r.WholeRange())
             }
+        elif self.operation == g.MacrocycleGenerator.STRING:
+            operation_parameters = {
+                'template_peptide_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
+                'reaction_key': r.Key(r.WholeRange())
+            }
         elif self.operation == g.InterMolecularReactionGenerator.STRING:
             operation_parameters = {
                 'sidechain_key': r.Key(r.WholeRange()),

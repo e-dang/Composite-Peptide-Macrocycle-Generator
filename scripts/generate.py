@@ -17,8 +17,8 @@ class GenerateArgParser:
                             const=p.SingleProcess.STRING, default=p.SingleProcess.STRING,
                             help='Selects which level of parallelism to execute the molecule generation with')
 
-        parent_parser = ArgumentParser(add_help=False)
-        parent_parser.add_argument('-l', '--length', '--peptide_length', type=int, choices=[3, 4, 5],
+        length_parser = ArgumentParser(add_help=False)
+        length_parser.add_argument('-l', '--length', '--peptide_length', type=int, choices=[3, 4, 5],
                                          required=True, dest='peptide_length',
                                          help='The number of monomers to assemble into a peptide.')
 
@@ -34,16 +34,19 @@ class GenerateArgParser:
         intra_reaction_parser = subparsers.add_parser('intra_reaction')
         intra_reaction_parser.set_defaults(func=execute)
 
-        peptide_plan_parser = subparsers.add_parser('peptide_plan', parents=[parent_parser])
+        peptide_plan_parser = subparsers.add_parser('peptide_plan', parents=[length_parser])
         peptide_plan_parser.add_argument('-n', '--num', '--num_peptides', type=int, required=True, dest='num_peptides',
                                          help='The number of peptides to generate.')
         peptide_plan_parser.set_defaults(func=execute)
 
-        peptide_parser = subparsers.add_parser('peptide', parents=[parent_parser])
+        peptide_parser = subparsers.add_parser('peptide', parents=[length_parser])
         peptide_parser.set_defaults(func=execute)
 
-        template_peptide_parser = subparsers.add_parser('template_peptide', parents=[parent_parser])
+        template_peptide_parser = subparsers.add_parser('template_peptide', parents=[length_parser])
         template_peptide_parser.set_defaults(func=execute)
+
+        macrocycle_parser = subparsers.add_parser('macrocycle', parents=[length_parser])
+        macrocycle_parser.set_defaults(func=execute)
 
         args = parser.parse_args()
         self.return_val = args.func(args)

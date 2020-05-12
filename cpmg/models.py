@@ -415,13 +415,22 @@ class TemplatePeptide(AbstractMolecule):
     def from_dict(cls, data, _id=None):
         return cls(data['binary'], data['kekule'], data['template'], data['peptide'], _id=_id)
 
+    @property
+    def monomers(self):
+        return self.peptide['monomers']
+
+    @property
+    def length(self):
+        return self.peptide['length']
+
 
 class Macrocycle(AbstractMolecule):
     STRING = 'macrocycle'
 
-    def __init__(self, binary, kekule, modifications, has_cap, template_peptide, template, reactions, _id=None):
+    def __init__(self, binary, kekule, modifications, length, has_cap, template_peptide, template, reactions, _id=None):
         super().__init__(binary, kekule, _id)
         self.modifications = modifications
+        self.length = length
         self.has_cap = has_cap
         self.template_peptide = template_peptide
         self.template = template
@@ -433,12 +442,12 @@ class Macrocycle(AbstractMolecule):
         Chem.Kekulize(mol)
         cls.validate(mol)
         reactions = [rxn.to_reduced_dict() for rxn in reactions]
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), modifications,
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), modifications, template_peptide.length,
                    template_peptide.peptide['has_cap'], template_peptide._id, template_peptide.template, reactions)
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], data['modifications'], data['has_cap'],
+        return cls(data['binary'], data['kekule'], data['modifications'], data['has_cap'], data['length'],
                    data['template_peptide'], data['template'], data['reactions'], _id=_id)
 
     @staticmethod

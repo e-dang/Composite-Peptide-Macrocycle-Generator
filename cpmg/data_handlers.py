@@ -4,7 +4,6 @@ from itertools import product, chain
 import cpmg.repository as repo
 import cpmg.reactions as rxns
 from cpmg.ranges import Key, WholeRange
-import cpmg.config as config
 import cpmg.generators as generators
 import cpmg.utils as utils
 from cpmg.models import METHANE
@@ -115,74 +114,83 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
         return self.saver.save(data)
 
 
-# class MacrocycleDataHandler(AbstractDataHandler):
-#     PS = rxns.PictetSpangler.TYPE
-#     FC = rxns.FriedelCrafts.TYPE
-#     TT = rxns.TsujiTrost.TYPE
-#     PI = rxns.Pyrroloindoline.TYPE
+class MacrocycleDataHandler(AbstractDataHandler):
+    STRING = generators.MacrocycleGenerator.STRING
+    RETURN_TUPLE = namedtuple('MacrocycleDataHandlerTuple', 'template_peptide reaction_combos')
+    PS = rxns.PictetSpangler.TYPE
+    FC = rxns.FriedelCrafts.TYPE
+    TT = rxns.TsujiTrost.TYPE
+    PI = rxns.Pyrroloindoline.TYPE
 
-#     def __init__(self):
-#         self.reaction_repo = repo.create_reaction_repository()
-#         self.template_peptide_repo = repo.create_template_peptide_repository()
-#         super().__init__(repo.create_macrocycle_repository())
+    def __init__(self):
+        self.reaction_repo = repo.create_reaction_repository()
+        self.template_peptide_repo = repo.create_template_peptide_repository()
+        super().__init__(repo.create_macrocycle_repository())
 
-#     def load(self):
-#         self._hash_reactions(self.reaction_repo.load())
-#         return self._match_reactions(self.template_peptide_repo.load())
+    def load(self, *, template_peptide_key, reaction_key=Key(WholeRange())):
+        self._hash_reactions(reaction_key)
+        return self._match_reactions(template_peptide_key)
 
-#     def _match_reactions(self, template_peptides):
+    def save(self, data):
+        completed_template_peptides = set(macrocycle.template_peptide for macrocycle in data)
+        self.template_peptide_repo.deactivate_records(Key(completed_template_peptides))
+        return self.saver.save(data)
 
-#         for template_peptide in template_peptides:
-#             reactions = []
-#             sidechain_data = set(monomer.sidechain for monomer in template_peptide.peptide.monomers if
-#                                  monomer.sidechain is not None)
-#             monomer_data = set(
-#                 monomer._id for monomer in template_peptide.peptide.monomers if monomer.sidechain is None)
-#             for mol_id in chain(sidechain_data, monomer_data):
-#                 reactions.extend(filter(lambda x: x.template == template_peptide.template, self.reactions[mol_id]))
+    def _match_reactions(self, key):
+        templates = repo.create_template_repository().load()
+        ps_capable_templates = tuple(template._id for template in filter(lambda x: x.pictet_spangler_kekule, templates))
 
-#             first_monomer = template_peptide.peptide.monomers[0].sidechain
-#             is_proline = template_peptide.peptide.monomers[0].proline
+        for template_peptide in self.template_peptide_repo.load(key):
+            reactions = []
+            sidechain_data = set(monomer['sidechain'] for monomer in template_peptide.monomers if
+                                 monomer['sidechain'] is not None)
+            monomer_data = set(
+                monomer['_id'] for monomer in template_peptide.monomers if monomer['sidechain'] is None)
+            for mol_id in chain(sidechain_data, monomer_data):
+                reactions.extend(filter(lambda x: x.template == template_peptide.template, self.reactions[mol_id]))
 
-#             # can apply pictet_spangler reactions or template_only_reactions because
-#             #   1. Template 2 and 3 has unmasked aldehyde
-#             #   2. First monomer has a sidechain which comes from a set of aromatic heterocycles (either the sidechain
-#             #      undergo pictet_spangler or the template can undergo pictet_spangler/aldehyde cyclization)
-#             #   3. First monomer doesnt contain any aromatic atoms and is not a proline thus the template will be able
-#             #      to undergo the template_only_reactions
-#             if template_peptide.pictet_spangler_kekule is not None and \
-#                     ((first_monomer is not None) or (first_monomer is None and not is_proline)):
+            first_monomer = template_peptide.monomers[0]['sidechain']
+            is_proline = template_peptide.monomers[0]['proline']
 
-#                 # get pictet_spangler reactions involving only the first monomer or any other type of reaction
-#                 reactions = filter(lambda x: ((x.type == self.PS and x.reacting_mol == first_monomer)
-#                                               or x.type in (self.FC, self.TT, self.PI)), reactions)
+            # can apply pictet_spangler reactions or template_only_reactions because
+            #   1. Template 2 and 3 has unmasked aldehyde
+            #   2. First monomer has a sidechain which comes from a set of aromatic heterocycles (either the sidechain
+            #      undergo pictet_spangler or the template can undergo pictet_spangler/aldehyde cyclization)
+            #   3. First monomer doesnt contain any aromatic atoms and is not a proline thus the template will be able
+            #      to undergo the template_only_reactions
+            if template_peptide.template in ps_capable_templates and \
+                    ((first_monomer is not None) or (first_monomer is None and not is_proline)):
 
-#                 # sort reactions based on if they are pictet_spangler or not
-#                 pictet, other = [], []
-#                 for rxn in reactions:
-#                     other.append(rxn) if rxn.type != self.PS else pictet.append(rxn)
+                # get pictet_spangler reactions involving only the first monomer or any other type of reaction
+                reactions = filter(lambda x: ((x.type == self.PS and x.reacting_mol == first_monomer)
+                                              or x.type in (self.FC, self.TT, self.PI)), reactions)
 
-#                 if not pictet or first_monomer is None:
-#                     rxn_combinations = product(self.template_only_reactions[template_peptide.template], other)
-#                 else:
-#                     # if pictet_spangler fails because template is not oligomerized to the peptide at the first monomer
-#                     # (as may occur with lysine in the peptide) then template_only_reaction will be applied. Otherwise
-#                     # pictet_spangler will occur, blocking the template_only_reaction from taking place
-#                     rxn_combinations = product(pictet, self.template_only_reactions[template_peptide.template], other)
+                # sort reactions based on if they are pictet_spangler or not
+                pictet, other = [], []
+                for rxn in reactions:
+                    other.append(rxn) if rxn.type != self.PS else pictet.append(rxn)
 
-#                 yield template_peptide, rxn_combinations
+                if not pictet or first_monomer is None:
+                    rxn_combinations = product(self.template_only_reactions[template_peptide.template], other)
+                else:
+                    # if pictet_spangler fails because template is not oligomerized to the peptide at the first monomer
+                    # (as may occur with lysine in the peptide) then template_only_reaction will be applied. Otherwise
+                    # pictet_spangler will occur, blocking the template_only_reaction from taking place
+                    rxn_combinations = product(pictet, self.template_only_reactions[template_peptide.template], other)
 
-#             else:  # friedel_crafts, tsuji_trost, pyrrolo_indolene
-#                 yield template_peptide, [[rxn] for rxn in filter(lambda x: x.type != self.PS, rxns)]
+                yield template_peptide, rxn_combinations
 
-#     def _hash_reactions(self, reactions):
-#         self.reactions = defaultdict(list)
-#         self.template_only_reactions = defaultdict(list)
-#         for reaction in reactions:
-#             try:
-#                 self.reactions[reaction.reacting_mol['_id']].append(reaction)
-#             except KeyError:  # template only reaction
-#                 self.template_only_reactions[reaction.template].append(reaction)
+            else:  # friedel_crafts, tsuji_trost, pyrrolo_indolene
+                yield template_peptide, [[rxn] for rxn in filter(lambda x: x.type != self.PS, reactions)]
+
+    def _hash_reactions(self, key):
+        self.reactions = defaultdict(list)
+        self.template_only_reactions = defaultdict(list)
+        for reaction in self.reaction_repo.load(key):
+            try:
+                self.reactions[reaction.reacting_mol['_id']].append(reaction)
+            except TypeError:  # template only reaction
+                self.template_only_reactions[reaction.template].append(reaction)
 
 
 class InterMolecularReactionDataHandler(AbstractDataHandler):

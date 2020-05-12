@@ -255,6 +255,7 @@ class CPMGRepository:
         self.monomer_repo = create_monomer_repository(impl)
         self.peptide_repo = create_peptide_repository(impl)
         self.template_peptide_repo = create_template_peptide_repository(impl)
+        self.macrocycle_repo = create_macrocycle_repository(impl)
         self.reaction_repo = create_reaction_repository(impl)
         self.regiosqm_repo = create_regiosqm_repository(impl)
         self.pka_repo = create_pka_repository(impl)
