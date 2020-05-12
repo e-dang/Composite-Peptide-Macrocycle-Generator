@@ -447,7 +447,7 @@ class Macrocycle(AbstractMolecule):
 
     @classmethod
     def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], data['modifications'], data['has_cap'], data['length'],
+        return cls(data['binary'], data['kekule'], data['modifications'], data['length'], data['has_cap'],
                    data['template_peptide'], data['template'], data['reactions'], _id=_id)
 
     @classmethod
