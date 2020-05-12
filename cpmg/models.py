@@ -340,8 +340,10 @@ class Monomer(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol, backbone, sidechain, imported=False):
+        Chem.SanitizeMol(mol)
+        binary = mol.ToBinary()
         Chem.Kekulize(mol)
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol),
+        return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol),
                    backbone.to_reduced_dict(), sidechain.shared_id, sidechain.connection, cls.is_proline(mol), imported)
 
     @classmethod
@@ -383,10 +385,12 @@ class Peptide(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol, length, has_cap, monomers):
+        Chem.SanitizeMol(mol)
+        binary = mol.ToBinary()
         Chem.Kekulize(mol)
         monomers = [{'_id': monomer._id, 'sidechain': monomer.sidechain,
                      'proline': monomer.proline} for monomer in monomers]
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), length, has_cap, monomers)
+        return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), length, has_cap, monomers)
 
     @classmethod
     def from_dict(cls, data, _id=None):
@@ -406,10 +410,12 @@ class TemplatePeptide(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol, template, peptide):
+        Chem.SanitizeMol(mol)
+        binary = mol.ToBinary()
         Chem.Kekulize(mol)
         peptide = deepcopy(peptide.__dict__)
         peptide.pop('binary')
-        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide)
+        return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide)
 
     @classmethod
     def from_dict(cls, data, _id=None):
