@@ -264,10 +264,9 @@ class MacrocycleGenerator:
     @decorators.carboxyl_to_amide
     @filters.aldehyde_filter
     def generate(self, template_peptide, reaction_combos):
-        template_peptide_mol = template_peptide.mol
-        num_atoms = len(template_peptide_mol.GetAtoms())
 
         final_macrocycles = []
+        num_atoms = len(template_peptide.mol.GetAtoms())
         for reaction_combo in reaction_combos:
             reactants = [template_peptide.mol]
             reactions = [(reaction.rxn, reaction.type) for reaction in reaction_combo]
@@ -284,10 +283,10 @@ class MacrocycleGenerator:
                 successful_rxn = False
                 for reactant in reactants:
                     for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
-                        try:
-                            Chem.SanitizeMol(macrocycle)
-                        except ValueError:  # most likely there are 2 sidechains where one contains the other as a
-                            continue       # substructure which causes this exception to be raised.
+                        # santization is expected to fail some what often, mostly due to 2 sidechains where one contains
+                        # the other as a substructure which causes the failure
+                        if Chem.SanitizeMol(macrocycle, catchErrors=True):
+                            continue
 
                         # protect atoms that participated in this reaction from reacting again in subsequent reactions
                         self._set_protected_atoms(macrocycle, rxn)
