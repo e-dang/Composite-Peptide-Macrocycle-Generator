@@ -18,14 +18,13 @@ import cpmg.config as config
 class SidechainModifier:
     STRING = models.Sidechain.STRING
 
-    def generate(self, args):
+    def generate(self, parent_sidechain, connections):
         """
         Method for creating new sidechain molecules from other sidechains by changing the methyl connection to a
         different connection type.
         """
 
         new_sidechains = []
-        parent_sidechain, connections = args
 
         # replace the designated attachment position with each type of connection
         for connection in connections:
@@ -39,12 +38,11 @@ class MonomerGenerator:
     STRING = models.Monomer.STRING
     MAP_NUMS = (models.Backbone.MAP_NUM, models.Sidechain.MAP_NUM)
 
-    def generate(self, args):
+    def generate(self, sidechain, backbones):
         """
         Method that takes a sidechain and backbones creates new monomers.
         """
 
-        sidechain, backbones = args
         sidechain_mol = sidechain.mapped_mol
 
         temp_utils.clear_isotopes(sidechain_mol)
@@ -64,50 +62,46 @@ class PeptidePlanGenerator:
     MAX_MW = config.MAX_MW - 258  # 258 is average of template MW
     OVER_SAMPLE_FACTOR = 5
 
-    def __init__(self, peptide_length, num_peptides):
-        self.peptide_length = peptide_length
-        self.num_peptides = num_peptides
-
-    def generate(self, monomers):
+    def generate(self, monomers, peptide_length, num_peptides):
         c_cap_monomers = self._get_c_cap_monomers(monomers)
-        combinations = models.PeptidePlan(self.peptide_length)
+        peptide_plan = models.PeptidePlan(peptide_length)
 
-        self._create_minimum_list(monomers, c_cap_monomers, combinations)
-        self._create_remaining_list(monomers, c_cap_monomers, combinations)
+        self._create_minimum_list(monomers, c_cap_monomers, peptide_plan)
+        self._create_remaining_list(monomers, c_cap_monomers, peptide_plan, num_peptides)
 
-        return [combinations]
+        return [peptide_plan]
 
-    def _create_minimum_list(self, monomers, c_cap_monomers, combinations):
+    def _create_minimum_list(self, monomers, c_cap_monomers, peptide_plan):
 
-        for position in range(self.peptide_length):
+        for position in range(peptide_plan.reg_length):
             for selected_monomer in monomers:
-                for fillers in self._get_fillers(selected_monomer, monomers, c_cap_monomers):
-                    combinations.add(
+                for fillers in self._get_fillers(selected_monomer, monomers, c_cap_monomers, peptide_plan.reg_length):
+                    peptide_plan.add(
                         tuple(fillers[0:position] + [selected_monomer.index] + fillers[position:]))
 
-    def _create_remaining_list(self, monomers, c_cap_monomers, combinations):
-        monomers = [deepcopy(monomers) for _ in range(self.peptide_length)]
+    def _create_remaining_list(self, monomers, c_cap_monomers, peptide_plan, num_peptides):
+        monomers = [deepcopy(monomers) for _ in range(peptide_plan.reg_length)]
         while True:
-            for random_sample in utils.random_sample_cartesian_product(*monomers, sample_size=self.num_peptides * self.OVER_SAMPLE_FACTOR):
-                if len(combinations) > self.num_peptides:
+            for random_sample in utils.random_sample_cartesian_product(*monomers, sample_size=num_peptides * self.OVER_SAMPLE_FACTOR):
+                if len(peptide_plan) > num_peptides:
                     break
-                if self._validate_monomers(random_sample, self.peptide_length):
-                    combinations.add(tuple(monomer.index for monomer in random_sample))
-                    if self._is_c_cap_eligible(random_sample, self.peptide_length):
+                if self._validate_monomers(random_sample, peptide_plan.reg_length):
+                    peptide_plan.add(tuple(monomer.index for monomer in random_sample))
+                    if self._is_c_cap_eligible(random_sample, peptide_plan.reg_length):
                         random_sample += [choice(c_cap_monomers)]
-                        combinations.add(tuple(monomer.index for monomer in random_sample))
+                        peptide_plan.add(tuple(monomer.index for monomer in random_sample))
             else:
                 continue
             break
 
-    def _get_fillers(self, desired_monomer, monomer_pool, c_cap_monomers):
+    def _get_fillers(self, desired_monomer, monomer_pool, c_cap_monomers, peptide_length):
 
         while True:
-            monomers = list(choices(monomer_pool, k=self.peptide_length - 1))
+            monomers = list(choices(monomer_pool, k=peptide_length - 1))
             monomers.append(desired_monomer)
-            if self._validate_monomers(monomers, self.peptide_length):
+            if self._validate_monomers(monomers, peptide_length):
                 yield [monomer.index for monomer in monomers[:-1]]
-                if self._is_c_cap_eligible(monomers, self.peptide_length):
+                if self._is_c_cap_eligible(monomers, peptide_length):
                     c_cap = choice(c_cap_monomers)
                     yield [monomer.index for monomer in monomers[:-1]] + [c_cap.index]
                 break
@@ -147,11 +141,7 @@ class PeptideGenerator:
     # this reaction only works for alpha amino acids by design
     DECARBOXYLATE = AllChem.ReactionFromSmarts('[*:1]NC([*:2])C(=O)[OH]>>[*:1]NC([*:2])')
 
-    def __init__(self, peptide_length):
-
-        self.peptide_length = peptide_length
-
-    def generate(self, monomers):
+    def generate(self, monomers, peptide_length):
         """
         Creates a peptide from a list of monomers.
         """
@@ -170,11 +160,11 @@ class PeptideGenerator:
             self.add_monomer(monomer_mol, backbone_mol)
 
         has_c_cap = False
-        if len(monomers) != self.peptide_length:  # c-term cap is present
+        if len(monomers) != peptide_length:  # c-term cap is present
             self.peptide = self.decarboxylate_c_term()
             has_c_cap = True
 
-        return [models.Peptide.from_mol(self.peptide, self.peptide_length, has_c_cap, monomers)]
+        return [models.Peptide.from_mol(self.peptide, peptide_length, has_c_cap, monomers)]
 
     def initialize_peptide(self, monomer):
         self.pep_size = 1
@@ -236,13 +226,11 @@ class TemplatePeptideGenerator:
     PEPTIDE_NITROGEN_MAP_NUM = 2
     MAP_NUMS = (models.Template.OLIGOMERIZATION_MAP_NUM, PEPTIDE_NITROGEN_MAP_NUM)
 
-    def generate(self, args):
+    def generate(self, peptide, templates):
         """
         Method that takes a peptide molecule and combines it with each type of template molecule to form
         template-peptide oligomers.
         """
-
-        peptide, templates = args
 
         template_peptides = []
         for template in templates:
@@ -267,8 +255,7 @@ class MacrocycleGenerator:
     ALDH = rxns.AldehydeCyclization.TYPE
     MAX_ATOM_DIFFERENCE = 5
 
-    def generate(self, args):
-        template_peptide, reaction_combos = args
+    def generate(self, template_peptide, reaction_combos):
 
         template_peptide_mol = template_peptide.mol
         num_atoms = len(template_peptide_mol.GetAtoms())
@@ -332,8 +319,7 @@ class InterMolecularReactionGenerator:
 
     @filters.pka_filter
     @filters.regiosqm_filter
-    def generate(self, args):
-        nucleophile, templates = args
+    def generate(self, nucleophile, templates):
         nucleophile_mol = nucleophile.mol
 
         non_symmetric_atom_idxs = self._get_non_symmetric_atoms(nucleophile_mol)

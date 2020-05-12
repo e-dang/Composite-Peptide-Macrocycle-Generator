@@ -53,99 +53,115 @@ REGIOSQM_PREDICTION = models.RegioSQMPrediction.from_dict(TEST_REGIOSQM_PREDICTI
 PKA_PREDICTION = models.pKaPrediction.from_dict(TEST_PKA_PREDICTION_1, _id=str(uuid.uuid4()))
 
 
-@pytest.mark.parametrize('data,expected_result', [((models.Sidechain.from_dict(TEST_SIDECHAIN_1, _id='1afdw'), [CONNECTION]), models.Sidechain.from_mol(Chem.MolFromSmiles('CCc1ccc(O)cc1'), CONNECTION, TEST_SIDECHAIN_1['shared_id']))])
-def test_sidechain_modifier(data, expected_result):
+@pytest.mark.parametrize('sidechain, connections, expected_result', [
+    (models.Sidechain.from_dict(TEST_SIDECHAIN_1, _id='1afdw'), [CONNECTION], models.Sidechain.from_mol(
+        Chem.MolFromSmiles('CCc1ccc(O)cc1'), CONNECTION, TEST_SIDECHAIN_1['shared_id']))
+])
+def test_sidechain_modifier(sidechain, connections, expected_result):
     generator = generators.SidechainModifier()
 
-    sidechains = generator.generate(data)
+    sidechains = generator.generate(sidechain, connections)
 
-    assert(len(sidechains) == 1)
-    assert(sidechains[0] == expected_result)
+    assert len(sidechains) == 1
+    assert sidechains[0] == expected_result
 
 
-@pytest.mark.parametrize('data,num_results,expected_results', [((models.Sidechain.from_dict(TEST_SIDECHAIN_4, _id='af'), BACKBONES), 3, MONOMERS_3)])
-def test_monomer_generator(data, num_results, expected_results):
+@pytest.mark.parametrize('sidechain, backbones, num_results, expected_results', [
+    (models.Sidechain.from_dict(TEST_SIDECHAIN_4, _id='af'), BACKBONES, 3, MONOMERS_3)
+])
+def test_monomer_generator(sidechain, backbones, num_results, expected_results):
     generator = generators.MonomerGenerator()
 
-    monomers = generator.generate(data)
+    monomers = generator.generate(sidechain, backbones)
 
-    assert(len(monomers) == num_results)
+    assert len(monomers) == num_results
     for monomer, expected_result in zip(monomers, expected_results):
-        assert(monomer == expected_result)
+        assert monomer == expected_result
 
 
-@pytest.mark.parametrize('monomers,peptide_length,expected_result', [(MONOMERS_3, 3, PEPTIDE_3), (MONOMERS_4, 4, PEPTIDE_4), (MONOMERS_5, 5, PEPTIDE_5), (MONOMERS_5, 4, PEPTIDE_4_CAP)])
+@pytest.mark.parametrize('monomers,peptide_length,expected_result', [
+    (MONOMERS_3, 3, PEPTIDE_3),
+    (MONOMERS_4, 4, PEPTIDE_4),
+    (MONOMERS_5, 5, PEPTIDE_5),
+    (MONOMERS_5, 4, PEPTIDE_4_CAP)
+])
 def test_peptide_generator(monomers, peptide_length, expected_result):
-    generator = generators.PeptideGenerator(peptide_length)
+    generator = generators.PeptideGenerator()
 
-    peptides = generator.generate(monomers)
+    peptides = generator.generate(monomers, peptide_length)
 
-    assert(len(peptides) == 1)
-    assert(peptides[0] == expected_result)
+    assert len(peptides) == 1
+    assert peptides[0] == expected_result
 
 
-@pytest.mark.parametrize('monomers,peptide_length', [(MONOMERS_6, 4)])
+@pytest.mark.parametrize('monomers, peptide_length', [
+    (MONOMERS_6, 4)
+])
 def test_peptide_generator_fail(monomers, peptide_length):
-    generator = generators.PeptideGenerator(peptide_length)
+    generator = generators.PeptideGenerator()
 
     with pytest.raises(RuntimeError):
-        generator.generate(monomers)
+        generator.generate(monomers, peptide_length)
 
 
-@pytest.mark.parametrize('data,num_results,expected_results', [((PEPTIDE_6, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3]), 6, [TEMPLATE_PEPTIDE_1, TEMPLATE_PEPTIDE_2, TEMPLATE_PEPTIDE_3, TEMPLATE_PEPTIDE_4, TEMPLATE_PEPTIDE_5, TEMPLATE_PEPTIDE_6])])
-def test_template_peptide_generator(data, num_results, expected_results):
+@pytest.mark.parametrize('peptide, templates, num_results, expected_results', [
+    (PEPTIDE_6, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3], 6, [TEMPLATE_PEPTIDE_1, TEMPLATE_PEPTIDE_2, TEMPLATE_PEPTIDE_3,
+                                                          TEMPLATE_PEPTIDE_4, TEMPLATE_PEPTIDE_5, TEMPLATE_PEPTIDE_6])
+])
+def test_template_peptide_generator(peptide, templates, num_results, expected_results):
     generator = generators.TemplatePeptideGenerator()
 
-    template_peptides = generator.generate(data)
+    template_peptides = generator.generate(peptide, templates)
 
-    assert(len(template_peptides) == num_results)
+    assert len(template_peptides) == num_results
     template_peptides.sort(key=lambda x: x.kekule)
     expected_results.sort(key=lambda x: x.kekule)
     for template_peptide, expected_result in zip(template_peptides, expected_results):
-        assert(template_peptide == expected_result)
+        assert template_peptide == expected_result
 
 
-@pytest.mark.parametrize('data,num_results,expected_results', [
-    ((TEMPLATE_PEPTIDE_7, [[REACTION_9, REACTION_10]]), 1, [TEST_MACROCYCLE_1['kekule']])])
-def test_macrocycle_generator(data, num_results, expected_results):
+@pytest.mark.parametrize('template_peptide, reaction_combos, num_results, expected_results', [
+    (TEMPLATE_PEPTIDE_7, [[REACTION_9, REACTION_10]], 1, [TEST_MACROCYCLE_1['kekule']])
+])
+def test_macrocycle_generator(template_peptide, reaction_combos, num_results, expected_results):
     generator = generators.MacrocycleGenerator()
 
-    macrocycles = generator.generate(data)
+    macrocycles = generator.generate(template_peptide, reaction_combos)
 
-    assert(len(macrocycles) == num_results)
+    assert len(macrocycles) == num_results
     for macrocycle, expected_result in zip(macrocycles, expected_results):
-        assert(macrocycle.kekule == expected_result)
+        assert macrocycle.kekule == expected_result
 
 
-@pytest.mark.parametrize('data,impl,num_results,expected_results', [
-    ((SIDECHAIN_1, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3]),
+@pytest.mark.parametrize('nucleophile, templates, impl, num_results, expected_results', [
+    (SIDECHAIN_1, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3],
      rxns.FriedelCrafts(), 3, [REACTION_1, REACTION_2, REACTION_3]),
-    ((SIDECHAIN_1, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3]), rxns.TsujiTrost(), 3, [REACTION_4, REACTION_5, REACTION_6])
+    (SIDECHAIN_1, [TEMPLATE_1, TEMPLATE_2, TEMPLATE_3], rxns.TsujiTrost(), 3, [REACTION_4, REACTION_5, REACTION_6])
 ])
-def test_intermolecular_reaction_generator(data, impl, num_results, expected_results):
+def test_intermolecular_reaction_generator(nucleophile, templates, impl, num_results, expected_results):
     with mock.patch('cpmg.generators.repo.BackboneRepository.load', return_value=[models.Backbone.from_dict(TEST_BACKBONE_1, _id=str(uuid.uuid4()))]), \
             mock.patch('cpmg.generators.filters.proxies.repo.RegioSQMRepository.load', return_value=[REGIOSQM_PREDICTION]), \
             mock.patch('cpmg.generators.filters.proxies.repo.pKaRepository.load', return_value=[PKA_PREDICTION]):
         generator = generators.InterMolecularReactionGenerator(impl)
-        reactions = generator.generate(data)
+        reactions = generator.generate(nucleophile, templates)
 
-    assert(len(reactions) == num_results)
+    assert len(reactions) == num_results
     for reaction, expected_result in zip(reactions, expected_results):
-        data = reaction.to_dict()
-        assert(reaction == expected_result)
+        assert reaction == expected_result
 
 
-@pytest.mark.parametrize('data,impl,num_results,expected_results', [
+@pytest.mark.parametrize('reacting_mol, impl, num_results, expected_results', [
     (TEMPLATE_2, rxns.AldehydeCyclization(), 1, [REACTION_7]),
-    (TEMPLATE_3, rxns.TemplatePictetSpangler(), 1, [REACTION_8])])
-def test_intramolecular_reaction_generator(data, impl, num_results, expected_results):
+    (TEMPLATE_3, rxns.TemplatePictetSpangler(), 1, [REACTION_8])
+])
+def test_intramolecular_reaction_generator(reacting_mol, impl, num_results, expected_results):
     generator = generators.IntraMolecularReactionGenerator(impl)
 
-    reactions = generator.generate(data)
+    reactions = generator.generate(reacting_mol)
 
-    assert(len(reactions) == num_results)
+    assert len(reactions) == num_results
     for reaction, expected_result in zip(reactions, expected_results):
-        assert(reaction == expected_result)
+        assert reaction == expected_result
 
 
 def test_get_all_generator_strings():
@@ -161,25 +177,18 @@ def test_get_all_generator_strings():
                                  generators.IntraMolecularReactionGenerator.STRING}
 
 
-@pytest.mark.parametrize('generator, args', [
-    (generators.SidechainModifier, None),
-    (generators.MonomerGenerator, None),
-    (generators.PeptidePlanGenerator, [3, 10]),
-    (generators.PeptideGenerator, [3]),
-    (generators.PeptideGenerator, [4]),
-    (generators.PeptideGenerator, [5]),
-    (generators.TemplatePeptideGenerator, None),
-    (generators.MacrocycleGenerator, None)
+@pytest.mark.parametrize('generator', [
+    (generators.SidechainModifier),
+    (generators.MonomerGenerator),
+    (generators.PeptidePlanGenerator),
+    (generators.PeptideGenerator),
+    (generators.TemplatePeptideGenerator),
+    (generators.MacrocycleGenerator)
 ])
-def test_create_generator_from_string(generator, args):
-    if args is None:
-        produced_generator = generators.create_generator_from_string(generator.STRING)
-    else:
-        produced_generator = generators.create_generator_from_string(generator.STRING, *args)
+def test_create_generator_from_string(generator):
+    produced_generator = generators.create_generator_from_string(generator.STRING)
 
     assert isinstance(produced_generator, generator)
-    if args is not None:
-        assert list(produced_generator.__dict__.values()) == args
 
 
 @pytest.mark.parametrize('generator, args', [
