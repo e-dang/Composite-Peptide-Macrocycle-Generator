@@ -1,64 +1,25 @@
-import ast
 from argparse import ArgumentParser
-from functools import partial
 
 from rdkit import Chem
 
+import cpmg.operations as ops
 import cpmg.repository as r
 from cpmg.ranges import Key, WholeRange
+
+
+FIND_OPERATION = 'find'
+
+
+def execute(args):
+    if args.operation == FIND_OPERATION:
+        finder = ops.Finder()
+        return finder.execute(args)
 
 
 def print_database(args):
     print(r.create_repository_from_string(args.repo))
 
     return True
-
-
-def execute_find(args):
-    repo = r.create_repository_from_string(args.repo)
-    if args.all:
-        return print_all_records(repo)
-
-    if args.kekule is not None:
-        return print_records_from_kekule(repo, args.kekule)
-
-    if args.filter is not None:
-        return print_filtered_records(repo, ast.literal_eval(args.filter))
-
-
-def print_all_records(repo):
-    for i, record in enumerate(repo.load(Key(WholeRange()))):
-        print(record)
-        if i % 10 == 0 and i != 0:
-            input('')
-
-
-def print_records_from_kekule(repo, kekules):
-    for record in repo.load(Key(kekules, index='kekule')):
-        print(record, '\n')
-
-    return True
-
-
-def print_filtered_records(repo, filter_criteria):
-    def filter_func(x, filter_criteria):
-        for key, val in filter_criteria.items():
-            try:
-                attr = getattr(x, key)
-            except AttributeError:
-                attr = x[key]
-
-            if isinstance(attr, dict) and isinstance(val, dict):
-                return filter_func(attr, val)
-
-            if attr != val:
-                return False
-
-        return True
-
-    func = partial(filter_func, filter_criteria=filter_criteria)
-    for record in filter(func, repo.load(Key(WholeRange()))):
-        print(record, '\n')
 
 
 def remove_dataset(args):
@@ -99,7 +60,7 @@ def execute_activate(args):
 class QueryArgParser:
     def __init__(self):
         parser = ArgumentParser()
-        subparsers = parser.add_subparsers()
+        subparsers = parser.add_subparsers(dest='operation')
 
         print_parser = subparsers.add_parser('print')
         print_parser.add_argument('repo', choices=r.get_all_repository_strings(), nargs='?',
@@ -108,7 +69,7 @@ class QueryArgParser:
                                   help='Prints the number of records and structure if applicable in the repository for the specified type. Default type is all.')
         print_parser.set_defaults(func=print_database)
 
-        find_parser = subparsers.add_parser('find')
+        find_parser = subparsers.add_parser(FIND_OPERATION)
         find_parser.add_argument('repo', choices=r.get_all_repository_strings(),
                                  help='The repository to search.')
         find_parser.add_argument('-a', '--all', action='store_true',
@@ -117,9 +78,13 @@ class QueryArgParser:
                                  help='Load and print the records corresponding to the specified kekule strings.')
         find_parser.add_argument('-f', '--filter', type=str,
                                  help='The filter criteria as a python dictionary, where the key is the field on the record and the value is the value of that field in desired record(s). File must be a .sdf file')
-        print_parser.add_argument('-i', '--inactives', action='store_true',
-                                  help='Flag that inactive records for the given repository and search criteria instead.')
-        find_parser.set_defaults(func=execute_find)
+        find_parser.add_argument('-p', '--projection', type=str, nargs='+',
+                                 help='Only print the specified field from the retrieved records.')
+        find_parser.add_argument('-i', '--inactives', action='store_true',
+                                 help='Flag that selects inactive records rather than active records in the given repository that meet the search criteria.')
+        find_parser.add_argument('-c', '--chunk', '--chunk_size', type=int, const=10, default=10, nargs='?', dest='chunk_size',
+                                 help='The number of records to display on screen at a single time.')
+        find_parser.set_defaults(func=execute)
 
         remove_parser = subparsers.add_parser('remove')
         remove_parser.add_argument('repo', type=str,
