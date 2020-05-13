@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 import cpmg.parallelizers as p
 import cpmg.orchestrator as o
+import cpmg.generators as g
 
 
 def execute(command_line_args):
@@ -22,31 +23,34 @@ class GenerateArgParser:
                                          required=True, dest='peptide_length',
                                          help='The number of monomers to assemble into a peptide.')
 
-        sidechain_parser = subparsers.add_parser('sidechain')
+        sidechain_parser = subparsers.add_parser(g.SidechainModifier.STRING)
         sidechain_parser.set_defaults(func=execute)
 
-        monomer_parser = subparsers.add_parser('monomer')
+        monomer_parser = subparsers.add_parser(g.MonomerGenerator.STRING)
         monomer_parser.set_defaults(func=execute)
 
-        inter_reaction_parser = subparsers.add_parser('inter_reaction')
+        inter_reaction_parser = subparsers.add_parser(g.InterMolecularReactionGenerator.STRING)
         inter_reaction_parser.set_defaults(func=execute)
 
-        intra_reaction_parser = subparsers.add_parser('intra_reaction')
+        intra_reaction_parser = subparsers.add_parser(g.IntraMolecularReactionGenerator.STRING)
         intra_reaction_parser.set_defaults(func=execute)
 
-        peptide_plan_parser = subparsers.add_parser('peptide_plan', parents=[length_parser])
+        peptide_plan_parser = subparsers.add_parser(g.PeptidePlanGenerator.STRING, parents=[length_parser])
         peptide_plan_parser.add_argument('-n', '--num', '--num_peptides', type=int, required=True, dest='num_peptides',
                                          help='The number of peptides to generate.')
         peptide_plan_parser.set_defaults(func=execute)
 
-        peptide_parser = subparsers.add_parser('peptide', parents=[length_parser])
+        peptide_parser = subparsers.add_parser(g.PeptideGenerator.STRING, parents=[length_parser])
         peptide_parser.set_defaults(func=execute)
 
-        template_peptide_parser = subparsers.add_parser('template_peptide', parents=[length_parser])
+        template_peptide_parser = subparsers.add_parser(g.TemplatePeptideGenerator.STRING, parents=[length_parser])
         template_peptide_parser.set_defaults(func=execute)
 
-        macrocycle_parser = subparsers.add_parser('macrocycle', parents=[length_parser])
+        macrocycle_parser = subparsers.add_parser(g.MacrocycleGenerator.STRING, parents=[length_parser])
         macrocycle_parser.set_defaults(func=execute)
+
+        conformer_parser = subparsers.add_parser(g.ConformerGenerator.STRING, parents=[length_parser])
+        conformer_parser.set_defaults(func=execute)
 
         args = parser.parse_args()
         self.return_val = args.func(args)
