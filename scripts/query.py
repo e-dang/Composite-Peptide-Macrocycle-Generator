@@ -89,6 +89,13 @@ def execute_deactivate(args):
     return repo.deactivate_records(Key(deactivated_ids))
 
 
+def execute_activate(args):
+    repo = r.create_repository_from_string(args.repo)
+    if args.all:
+        ids = [record._id for record in repo.load_inactive_records(Key(WholeRange()))]
+        return repo.activate_records(Key(ids))
+
+
 class QueryArgParser:
     def __init__(self):
         parser = ArgumentParser()
@@ -128,6 +135,13 @@ class QueryArgParser:
         deactivate_parser.add_argument('-i', '--invert', action='store_true',
                                        help='Causes the structures in the file to remain active while all records not matched to structures in the file are deactivated.')
         deactivate_parser.set_defaults(func=execute_deactivate)
+
+        activate_parser = subparsers.add_parser('activate')
+        activate_parser.add_argument('repo', type=str,
+                                     help='The repository that contains the records to be deactivated.')
+        activate_parser.add_argument('-a', '--all', action='store_true',
+                                     help='Switch that causes all records within the repository to be activated.')
+        activate_parser.set_defaults(func=execute_activate)
 
         args = parser.parse_args()
         self.return_val = args.func(args)
