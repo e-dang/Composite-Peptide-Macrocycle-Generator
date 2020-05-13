@@ -24,7 +24,7 @@ TAGGED_ALPHA_BACKBONE = Chem.MolFromSmarts('N[CH2:1]C(=O)[OH]')
 def print_model(obj_type, obj_dict):
     data = {'type': obj_type}
     data.update(obj_dict)
-    data.pop('binary')
+    data.pop('binary', None)
     pprint(data)
 
 
@@ -104,6 +104,7 @@ class Connection(AbstractMolecule):
 
     @classmethod
     def from_mol(cls, mol):
+        Chem.SanitizeMol(mol)
         Chem.Kekulize(mol)
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True))
 
@@ -341,9 +342,8 @@ class Monomer(AbstractMolecule):
     @classmethod
     def from_mol(cls, mol, backbone, sidechain, imported=False):
         Chem.SanitizeMol(mol)
-        binary = mol.ToBinary()
         Chem.Kekulize(mol)
-        return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol),
+        return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), cls.is_required(mol),
                    backbone.to_reduced_dict(), sidechain.shared_id, sidechain.connection, cls.is_proline(mol), imported)
 
     @classmethod
