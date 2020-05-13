@@ -1,10 +1,14 @@
+import os
 from copy import deepcopy
 from itertools import chain
 from random import choice, choices
 
+from confbusterplusplus.factory import ConfBusterFactory
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+import cpmg.config as config
+import cpmg.decorators as decorators
 import cpmg.filters as filters
 import cpmg.models as models
 import cpmg.reactions as rxns
@@ -12,8 +16,6 @@ import cpmg.repository as repo
 import cpmg.utils as temp_utils
 import macrocycles.utils as utils
 from cpmg.exceptions import InvalidMolecule
-import cpmg.config as config
-import cpmg.decorators as decorators
 
 
 class SidechainModifier:
@@ -316,6 +318,23 @@ class MacrocycleGenerator:
             atom = macrocycle.GetAtomWithIdx(atom)
             if atom.GetIsAromatic():
                 atom.SetProp('_protected', '1')
+
+
+class ConformerGenerator:
+    STRING = models.Conformer.STRING
+    ARGS = config.CONFORMER_ARGS
+
+    def __init__(self):
+        self.factory = ConfBusterFactory(**self.ARGS._asdict())
+        self.factory.MOL_FILE = os.path.join(config.TMP_DIR, 'conf_macrocycle.sdf')
+        self.factory.GENETIC_FILE = os.path.join(config.TMP_DIR, 'genetic_results.sdf')
+        self.generator = self.factory.create_conformer_generator()
+
+    def generate(self, macrocycle):
+
+        conformer, energies, rmsd, ring_rmsd, *_ = self.generator.generate(Chem.MolFromSmiles(macrocycle.kekule))
+
+        return [models.Conformer.from_macrocycle(conformer, macrocycle, energies, rmsd, ring_rmsd)]
 
 
 class InterMolecularReactionGenerator:

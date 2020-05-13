@@ -285,6 +285,7 @@ def test_get_all_handler_strings():
                                handlers.PeptideDataHandler.STRING,
                                handlers.TemplatePeptideDataHandler.STRING,
                                handlers.MacrocycleDataHandler.STRING,
+                               handlers.ConformerDataHandler.STRING,
                                handlers.InterMolecularReactionDataHandler.STRING,
                                handlers.IntraMolecularReactionDataHandler.STRING}
 
@@ -295,6 +296,8 @@ def test_get_all_handler_strings():
     (handlers.PeptidePlanDataHandler),
     (handlers.PeptideDataHandler),
     (handlers.TemplatePeptideDataHandler),
+    (handlers.MacrocycleDataHandler),
+    (handlers.ConformerDataHandler),
     (handlers.InterMolecularReactionDataHandler),
     (handlers.IntraMolecularReactionDataHandler)
 ])

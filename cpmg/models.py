@@ -462,7 +462,7 @@ class Macrocycle(AbstractMolecule):
         Chem.Kekulize(new_macrocycle)
         cls.validate(new_macrocycle)
         return cls(new_macrocycle.ToBinary(), Chem.MolToSmiles(new_macrocycle, kekuleSmiles=True),
-                   original_macrocycle.modifications + modification, original_macrocycle.has_cap, original_macrocycle.length,
+                   original_macrocycle.modifications + modification, original_macrocycle.length, original_macrocycle.has_cap,
                    original_macrocycle.template_peptide, original_macrocycle.template, original_macrocycle.reactions)
 
     @staticmethod
@@ -472,6 +472,39 @@ class Macrocycle(AbstractMolecule):
                 f'A macrocycle must have at least {config.MIN_MACRO_RING_SIZE} ring atoms!')
 
         return True
+
+
+class Conformer(Macrocycle):
+    STRING = 'conformer'
+
+    def __init__(self, binary, kekule, modifications, length, has_cap, template_peptide, template, reactions, num_conformers, energies, rmsd, ring_rmsd, _id=None):
+        super().__init__(binary, kekule, modifications, length, has_cap, template_peptide, template, reactions, _id)
+        self.num_conformers = num_conformers
+        self.energies = energies
+        self.rmsd = rmsd
+        self.ring_rmsd = ring_rmsd
+
+    @classmethod
+    def from_macrocycle(cls, conformer_mol, macrocycle, energies, rmsd, ring_rmsd):
+        conformer_mol = Chem.RemoveHs(conformer_mol)
+        Chem.SanitizeMol(conformer_mol)
+        Chem.Kekulize(conformer_mol)
+        cls.validate(conformer_mol, macrocycle)
+        return cls(conformer_mol.ToBinary(), Chem.MolToSmiles(conformer_mol, kekuleSmiles=True), macrocycle.modifications,
+                   macrocycle.has_cap, macrocycle.length, macrocycle.template_peptide, macrocycle.template, macrocycle.reactions,
+                   conformer_mol.GetNumConformers(), energies, rmsd, ring_rmsd, _id=macrocycle._id)
+
+    @classmethod
+    def from_dict(cls, data, _id=None):
+        return cls(data['binary'], data['kekule'], data['modifications'], data['length'], data['has_cap'],
+                   data['template_peptide'], data['template'], data['reactions'], data['num_conformers'], data['energies'], data['rmsd'], data['ring_rmsd'], _id=_id)
+
+    @staticmethod
+    def validate(mol, macrocycle):
+        Macrocycle.validate(mol)
+
+        if mol.GetNumConformers() <= 0:
+            raise exceptions.InvalidMolecule('The conformer mol has no conformers')
 
 
 class Reaction:

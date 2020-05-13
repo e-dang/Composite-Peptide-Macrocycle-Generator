@@ -729,7 +729,7 @@ def test_peptide_plan_data(peptide_plan_data):
 def test_get_all_model_strings():
     class_strings = {models.Connection.STRING, models.Template.STRING, models.Backbone.STRING, models.Sidechain.STRING,
                      models.Monomer.STRING, models.Peptide.STRING, models.TemplatePeptide.STRING,
-                     models.Macrocycle.STRING, models.Reaction.STRING, models.RegioSQMPrediction.STRING,
+                     models.Macrocycle.STRING, models.Conformer.STRING, models.Reaction.STRING, models.RegioSQMPrediction.STRING,
                      models.pKaPrediction.STRING, models.PeptidePlan.STRING}
 
     assert class_strings == set(models.get_all_model_strings())

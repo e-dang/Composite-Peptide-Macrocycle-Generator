@@ -496,6 +496,25 @@ class MacrocycleHDF5Repository(HDF5ObjRepositoryImpl):
         return self._refine_group(group, peptide_length)
 
 
+class ConformerHDF5Repository(HDF5ObjRepositoryImpl):
+    GROUP = models.Conformer.STRING
+    DEFAULT_INDICES = ['kekule']
+
+    def _refine_group_from_key(self, group, key):
+        try:
+            peptide_length = key.peptide_length
+            if peptide_length is not None:
+                group = self._refine_group(group, str(peptide_length))
+        except AttributeError:
+            pass
+
+        return group
+
+    def _refine_group_from_data(self, group, data):
+        peptide_length = str(data[0]['length'])
+        return self._refine_group(group, peptide_length)
+
+
 class ReactionHDF5Repository(HDF5ObjRepositoryImpl):
     GROUP = models.Reaction.STRING
     DEFAULT_INDICES = []
@@ -574,6 +593,7 @@ class HDF5Repository:
         self.peptide_repo = PeptideHDF5Repository()
         self.template_peptide_repo = TemplatePeptideHDF5Repository()
         self.macrocycle_repo = MacrocycleHDF5Repository()
+        self.conformer_repo = ConformerHDF5Repository()
         self.reaction_repo = ReactionHDF5Repository()
         self.regiosqm_repo = RegioSQMHDF5Repository()
         self.pka_repo = pKaHDF5Repository()

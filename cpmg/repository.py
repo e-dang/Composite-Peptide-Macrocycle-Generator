@@ -31,6 +31,9 @@ class AbstractRepository:
     def remove_group(self, group):
         return self.impl.remove_dataset(group)
 
+    def remove_records(self, key):
+        return self.impl.remove_records(key)
+
     def deactivate_records(self, key):
         return self.impl.deactivate_records(key)
 
@@ -153,6 +156,17 @@ class MacrocycleRepository(AbstractRepository):
         return super().save(self._check_type(data))
 
 
+class ConformerRepository(AbstractRepository):
+    TYPE = models.Conformer
+    STRING = TYPE.STRING
+
+    def __init__(self, impl):
+        super().__init__(impl.conformer_repo)
+
+    def save(self, data):
+        return super().save(self._check_type(data))
+
+
 class ReactionRepository(AbstractRepository):
     TYPE = models.Reaction
     STRING = TYPE.STRING
@@ -249,6 +263,7 @@ create_monomer_repository = get_repository(MonomerRepository)
 create_peptide_repository = get_repository(PeptideRepository)
 create_template_peptide_repository = get_repository(TemplatePeptideRepository)
 create_macrocycle_repository = get_repository(MacrocycleRepository)
+create_conformer_repository = get_repository(ConformerRepository)
 create_reaction_repository = get_repository(ReactionRepository)
 create_regiosqm_repository = get_repository(RegioSQMRepository)
 create_pka_repository = get_repository(pKaRepository)
@@ -268,6 +283,7 @@ class CPMGRepository:
         self.peptide_repo = create_peptide_repository(impl)
         self.template_peptide_repo = create_template_peptide_repository(impl)
         self.macrocycle_repo = create_macrocycle_repository(impl)
+        self.conformer_repo = create_conformer_repository(impl)
         self.reaction_repo = create_reaction_repository(impl)
         self.regiosqm_repo = create_regiosqm_repository(impl)
         self.pka_repo = create_pka_repository(impl)

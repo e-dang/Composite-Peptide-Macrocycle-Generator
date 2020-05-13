@@ -52,6 +52,10 @@ class ExecutionParameters:
             operation_parameters = {
                 'template_key': r.Key(r.WholeRange())
             }
+        elif self.operation == g.ConformerGenerator.STRING:
+            operation_parameters = {
+                'macrocycle_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
+            }
 
         operation_parameters.update(command_line_args)
         return operation_parameters

@@ -193,6 +193,24 @@ class MacrocycleDataHandler(AbstractDataHandler):
                 self.template_only_reactions[reaction.template].append(reaction)
 
 
+class ConformerDataHandler(AbstractDataHandler):
+    STRING = generators.ConformerGenerator.STRING
+    RETURN_TUPLE = namedtuple('ConformerDataHandlerTuple', 'macrocycle')
+
+    def __init__(self):
+        self.macrocycle_repo = repo.create_macrocycle_repository()
+        super().__init__(repo.create_conformer_repository())
+
+    def load(self, macrocycle_key):
+        for macrocycle in self.macrocycle_repo.load(macrocycle_key):
+            yield [macrocycle]
+
+    def save(self, data):
+        ids = self.saver.save(data)
+        self.macrocycle_repo.remove_records(ids)
+        return ids
+
+
 class InterMolecularReactionDataHandler(AbstractDataHandler):
     STRING = generators.InterMolecularReactionGenerator.STRING
     RETURN_TUPLE = namedtuple('InterMolecularReactionDataHandlerTuple', 'nucleophile templates')

@@ -187,6 +187,7 @@ def test_get_all_generator_strings():
                                  generators.PeptideGenerator.STRING,
                                  generators.TemplatePeptideGenerator.STRING,
                                  generators.MacrocycleGenerator.STRING,
+                                 generators.ConformerGenerator.STRING,
                                  generators.InterMolecularReactionGenerator.STRING,
                                  generators.IntraMolecularReactionGenerator.STRING}
 
@@ -196,6 +197,7 @@ def test_get_all_generator_strings():
     (generators.MonomerGenerator),
     (generators.PeptidePlanGenerator),
     (generators.PeptideGenerator),
+    (generators.ConformerGenerator),
     (generators.TemplatePeptideGenerator),
     (generators.MacrocycleGenerator)
 ])
