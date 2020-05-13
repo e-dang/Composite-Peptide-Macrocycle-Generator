@@ -559,6 +559,11 @@ class PeptidePlanHDF5Repository(HDF5ArrayRepositoryImpl):
         return self._refine_group(group, peptide_length)
 
 
+class InactiveHDF5Repository(HDF5ArrayRepositoryImpl):
+    GROUP = 'inactives'
+    DEFAULT_INDICES = []
+
+
 class HDF5Repository:
     def __init__(self):
         self.connection_repo = ConnectionHDF5Repository()
@@ -573,6 +578,7 @@ class HDF5Repository:
         self.regiosqm_repo = RegioSQMHDF5Repository()
         self.pka_repo = pKaHDF5Repository()
         self.peptide_plan_repo = PeptidePlanHDF5Repository()
+        self.inactives_repo = InactiveHDF5Repository()
 
     def __repr__(self):
 

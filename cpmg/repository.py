@@ -37,6 +37,10 @@ class AbstractRepository:
     def activate_records(self, key):
         return self.impl.activate_records(key)
 
+    def load_inactive_records(self, key):
+        for _id, data in self.impl.load_inactivate_records(key):
+            yield self.TYPE.from_dict(data, _id=_id)
+
     def _check_type(self, data):
         for model in data:
             if not isinstance(model, self.TYPE):
@@ -209,6 +213,13 @@ class PeptidePlanRepository(AbstractRepository):
                 return record.data()
 
 
+class InactivesRepository(AbstractRepository):
+    STRING = 'inactives'
+
+    def __init__(self, impl):
+        super().__init__(impl.inactives_repo)
+
+
 def repository_impl_from_string(impl=None):
     impl = impl or config.DATA_FORMAT
 
@@ -242,6 +253,7 @@ create_reaction_repository = get_repository(ReactionRepository)
 create_regiosqm_repository = get_repository(RegioSQMRepository)
 create_pka_repository = get_repository(pKaRepository)
 create_peptide_plan_repository = get_repository(PeptidePlanRepository)
+create_inactives_repository = get_repository(InactivesRepository)
 
 
 class CPMGRepository:
@@ -260,6 +272,7 @@ class CPMGRepository:
         self.regiosqm_repo = create_regiosqm_repository(impl)
         self.pka_repo = create_pka_repository(impl)
         self.peptide_plan_repo = create_peptide_plan_repository(impl)
+        self.inactives_repo = create_inactives_repository(impl)
 
     def __repr__(self):
         print('/')
