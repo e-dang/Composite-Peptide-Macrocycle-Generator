@@ -7,3 +7,7 @@ __pycache__
 test.py
 deprecated
 .pytest_cache
+scripts/data
+scripts/figs
+scripts/convex_hull_100k
+*.hdf5

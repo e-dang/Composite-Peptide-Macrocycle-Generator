@@ -1,3 +1,5 @@
-- Add rare amino acids to monomers
-- Add unit tests
-- Add doc strings
+- Use Lib GridTK for job submission
+- Implement global timer object
+- Check if we can get rid of model attributes:
+    Peptide->Monomers->proline by instead keeping attribute that says if n-term is proline or not
+- Maintain next monomer index in hdf5 repository meta data and assign next monomer index based on that
