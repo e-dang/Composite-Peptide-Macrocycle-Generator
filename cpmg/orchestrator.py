@@ -1,8 +1,11 @@
-import cpmg.generators as g
-import cpmg.parallelizers as p
+import multiprocessing
+
 import cpmg.data_handlers as h
+import cpmg.generators as g
 import cpmg.ranges as r
 from cpmg.config import CAPACITY
+import cpmg.config as config
+import cpmg.utils as utils
 
 
 class ExecutionParameters:
@@ -10,6 +13,7 @@ class ExecutionParameters:
         command_line_args.pop('func')
         self.operation = command_line_args.pop('operation')
         self.parallelism = command_line_args.pop('parallelism')
+        self.chunk_size = command_line_args.pop('chunk_size')
         self.operation_parameters = self._extract_operation_parameters(command_line_args)
 
     def _extract_operation_parameters(self, command_line_args):
@@ -81,26 +85,89 @@ class ResultBuffer:
         self.buffer = []
 
 
-class Orchestractor:
+class Orchestrator:
 
-    def __init__(self, generator, handler, parallelizer, chunk_size=None):
-        self.generator = generator
-        self.handler = handler
-        self.parallelizer = parallelizer
-        self.result_buffer = ResultBuffer(handler, chunk_size=chunk_size)
+    def __init__(self, impl):
+        self.impl = impl
+
+    @classmethod
+    def from_strings(cls, parallelism, operation, chunk_size=None):
+        generator = g.create_generator_from_string(operation)
+        handler = h.create_handler_from_string(operation)
+        if parallelism == SingleProcessOrchestrator.STRING:
+            return cls(SingleProcessOrchestrator(generator, handler, chunk_size=chunk_size))
+
+        if parallelism == MultiProcessOrchestrator.STRING:
+            return cls(MultiProcessOrchestrator(generator, handler, chunk_size=chunk_size))
+
+        if parallelism == DistributedOrchestrator.STRING:
+            return cls(DistributedOrchestrator(generator, handler, chunk_size=chunk_size))
 
     @classmethod
     def from_execution_parameters(cls, params):
-        generator = g.create_generator_from_string(params.operation)
-        handler = h.create_handler_from_string(params.operation)
-        parallelizer = p.create_parallelizer_from_string(params.parallelism)
+        return cls.from_strings(params.parallelism, params.operation, chunk_size=params.chunk_size)
 
-        return cls(generator, handler, parallelizer)
+    def execute(self, **operation_parameters):
+        return self.impl.execute(**operation_parameters)
+
+
+class AbstractOrchestratorImpl:
+    def __init__(self, generator, handler, chunk_size=None):
+        self.generator = generator
+        self.handler = handler
+        self.result_buffer = ResultBuffer(handler, chunk_size=chunk_size)
+
+    def execute(self, **operation_parameters):
+        pass
+
+
+class SingleProcessOrchestrator(AbstractOrchestratorImpl):
+    STRING = 'single'
 
     def execute(self, **operation_parameters):
 
-        for record in self.parallelizer.run(self.generator, self.handler.load(**operation_parameters)):
-            self.result_buffer.add(record)
+        for args in self.handler.load(**operation_parameters):
+            for result in self.generator.generate(*args):
+                for record in result:
+                    self.result_buffer.add(record)
 
         self.result_buffer.flush()
         return self.result_buffer.ids
+
+
+class MultiProcessOrchestrator(AbstractOrchestratorImpl):
+    STRING = 'multi'
+
+    def execute(self, **operation_parameters):
+
+        with multiprocessing.Pool(processes=config.NUM_PROCS - 1, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
+            # try using callback function in data_handler.load() to calcualte the number of documents being loaded in order to calculate chunksize
+            future = pool.starmap_async(self.generator.generate, self.handler.load(**operation_parameters))
+            for result in future.get():
+                for record in result:
+                    self.result_buffer.add(record)
+
+        self.result_buffer.flush()
+        return self.result_buffer.ids
+
+
+class DistributedOrchestrator(AbstractOrchestratorImpl):
+    STRING = 'distributed'
+
+    def execute(self, **operation_parameters):
+        pass
+        # comm = MPI.COMM_WORLD
+        # print(f'my rank is {comm.Get_rank()}')
+        # exit()
+        # with MPICommExecutor() as executor:
+        #     if executor is not None:
+        #         for args in self.handler.load(**operation_parameters):
+        #             for result in executor.submit(self.generator.generate, *args):
+        #                 for record in result:
+        #                     self.result_buffer.add(record)
+
+        # self.result_buffer.flush()
+        # return self.result_buffer.ids
+
+
+get_all_parallelism_strings = utils.get_module_strings(__name__)
