@@ -11,6 +11,7 @@ DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
 TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 #TMP_DIR = os.environ['TMPDIR']
+STDOUT_DIR = os.path.join(PROJECT_DIR, 'output')
 
 ################################################ Miscellaneous ################################################
 CAPACITY = 1000000
@@ -53,6 +54,55 @@ CONFORMER_ARGS = ConformerArgs(REPEATS_PER_CUT, NUM_CONFS_EMBED, NUM_CONFS_GENET
 ########################################## EbejerConformerGenerator Parameters #########################################
 D_MIN = 0.5
 NUM_CONFS = 50
+
+
+##################################################### Filepaths ######################################################
+PEPTIDE_PLAN_FP = os.path.join(DATA_DIR, 'generated', 'peptide_plan.txt')
+CONFORMER_PLAN_FP = os.path.join(DATA_DIR, 'generated', 'conformer_plan.txt')
+REGIOSQM_SMILES_FP = os.path.join(DATA_DIR, 'external', 'regiosqm_mols.smiles')
+RAW_REGIOSQM_RESULT_FP = os.path.join(DATA_DIR, 'external', 'regiosqm_results_nm_3.csv')
+RAW_PKAS_FP = os.path.join(DATA_DIR, 'external', 'pkas.txt')
+RAW_SIDECHAINS_FP = os.path.join(DATA_DIR, 'chemdraw', 'sidechains.sdf')
+RAW_MONOMERS_FP = os.path.join(DATA_DIR, 'chemdraw', 'monomers.sdf')
+IDS_FP = os.path.join(DATA_DIR, 'generated', 'ids.json')
+INDEX_FP = os.path.join(DATA_DIR, 'generated', 'index.json')
+SIDECHAINS_FP = os.path.join(DATA_DIR, 'generated', 'sidechains.json')
+MONOMERS_FP = os.path.join(DATA_DIR, 'generated', 'monomers.json')
+PEPTIDES_FP = os.path.join(DATA_DIR, 'generated', 'peptides.json')
+TP_HYBRIDS_FP = os.path.join(DATA_DIR, 'generated', 'template_peptides.json')
+MACROCYCLES_FP = os.path.join(DATA_DIR, 'generated', 'macrocycles.json')
+CONFORMERS_FP = os.path.join(DATA_DIR, 'generated', 'conformers.json')
+EBEJER_FP = os.path.join(DATA_DIR, 'generated', 'ebejer.json')
+REACTIONS_FP = os.path.join(DATA_DIR, 'generated', 'reactions.json')
+REGIOSQM_FP = os.path.join(DATA_DIR, 'generated', 'regiosqm.json')
+PKAS_FP = os.path.join(DATA_DIR, 'generated', 'pka.json')
+MW_FP = os.path.join(DATA_DIR, 'generated', 'mw.json')
+RB_FP = os.path.join(DATA_DIR, 'generated', 'rb.json')
+TPSA_FP = os.path.join(DATA_DIR, 'generated', 'tpsa.json')
+FILEPATHS = {
+    'peptide_plan': PEPTIDE_PLAN_FP,
+    'conformer_plan': CONFORMER_PLAN_FP,
+    'regiosqm_smiles': REGIOSQM_SMILES_FP,
+    'raw_regiosqm_results': RAW_REGIOSQM_RESULT_FP,
+    'raw_pkas': RAW_PKAS_FP,
+    'raw_sidechains': RAW_SIDECHAINS_FP,
+    'raw_monomers': RAW_MONOMERS_FP,
+    'ids': IDS_FP,
+    'index': INDEX_FP,
+    'sidechains': SIDECHAINS_FP,
+    'monomers': MONOMERS_FP,
+    'peptides': PEPTIDES_FP,
+    'tp_hybrids': TP_HYBRIDS_FP,
+    'macrocycles': MACROCYCLES_FP,
+    'conformers': CONFORMERS_FP,
+    'ebjer': EBEJER_FP,
+    'reactions': REACTIONS_FP,
+    'regiosqm': REGIOSQM_FP,
+    'pkas': PKAS_FP,
+    'mw': MW_FP,
+    'rb': RB_FP,
+    'tpsa': TPSA_FP
+}
 
 ################################################ MongoDB Schema ################################################
 HOST = 'localhost'

@@ -1,0 +1,190 @@
+[
+    {
+        "kekule": "CC1=CC=C(O)C=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=C[NH]1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C[NH]C=N1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C[NH]C2=CC=CC=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CO1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CS1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CC(O)=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CN1C=CC=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CN1C=C2C=CC=CC2=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=CC=CN2C(=O)C=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CSC2=C1SC=C2",
+        "connection": "C"
+    },
+    {
+        "kekule": "CN1C=CC2=C1C=CO2",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC(=O)N2C=CC=CC2=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CC2=C[NH]C=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=COC2=C1[NH]C=C2",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2[NH]C=CN2C=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC(=O)C=CS1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC2=C(OC=C2)S1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C[NH]C2=CC=CN12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC2=C(O1)SC=C2",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC2=CC=CC=C2SC1=O",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=COC2=CS1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=COC2=CSC=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2SC=CN2C=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CSC2=CC=CN12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=CC=CC2=CS1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=CSC2=NS1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=CSC2=CS1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CSC2=CSC=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CSC2=NSC=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CC2=COC=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=CC=CC2=CO1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=C2C(=O)[NH]C=CN12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2SC=CN2C(=O)C=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C[NH]C(=O)C2=CC=CN12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=CC(=O)N2C=CO1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC(=O)N2C=CC=C2O1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CN1C2=CC=CC=C2SC2=CC=CC=C21",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C2C=CC=CN2C=C1",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=C2C=CC=CC=C21",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CC2=C1SC1=CC=CC=C1N2",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CC2=CC=CN12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C[NH]C2=CC=C(Br)C=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C[NH]C2=CC=C(F)C=C12",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=COC2=C1C(=O)[NH]C=C2",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=C[NH]C(=O)C2=C1OC=C2",
+        "connection": "C"
+    },
+    {
+        "kekule": "CC1=CC=CC=C1",
+        "connection": "C"
+    }
+]

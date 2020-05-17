@@ -10,3 +10,4 @@ deprecated
 *.png
 *.pdb
 scripts/data
+*.hdf5

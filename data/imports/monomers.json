@@ -1,0 +1,178 @@
+[
+    {
+        "kekule": "CC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "N=C(N)NCCCC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NC(=O)CC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NC(CC(=O)O)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NC(CS)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NC(CCC(=O)O)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NC(=O)CCC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NCC(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "CCC(C)C(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "CC(C)CC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NCCCCC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "CSCCC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)C1CCCN1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NC(CO)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "CC(O)C(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "CC(C)C(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@H](OC2=CC=CC=C2)CN1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@H](SC2=CC=CC=C2)CN1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "COC1=CC=CC(O[C@@H]2CN[C@H](C(=O)O)C2)=C1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "COC1=CC=C2C(O[C@@H]3CN[C@H](C(=O)O)C3)=CC(C3=CC=CC=C3)=NC2=C1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@H](O)CN1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@H](OC2=CC=NC3=C2C=CS3)CN1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@H](OC2=CC=NC3=C2SC=C3)CN1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@H]1N[C@H]2CC[C@@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1N[C@@H]2CCC[C@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@H]1CCC2(CC2)N1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@H]1NC[C@@H]2C[C@H]12",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@H]1N[C@@H]2CC[C@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1N[C@H]2CC[C@@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1N[C@@H]2CC[C@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@H]1NC[C@H]2C[C@H]21",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@H]1N[C@@H]2CCC[C@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1N[C@H]2CCC[C@@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@H]1N[C@H]2CCC[C@@H]1C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@H]2C[C@H]2N1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1CCC2(CC2)N1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@@H]2C[C@@H]2N1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@]12CC[C@H](C1)N2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@]12CC[C@@H](C1)N2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@]12CC[C@@H](CN1)C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@]12CC[C@H](CN1)C2",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "C#CC[C@@]1(C(=O)O)CCCN1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "O=C(O)[C@@H]1C[C@@H]2CCC[C@@H]2N1",
+        "backbone": "NCC(=O)O"
+    },
+    {
+        "kekule": "NCCCC(N)C(=O)O",
+        "backbone": "NCC(=O)O"
+    }
+]
