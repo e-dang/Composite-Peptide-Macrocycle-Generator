@@ -197,6 +197,21 @@ def remove_atom(mol, atom_idx):
     return mol
 
 
+def atom_to_wildcard(atom):
+    """
+    Changes the atom to a wildcard atom.
+
+    Args:
+        atom (RDKit Atom): The atom to change to a wildcard.
+    """
+
+    atom.SetAtomicNum(0)
+    atom.SetIsotope(0)
+    atom.SetFormalCharge(0)
+    atom.SetIsAromatic(False)
+    atom.SetNumExplicitHs(0)
+
+
 def get_classmembers(module):
     import inspect
     import sys

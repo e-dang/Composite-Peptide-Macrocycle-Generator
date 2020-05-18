@@ -227,3 +227,17 @@ def test_remove_atom(mol, map_num, symbol):
     assert(len(atoms) == prev_num_atoms - 1)
     for atom in atoms:
         assert(atom.GetSymbol() != symbol)
+
+
+@pytest.mark.parametrize('smiles', [('NC(CC1=CC=C(O)C=C1)C(=O)O')], ids=['tyrosine'])
+def test_atom_to_wildcard(smiles):
+
+    mol = Chem.MolFromSmiles(smiles)
+    for atom in mol.GetAtoms():
+        utils.atom_to_wildcard(atom)
+
+        assert atom.GetAtomicNum() == 0
+        assert atom.GetIsotope() == 0
+        assert atom.GetFormalCharge() == 0
+        assert not atom.GetIsAromatic()
+        assert atom.GetNumExplicitHs() == 0
