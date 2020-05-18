@@ -225,6 +225,26 @@ class pKaPredictionImporter:
                 raise InvalidPrediction('pKa predictions must correspond to heteroatoms with at least 1 hydrogen')
 
 
+class PeptidePlanImporter:
+    def __init__(self):
+        self.saver = repo.create_peptide_plan_repository()
+
+    def import_data(self, filepath, peptide_length):
+        peptide_plan = models.PeptidePlan(peptide_length)
+
+        for i, line in enumerate(utils.load_text(filepath)):
+            combo = tuple(map(int, line.strip('\n').split(',')))
+            peptide_plan.add(combo)
+
+        self._validate_peptide_plan(peptide_plan, i)
+
+        return self.saver.save(peptide_plan)
+
+    def _validate_peptide_plan(self, peptide_plan, num_lines_in_file):
+        if len(peptide_plan) != num_lines_in_file + 1:
+            raise RuntimeWarning('There was a non-unique combo specified in the imported peptide plan file')
+
+
 def create_mol_importers(data_format_importer=JsonImporter()):
     return [ConnectionImporter(data_format_importer),
             BackboneImporter(data_format_importer),

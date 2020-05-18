@@ -9,6 +9,7 @@ import cpmg.importers as importers
 import cpmg.repository as repo
 import cpmg.exporters as exporters
 from cpmg.models import PROLINE_N_TERM
+from cpmg.utils import load_text
 from data.mols import *
 
 
@@ -187,6 +188,24 @@ def test_pka_prediction_importer(mol_importers):
     for prediction in pka_data:
         assert(prediction.to_dict() in test_data)
         test_data.remove(prediction.to_dict())
+
+
+def test_peptide_plan_importer():
+    peptide_plan_importer = importers.PeptidePlanImporter()
+
+    ids = peptide_plan_importer.import_data('data/imports/peptide_plan_3.txt', 3)
+    ids.set_peptide_length(3)
+
+    peptide_plan_repo = repo.create_peptide_plan_repository()
+    peptide_plan_data = set()
+    for _, combo in peptide_plan_repo.load(ids):
+        peptide_plan_data.add(combo)
+
+    data = set()
+    for combo in load_text('data/imports/peptide_plan_3.txt'):
+        data.add(tuple(map(int, combo.strip('\n').split(','))))
+
+    assert data == peptide_plan_data
 
 
 def test_create_importers():
