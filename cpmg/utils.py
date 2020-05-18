@@ -2,6 +2,8 @@ import numpy as np
 from rdkit import Chem
 from types import GeneratorType
 
+from cpmg.exceptions import MergeError
+
 
 def split(data, pred):
     """
@@ -33,6 +35,76 @@ def to_list(data):
         return list(data)
 
     return [data]
+
+
+def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
+    """
+    Function for combining either one or two molecules at the positions marked by atom map numbers. This function also
+    applies the specified stereochemistry at the connected position if applicable, and can clear the map numbers from
+    the molecule after making the connection if desired.
+
+    Args:
+        map_nums (iterable): An iterable containing two integer elements that specify the map numbers on the atoms
+            to connect.
+        stereo (str, optional): The stereochemistry to place on the new connection. Can either be 'CW' or 'CCW'.
+            Defaults to None.
+        clear_map_nums (bool, optional): Whether to clear atom numbers after making the connection or not.
+            Defaults to True.
+
+    Raises:
+        MergeError: Raised if either no molecules or more than two are provided.
+
+    Returns:
+        RDKit Mol: The result of connecting the molecule(s) at the specified positions.
+    """
+
+    def update_hydrogen_counts(atom, clear_map_nums):
+        """
+        Inner method for clearing the atom map number and updating hydrogen counts.
+        """
+
+        if clear_map_nums:
+            atom.SetAtomMapNum(0)
+
+        if atom.GetNumExplicitHs() != 0:
+            atom.SetNumExplicitHs(atom.GetTotalNumHs() - 1)
+
+        return atom
+
+    if len(mols) < 1 or len(mols) > 2:
+        raise MergeError('Can only merge 1 or 2 molecules at a time.')
+
+    if len(map_nums) != 2:
+        raise MergeError('Can only specify 2 distinct map numbers at a time.')
+
+    # find atoms that will form a bond together and update hydrogen counts
+    combo, *mols = mols
+    for mol in mols:
+        combo = Chem.CombineMols(combo, mol)
+
+    # find atoms that will form a bond together and update hydrogen counts
+    combo = Chem.RWMol(combo)
+    Chem.SanitizeMol(combo)
+    try:
+        atom1, atom2 = [update_hydrogen_counts(atom, clear_map_nums)
+                        for atom in combo.GetAtoms() if atom.GetAtomMapNum() in map_nums]
+    except ValueError:
+        raise exceptions.MergeError('Could not find 2 atoms with the given map numbers. Check for duplicate map numbers'
+                                    ' or that the map numbers are present on the molecules.')
+
+    # create bond, remove hydrogens, and sanitize
+    combo.AddBond(atom1.GetIdx(), atom2.GetIdx(), order=Chem.BondType.SINGLE)
+    Chem.RemoveHs(combo)
+    Chem.SanitizeMol(combo)
+
+    # add stereochemistry as specified
+    stereo_center = atom1 if atom1.GetHybridization() == Chem.HybridizationType.SP3 and atom1.GetTotalNumHs() != 2 else atom2
+    if stereo == 'CCW':
+        stereo_center.SetChiralTag(Chem.ChiralType.CHI_TETRAHEDRAL_CCW)
+    elif stereo == 'CW':
+        stereo_center.SetChiralTag(Chem.ChiralType.CHI_TETRAHEDRAL_CW)
+
+    return Chem.MolFromSmiles(Chem.MolToSmiles(combo))
 
 
 def has_atom_map_nums(mol):

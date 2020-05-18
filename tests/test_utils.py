@@ -61,6 +61,72 @@ def test_get_maximum_empty(empty_list_data, func):
     assert(utils.get_maximum(empty_list_data, func) == None)
 
 
+@pytest.mark.parametrize('mols,map_nums,stereo,clear_map_nums,expected_smiles', [
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'),
+     (1, 2), None, True, 'O=C(O)C(Cc1ccc(O)cc1)NC(=O)[C@@H]1C[C@H](Oc2ccccc2)CN1'),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'), (1, 2),
+     None, False, 'O=C(O)C(Cc1ccc(O)cc1)[NH:1][C:2](=O)[C@@H]1C[C@H](Oc2ccccc2)CN1'),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'),
+     (1, 2), 'CW', True, 'O=C(O)C(Cc1ccc(O)cc1)NC(=O)[C@@H]1C[C@H](Oc2ccccc2)CN1'),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'), (1, 2),
+     'CW', False, 'O=C(O)C(Cc1ccc(O)cc1)[NH:1][C:2](=O)[C@@H]1C[C@H](Oc2ccccc2)CN1'),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'),
+     (1, 2), 'CCW', True, 'O=C(O)C(Cc1ccc(O)cc1)NC(=O)[C@@H]1C[C@H](Oc2ccccc2)CN1'),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'), (1, 2),
+     'CCW', False, 'O=C(O)C(Cc1ccc(O)cc1)[NH:1][C:2](=O)[C@@H]1C[C@H](Oc2ccccc2)CN1'),
+    (('[CH3:2]C1=CC=C(O)C=C1', 'N[CH2:1]C(=O)[OH]'), (1, 2), None, True, 'NC(Cc1ccc(O)cc1)C(=O)O'),
+    (('[CH3:2]C1=CC=C(O)C=C1', 'N[CH2:1]C(=O)[OH]'), (1, 2), None, False, 'N[CH:1](C(=O)O)[CH2:2]c1ccc(O)cc1'),
+    (('[CH3:2]C1=CC=C(O)C=C1', 'N[CH2:1]C(=O)[OH]'), (1, 2), 'CW', True, 'N[C@H](Cc1ccc(O)cc1)C(=O)O'),
+    (('[CH3:2]C1=CC=C(O)C=C1', 'N[CH2:1]C(=O)[OH]'), (1, 2), 'CW', False, 'N[C@@H:1](C(=O)O)[CH2:2]c1ccc(O)cc1'),
+    (('[CH3:2]C1=CC=C(O)C=C1', 'N[CH2:1]C(=O)[OH]'), (1, 2), 'CCW', True, 'N[C@@H](Cc1ccc(O)cc1)C(=O)O'),
+    (('[CH3:2]C1=CC=C(O)C=C1', 'N[CH2:1]C(=O)[OH]'), (1, 2), 'CCW', False, 'N[C@H:1](C(=O)O)[CH2:2]c1ccc(O)cc1'),
+    (('[CH3:1]/C=C/C1=CC([CH2:2]CC=O)=CC=C1', ), (1, 2), None, True, 'O=CCC1CC=Cc2cccc1c2'),
+    (('[CH3:1]/C=C/C1=CC([CH2:2]CC=O)=CC=C1', ), (1, 2), None, False, 'O=CC[CH:2]1c2cccc(c2)C=C[CH2:1]1'),
+    (('[CH3:1]/C=C/C1=CC([CH2:2]CC=O)=CC=C1', ), (1, 2), 'CW', True, 'O=CC[C@H]1CC=Cc2cccc1c2'),
+    (('[CH3:1]/C=C/C1=CC([CH2:2]CC=O)=CC=C1', ), (1, 2), 'CW', False, 'O=CC[C@@H:2]1c2cccc(c2)C=C[CH2:1]1'),
+    (('[CH3:1]/C=C/C1=CC([CH2:2]CC=O)=CC=C1', ), (1, 2), 'CCW', True, 'O=CC[C@@H]1CC=Cc2cccc1c2'),
+    (('[CH3:1]/C=C/C1=CC([CH2:2]CC=O)=CC=C1', ), (1, 2), 'CCW', False, 'O=CC[C@H:2]1c2cccc(c2)C=C[CH2:1]1')
+], ids=['monomer proline clear',
+        'monomer proline',
+        'monomer proline CW clear',
+        'monomer proline CW',
+        'monomer proline CCW clear',
+        'monomer proline CCW',
+        'sidechain connection clear',
+        'sidechain connection',
+        'sidechain connection CW clear',
+        'sidechain connection CW',
+        'sidechain connection CCW clear',
+        'sidechain connection CCW',
+        'intramolecular clear',
+        'intramolecular',
+        'intramolecular CW clear',
+        'intramolecular CW',
+        'intramolecular CCW clear',
+        'intramolecular CCW'])
+def test_connect_mols(mols, map_nums, stereo, clear_map_nums, expected_smiles):
+
+    mols = list(map(Chem.MolFromSmiles, mols))
+
+    new_mol = utils.connect_mols(*mols, map_nums=map_nums, stereo=stereo, clear_map_nums=clear_map_nums)
+
+    assert Chem.MolToSmiles(new_mol) == expected_smiles
+
+
+@pytest.mark.parametrize('mols,map_nums', [
+    ([], (1, 2)),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1',
+      'O=[CH:3][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'), (1, 2))
+], ids=['zero mols', 'three mols'])
+def test_connect_mols_fail_wrong_number_mols(mols, map_nums):
+
+    mols = list(map(Chem.MolFromSmiles, mols))
+
+    with pytest.raises(utils.MergeError) as error:
+        _ = utils.connect_mols(*mols, map_nums=map_nums)
+        assert str(error.value) == 'Can only merge 1 or 2 molecules at a time.'
+
+
 @pytest.mark.parametrize('mol,expected_result', [(Chem.MolFromSmiles('C[CH2:1]C'), True), (Chem.MolFromSmiles('CCC'), False)])
 def test_has_atom_map_nums(mol, expected_result):
     assert(utils.has_atom_map_nums(mol) == expected_result)
