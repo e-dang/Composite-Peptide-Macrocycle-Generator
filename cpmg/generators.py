@@ -13,8 +13,7 @@ import cpmg.filters as filters
 import cpmg.models as models
 import cpmg.reactions as rxns
 import cpmg.repository as repo
-import cpmg.utils as temp_utils
-import macrocycles.utils as utils
+import cpmg.utils as utils
 from cpmg.exceptions import InvalidMolecule
 
 
@@ -48,7 +47,7 @@ class MonomerGenerator:
 
         sidechain_mol = sidechain.mapped_mol
 
-        temp_utils.clear_isotopes(sidechain_mol)
+        utils.clear_isotopes(sidechain_mol)
 
         monomers = []
         for backbone in backbones:
@@ -204,7 +203,7 @@ class PeptideGenerator:
                 break
 
     def add_monomer(self, monomer, backbone):
-        self.peptide = temp_utils.remove_atom(self.peptide, self.carboxyl_atom)
+        self.peptide = utils.remove_atom(self.peptide, self.carboxyl_atom)
         self.peptide = utils.connect_mols(self.peptide, monomer, map_nums=self.MAP_NUMS)
         self.pep_size += 1
         self.backbone_prev = backbone
@@ -342,7 +341,7 @@ class InterMolecularReactionGenerator:
 
     def __init__(self, impl=None):
         self.impl = impl or rxns.create_intermolecular_reactions()
-        self.impl = temp_utils.to_list(self.impl)
+        self.impl = utils.to_list(self.impl)
         self.backbones = list(map(lambda x: x.mol, repo.create_backbone_repository().load()))
 
     @filters.pka_filter
@@ -380,7 +379,7 @@ class InterMolecularReactionGenerator:
 
         # remove backbone atoms from non-symmetric atoms (this does nothing if mol is a sidechain)
         for backbone in self.backbones:
-            temp_utils.clear_atom_map_nums(backbone)
+            utils.clear_atom_map_nums(backbone)
             atom_idxs = set(chain.from_iterable(mol.GetSubstructMatches(backbone)))
             non_symmetric_atom_idxs = non_symmetric_atom_idxs - atom_idxs
 
@@ -392,7 +391,7 @@ class IntraMolecularReactionGenerator:
 
     def __init__(self, impl=None):
         self.impl = impl or rxns.create_intramolecular_reactions()
-        self.impl = temp_utils.to_list(self.impl)
+        self.impl = utils.to_list(self.impl)
 
     def generate(self, reacting_mol):
         reactions = []
@@ -407,6 +406,6 @@ class IntraMolecularReactionGenerator:
         return reactions
 
 
-get_all_generator_strings = temp_utils.get_module_strings(__name__)
+get_all_generator_strings = utils.get_module_strings(__name__)
 
-create_generator_from_string = temp_utils.create_factory_function_closure(__name__, 'generator')
+create_generator_from_string = utils.create_factory_function_closure(__name__, 'generator')

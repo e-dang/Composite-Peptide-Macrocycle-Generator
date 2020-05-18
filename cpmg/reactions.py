@@ -5,8 +5,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 import cpmg.models as models
-import cpmg.utils as temp_utils
-import macrocycles.utils as utils
+import cpmg.utils as utils
 from cpmg.exceptions import InvalidMolecule
 
 
@@ -209,7 +208,7 @@ class PictetSpangler(InterMolecularReaction):
                 'The template molecule must contain a "C=CC" substructure for a tsuji trost reaction!')
 
     def _validate_sidechain(self):
-        connection_atom = utils.find_atom(self.reacting_mol, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
+        connection_atom = utils.get_atom_with_map_num(self.reacting_mol, self.SIDECHAIN_OLIGOMERIZATION_MAP_NUM)
         paths = Chem.FindAllPathsOfLengthN(self.reacting_mol, 3, useBonds=False,
                                            rootedAtAtom=self.reacting_atom.GetIdx())
         atoms = set().union([atom for path in paths for atom in path])
@@ -219,7 +218,7 @@ class PictetSpangler(InterMolecularReaction):
 
     def _validate_monomer(self):
         try:
-            n_term_atom = utils.find_atom(self.reacting_mol, self.BACKBONE_NITROGEN_MAP_NUM)
+            n_term_atom = utils.get_atom_with_map_num(self.reacting_mol, self.BACKBONE_NITROGEN_MAP_NUM)
             paths = Chem.FindAllPathsOfLengthN(self.reacting_mol, 5, useBonds=False,
                                                rootedAtAtom=self.reacting_atom.GetIdx())
             atoms = set().union([atom for path in paths for atom in path])
@@ -237,7 +236,7 @@ class PictetSpangler(InterMolecularReaction):
             self.reactants = [utils.connect_mols(monomer, self.template, map_nums=map_nums, clear_map_nums=False)]
         else:
             # remove wildcard atom attached to n-terminus added in call to tag_monomer_connection_atom()
-            wildcard_atom = utils.find_atom(self.reacting_atom, self.N_TERM_WILDCARD_MAP_NUM)
+            wildcard_atom = utils.get_atom_with_map_num(self.reacting_atom, self.N_TERM_WILDCARD_MAP_NUM)
             self.reacting_mol = Chem.RWMol(self.reacting_mol)
             self.reacting_mol.RemoveAtom(wildcard_atom.GetIdx())
 
@@ -508,7 +507,7 @@ class AldehydeCyclization(IntraMolecularReaction):
 
 def create_reactions_closure(predicate):
     def closure():
-        return [rxn() for rxn in temp_utils.get_filtered_classmembers(__name__, predicate)]
+        return [rxn() for rxn in utils.get_filtered_classmembers(__name__, predicate)]
 
     return closure
 
