@@ -289,7 +289,7 @@ class AbstractHDF5RepositoryImpl:
         with HDF5File() as file:
             for path, indices in locations.items():
                 dataset = file[path]
-                indices = np.delete(np.arange(len(dataset)), indices)
+                indices = list(np.delete(np.arange(len(dataset)), indices))
 
                 if len(indices) != 0:
                     self._remove_values(dataset, indices)
