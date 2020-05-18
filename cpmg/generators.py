@@ -274,34 +274,35 @@ class MacrocycleGenerator:
 
             successful_rxn = False
             successful_rxns = []
-            for i, (rxn, rxn_type) in enumerate(reactions):
+            with utils.suppress_stdout_stderr():
+                for i, (rxn, rxn_type) in enumerate(reactions):
 
-                # pictet_spangler worked, don't use template_only_reactions
-                if rxn_type in (self.TPS, self.ALDH) and successful_rxn:
-                    continue
+                    # pictet_spangler worked, don't use template_only_reactions
+                    if rxn_type in (self.TPS, self.ALDH) and successful_rxn:
+                        continue
 
-                macrocycles = {}
-                successful_rxn = False
-                for reactant in reactants:
-                    for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
-                        # santization is expected to fail some what often, mostly due to 2 sidechains where one contains
-                        # the other as a substructure which causes the failure
-                        if Chem.SanitizeMol(macrocycle, catchErrors=True):
-                            continue
+                    macrocycles = {}
+                    successful_rxn = False
+                    for reactant in reactants:
+                        for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
+                            # santization is expected to fail some what often, mostly due to 2 sidechains where one contains
+                            # the other as a substructure which causes the failure
+                            if Chem.SanitizeMol(macrocycle, catchErrors=True):
+                                continue
 
-                        # protect atoms that participated in this reaction from reacting again in subsequent reactions
-                        self._set_protected_atoms(macrocycle, rxn)
+                            # protect atoms that participated in this reaction from reacting again in subsequent reactions
+                            self._set_protected_atoms(macrocycle, rxn)
 
-                        # the number of atoms shouldn't have changed significantly
-                        if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE:
-                            macrocycles[Chem.MolToSmiles(macrocycle)] = macrocycle
+                            # the number of atoms shouldn't have changed significantly
+                            if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE:
+                                macrocycles[Chem.MolToSmiles(macrocycle)] = macrocycle
 
-                if rxn_type in (self.PS, self.TPS, self.ALDH) and len(macrocycles) == 0:  # reaction failed; reuse reactant
-                    continue
+                    if rxn_type in (self.PS, self.TPS, self.ALDH) and len(macrocycles) == 0:  # reaction failed; reuse reactant
+                        continue
 
-                reactants = macrocycles.values()
-                successful_rxn = True
-                successful_rxns.append(reaction_combo[i])
+                    reactants = macrocycles.values()
+                    successful_rxn = True
+                    successful_rxns.append(reaction_combo[i])
 
             for macrocycle in macrocycles:
                 try:
