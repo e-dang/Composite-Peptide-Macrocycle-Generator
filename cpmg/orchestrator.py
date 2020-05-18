@@ -22,9 +22,9 @@ class ExecutionParameters:
         self.operation = command_line_args.pop('operation')
         self.parallelism = command_line_args.pop('parallelism')
         self.chunk_size = command_line_args.pop('chunk_size')
-        self.operation_parameters = self._extract_operation_parameters(command_line_args)
+        self.operation_parameters = self.__extract_operation_parameters(command_line_args)
 
-    def _extract_operation_parameters(self, command_line_args):
+    def __extract_operation_parameters(self, command_line_args):
         if self.operation == g.SidechainModifier.STRING:
             operation_parameters = {
                 'sidechain_key': r.Key(r.WholeRange()),
@@ -41,17 +41,17 @@ class ExecutionParameters:
             }
         elif self.operation == g.PeptideGenerator.STRING:
             operation_parameters = {
-                'peptide_plan_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
+                'peptide_plan_key': self.__generate_length_dependent_key(command_line_args),
                 'monomer_key': r.Key(r.WholeRange())
             }
         elif self.operation == g.TemplatePeptideGenerator.STRING:
             operation_parameters = {
-                'peptide_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
+                'peptide_key': self.__generate_length_dependent_key(command_line_args),
                 'template_key': r.Key(r.WholeRange())
             }
         elif self.operation == g.MacrocycleGenerator.STRING:
             operation_parameters = {
-                'template_peptide_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
+                'template_peptide_key': self.__generate_length_dependent_key(command_line_args),
                 'reaction_key': r.Key(r.WholeRange())
             }
         elif self.operation == g.InterMolecularReactionGenerator.STRING:
@@ -66,11 +66,19 @@ class ExecutionParameters:
             }
         elif self.operation == g.ConformerGenerator.STRING:
             operation_parameters = {
-                'macrocycle_key': r.Key(r.WholeRange(), peptide_length=command_line_args.pop('peptide_length', None)),
+                'macrocycle_key': self.__generate_length_dependent_key(command_line_args)
             }
 
         operation_parameters.update(command_line_args)
         return operation_parameters
+
+    def __generate_length_dependent_key(self, command_line_args):
+        num_records = command_line_args.pop('num_records', None)
+        peptide_length = command_line_args.pop('peptide_length', None)
+        if num_records is None:
+            return r.Key(r.WholeRange(), peptide_length=peptide_length)
+
+        return r.Key(r.DiscreteDataChunk(list(range(num_records))), peptide_length=peptide_length)
 
 
 class ResultBuffer:

@@ -63,8 +63,8 @@ class PeptidePlanDataHandler(AbstractDataHandler):
         self.monomer_repo = repo.create_monomer_repository()
         super().__init__(repo.create_peptide_plan_repository())
 
-    def load(self, *, peptide_length, num_peptides, monomer_key=Key(WholeRange())):
-        yield PeptidePlanDataHandlerTuple(list(self.monomer_repo.load(monomer_key)), peptide_length, num_peptides)
+    def load(self, *, peptide_length, num_records, monomer_key=Key(WholeRange())):
+        yield PeptidePlanDataHandlerTuple(list(self.monomer_repo.load(monomer_key)), peptide_length, num_records)
 
 
 class PeptideDataHandler(AbstractDataHandler):
@@ -207,11 +207,8 @@ class ConformerDataHandler(AbstractDataHandler):
         super().__init__(repo.create_conformer_repository())
 
     def load(self, macrocycle_key):
-        for i, macrocycle in enumerate(self.macrocycle_repo.load(macrocycle_key)):
-            if i < 2:
-                yield ConformerDataHandlerTuple(macrocycle)
-            else:
-                break
+        for macrocycle in self.macrocycle_repo.load(macrocycle_key):
+            yield ConformerDataHandlerTuple(macrocycle)
 
     def save(self, data):
         ids = self.saver.save(data)

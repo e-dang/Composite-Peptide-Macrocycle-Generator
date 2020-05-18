@@ -31,6 +31,8 @@ class GenerateArgParser:
         length_parser.add_argument('-l', '--length', '--peptide_length', type=int, choices=[3, 4, 5],
                                          required=True, dest='peptide_length',
                                          help='The number of monomers to assemble into a peptide.')
+        length_parser.add_argument('-n', '--num', '--num_records', type=int, default=None, dest='num_records',
+                                   help='The number of precursor records to load. Defaults to all records.')
 
         sidechain_parser = subparsers.add_parser(g.SidechainModifier.STRING)
         sidechain_parser.set_defaults(func=execute)
@@ -45,8 +47,6 @@ class GenerateArgParser:
         intra_reaction_parser.set_defaults(func=execute)
 
         peptide_plan_parser = subparsers.add_parser(g.PeptidePlanGenerator.STRING, parents=[length_parser])
-        peptide_plan_parser.add_argument('-n', '--num', '--num_peptides', type=int, required=True, dest='num_peptides',
-                                         help='The number of peptides to generate.')
         peptide_plan_parser.set_defaults(func=execute)
 
         peptide_parser = subparsers.add_parser(g.PeptideGenerator.STRING, parents=[length_parser])
