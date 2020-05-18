@@ -1,3 +1,8 @@
+from cpmg.parallelism import Parallelism  # noqa
+import mpi4py  # noqa
+mpi4py.rc(initialize=False, finalize=False)  # noqa
+from mpi4py import MPI  # noqa
+
 import pickle
 import uuid
 from collections import defaultdict
@@ -28,9 +33,12 @@ def deserialize_chunk(data):
 
 
 class HDF5File(h5py.File):
-    def __init__(self, filepath=None, mode='a'):
+    def __init__(self, filepath=None, mode='a', driver=None, comm=None):
         self.filepath = filepath or config.HDF5_FILEPATH
-        super().__init__(self.filepath, mode, libver='latest')
+        if driver is None and comm is None:
+            super().__init__(self.filepath, mode, libver='latest')
+        else:
+            super().__init__(self.filepath, mode, libver='latest', driver=driver, comm=comm)
 
     def __enter__(self):
         return self
@@ -67,9 +75,13 @@ class AbstractHDF5RepositoryImpl:
         return ''
 
     def __init__(self):
-        with HDF5File() as file:
-            group = file.create_group(self.GROUP)
-            self._init_index(group)
+        if Parallelism.is_distributed():
+            file = HDF5File(driver='mpio', comm=MPI.COMM_WORLD)
+        else:
+            file = HDF5File()
+
+        group = file.create_group(self.GROUP)
+        self._init_index(group)
 
     def load(self, key):
         group = self._refine_group_from_key(self.GROUP, key)

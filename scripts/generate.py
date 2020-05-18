@@ -1,10 +1,11 @@
 from argparse import ArgumentParser
-import cpmg.parallelizers as p
+import cpmg.parallelism as p
 import cpmg.orchestrator as o
 import cpmg.generators as g
 
 
 def execute(command_line_args):
+    p.Parallelism.set_level(command_line_args.parallelism)
     params = o.ExecutionParameters(vars(command_line_args))
     orchestrator = o.Orchestrator.from_execution_parameters(params)
     return orchestrator.execute(**params.operation_parameters)
@@ -14,8 +15,8 @@ class GenerateArgParser:
     def __init__(self):
         parser = ArgumentParser()
         subparsers = parser.add_subparsers(dest='operation')
-        parser.add_argument('-p', '--parallelism', choices=o.get_all_parallelism_strings(), nargs='?',
-                            const=p.SingleProcess.STRING, default=p.SingleProcess.STRING,
+        parser.add_argument('-p', '--parallelism', choices=p.get_parallelism_strings(), nargs='?',
+                            const=p.LEVEL_0, default=p.LEVEL_0,
                             help='Selects which level of parallelism to execute the molecule generation with')
         parser.add_argument('-c', '--chunk', '--chunk_size', type=int, default=None, dest='chunk_size',
                             help='The number of generated records to buffer before saving them to the repository. Default is specified in config.py')
