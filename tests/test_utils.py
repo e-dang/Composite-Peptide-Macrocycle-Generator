@@ -148,6 +148,33 @@ def test_connect_mols_fail_wrong_number_mols(mols, map_nums):
         assert str(error.value) == 'Can only merge 1 or 2 molecules at a time.'
 
 
+@pytest.mark.parametrize('mols,map_nums', [
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)C[NH:2]1'), (1, 2)),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:3][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'), (1, 2))
+], ids=['two identical map nums', 'missing map number'])
+def test_connect_mols_fail_wrong_map_numbers(mols, map_nums):
+
+    mols = list(map(Chem.MolFromSmiles, mols))
+
+    with pytest.raises(utils.MergeError) as error:
+        _ = utils.connect_mols(*mols, map_nums=map_nums)
+        assert str(error.value) == 'Could not find 2 atoms with the given map numbers. Check for duplicate map numbers \
+                               or that the map numbers are present on the molecules.'
+
+
+@pytest.mark.parametrize('mols,map_nums', [
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'), (1, 2, 3)),
+    (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)C[NH:2]1'), (1,)),
+], ids=['3 map nums', 'one map num'])
+def test_connect_mols_fail_wrong_number_of_map_numbers(mols, map_nums):
+
+    mols = list(map(Chem.MolFromSmiles, mols))
+
+    with pytest.raises(utils.MergeError) as error:
+        _ = utils.connect_mols(*mols, map_nums=map_nums)
+        assert str(error.value) == 'Can only specify 2 distinct map numbers at a time.'
+
+
 @pytest.mark.parametrize('mol,expected_result', [(Chem.MolFromSmiles('C[CH2:1]C'), True), (Chem.MolFromSmiles('CCC'), False)])
 def test_has_atom_map_nums(mol, expected_result):
     assert(utils.has_atom_map_nums(mol) == expected_result)
