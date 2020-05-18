@@ -9,6 +9,17 @@ import cpmg.utils as utils
 from cpmg.models import METHANE
 
 
+SidechainDataHandlerTuple = namedtuple('SidechainDataHandlerTuple', 'sidechain connections')
+MonomerDataHandlerTuple = namedtuple('MonomerDataHandlerTuple', 'sidechain backbones')
+PeptidePlanDataHandlerTuple = namedtuple('PeptidePlanDataHandlerTuple', 'monomers peptide_length num_peptides')
+PeptideDataHandlerTuple = namedtuple('PeptideDataHandlerTuple', 'monomers peptide_length')
+TemplatePeptideDataHandlerTuple = namedtuple('TemplatePeptideDataHandlerTuple', 'peptide templates')
+MacrocycleDataHandlerTuple = namedtuple('MacrocycleDataHandlerTuple', 'template_peptide reaction_combos')
+ConformerDataHandlerTuple = namedtuple('ConformerDataHandlerTuple', 'macrocycle')
+InterMolecularReactionDataHandlerTuple = namedtuple('InterMolecularReactionDataHandlerTuple', 'nucleophile templates')
+IntraMolecularReactionDataHandlerTuple = namedtuple('IntraMolecularReactionDataHandlerTuple', 'reacting_mol')
+
+
 class AbstractDataHandler:
     def __init__(self, saver):
         self.saver = saver
@@ -19,7 +30,6 @@ class AbstractDataHandler:
 
 class SidechainDataHandler(AbstractDataHandler):
     STRING = generators.SidechainModifier.STRING
-    RETURN_TUPLE = namedtuple('SidechainDataHandlerTuple', 'sidechain connections')
 
     def __init__(self):
         self.connection_repo = repo.create_connection_repository()
@@ -29,12 +39,11 @@ class SidechainDataHandler(AbstractDataHandler):
     def load(self, *, sidechain_key=Key(WholeRange()), connection_key=Key(WholeRange())):
         connections = list(self.connection_repo.load(connection_key))
         for sidechain in self.sidechain_repo.load(sidechain_key):
-            yield self.RETURN_TUPLE(sidechain, list(filter(lambda x: x.kekule != sidechain.connection, connections)))
+            yield SidechainDataHandlerTuple(sidechain, list(filter(lambda x: x.kekule != sidechain.connection, connections)))
 
 
 class MonomerDataHandler(AbstractDataHandler):
     STRING = generators.MonomerGenerator.STRING
-    RETURN_TUPLE = namedtuple('MonomerDataHandlerTuple', 'sidechain backbones')
 
     def __init__(self):
         self.backbone_repo = repo.create_backbone_repository()
@@ -44,24 +53,22 @@ class MonomerDataHandler(AbstractDataHandler):
     def load(self, sidechain_key=Key(WholeRange()), backbone_key=Key(WholeRange())):
         backbones = list(self.backbone_repo.load(backbone_key))
         for sidechain in self.sidechain_repo.load(sidechain_key):
-            yield self.RETURN_TUPLE(sidechain, backbones)
+            yield MonomerDataHandlerTuple(sidechain, backbones)
 
 
 class PeptidePlanDataHandler(AbstractDataHandler):
     STRING = generators.PeptidePlanGenerator.STRING
-    RETURN_TUPLE = namedtuple('PeptidePlanDataHandlerTuple', 'monomers peptide_length num_peptides')
 
     def __init__(self):
         self.monomer_repo = repo.create_monomer_repository()
         super().__init__(repo.create_peptide_plan_repository())
 
     def load(self, *, peptide_length, num_peptides, monomer_key=Key(WholeRange())):
-        yield self.RETURN_TUPLE(list(self.monomer_repo.load(monomer_key)), peptide_length, num_peptides)
+        yield PeptidePlanDataHandlerTuple(list(self.monomer_repo.load(monomer_key)), peptide_length, num_peptides)
 
 
 class PeptideDataHandler(AbstractDataHandler):
     STRING = generators.PeptideGenerator.STRING
-    RETURN_TUPLE = namedtuple('PeptideDataHandlerTuple', 'monomers peptide_length')
 
     def __init__(self):
         self.plan_repo = repo.create_peptide_plan_repository()
@@ -75,7 +82,7 @@ class PeptideDataHandler(AbstractDataHandler):
         for _id, indices in self.plan_repo.load(peptide_plan_key):
             monomers = [self.index_hash[index] for index in indices]
             self.hashed_plan[indices] = _id
-            yield self.RETURN_TUPLE(monomers, peptide_plan_key.peptide_length)
+            yield PeptideDataHandlerTuple(monomers, peptide_plan_key.peptide_length)
 
     def save(self, data):
         completed_combos = []
@@ -96,7 +103,6 @@ class PeptideDataHandler(AbstractDataHandler):
 
 class TemplatePeptideDataHandler(AbstractDataHandler):
     STRING = generators.TemplatePeptideGenerator.STRING
-    RETURN_TUPLE = namedtuple('TemplatePeptideDataHandlerTuple', 'peptide templates')
 
     def __init__(self):
         self.template_repo = repo.create_template_repository()
@@ -106,7 +112,7 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
     def load(self, *, peptide_key, template_key=Key(WholeRange())):
         templates = list(self.template_repo.load(template_key))
         for peptide in list(self.peptide_repo.load(peptide_key)):
-            yield self.RETURN_TUPLE(peptide, templates)
+            yield TemplatePeptideDataHandlerTuple(peptide, templates)
 
     def save(self, data):
         completed_peptides = set(template_peptide.peptide['_id'] for template_peptide in data)
@@ -116,7 +122,6 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
 
 class MacrocycleDataHandler(AbstractDataHandler):
     STRING = generators.MacrocycleGenerator.STRING
-    RETURN_TUPLE = namedtuple('MacrocycleDataHandlerTuple', 'template_peptide reaction_combos')
     PS = rxns.PictetSpangler.TYPE
     FC = rxns.FriedelCrafts.TYPE
     TT = rxns.TsujiTrost.TYPE
@@ -178,10 +183,11 @@ class MacrocycleDataHandler(AbstractDataHandler):
                     # pictet_spangler will occur, blocking the template_only_reaction from taking place
                     rxn_combinations = product(pictet, self.template_only_reactions[template_peptide.template], other)
 
-                yield template_peptide, rxn_combinations
+                yield MacrocycleDataHandlerTuple(template_peptide, rxn_combinations)
 
             else:  # friedel_crafts, tsuji_trost, pyrrolo_indolene
-                yield template_peptide, [[rxn] for rxn in filter(lambda x: x.type != self.PS, reactions)]
+                yield MacrocycleDataHandlerTuple(template_peptide,
+                                                 [[rxn] for rxn in filter(lambda x: x.type != self.PS, reactions)])
 
     def _hash_reactions(self, key):
         self.reactions = defaultdict(list)
@@ -195,15 +201,17 @@ class MacrocycleDataHandler(AbstractDataHandler):
 
 class ConformerDataHandler(AbstractDataHandler):
     STRING = generators.ConformerGenerator.STRING
-    RETURN_TUPLE = namedtuple('ConformerDataHandlerTuple', 'macrocycle')
 
     def __init__(self):
         self.macrocycle_repo = repo.create_macrocycle_repository()
         super().__init__(repo.create_conformer_repository())
 
     def load(self, macrocycle_key):
-        for macrocycle in self.macrocycle_repo.load(macrocycle_key):
-            yield [macrocycle]
+        for i, macrocycle in enumerate(self.macrocycle_repo.load(macrocycle_key)):
+            if i < 2:
+                yield ConformerDataHandlerTuple(macrocycle)
+            else:
+                break
 
     def save(self, data):
         ids = self.saver.save(data)
@@ -213,7 +221,6 @@ class ConformerDataHandler(AbstractDataHandler):
 
 class InterMolecularReactionDataHandler(AbstractDataHandler):
     STRING = generators.InterMolecularReactionGenerator.STRING
-    RETURN_TUPLE = namedtuple('InterMolecularReactionDataHandlerTuple', 'nucleophile templates')
 
     def __init__(self):
         self.sidechain_repo = repo.create_sidechain_repository()
@@ -224,7 +231,7 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
     def load(self, sidechain_key=Key(WholeRange()), monomer_key=Key(WholeRange()), template_key=Key(WholeRange())):
         templates = list(self.template_repo.load(template_key))
         for nucleophile in self._get_filtered_sidechains(sidechain_key) + self._get_filtered_monomers(monomer_key):
-            yield self.RETURN_TUPLE(nucleophile, templates)
+            yield InterMolecularReactionDataHandlerTuple(nucleophile, templates)
 
     def _get_filtered_sidechains(self, key):
         return list(filter(lambda x: x.connection == METHANE, self.sidechain_repo.load(key)))
@@ -235,7 +242,6 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
 
 class IntraMolecularReactionDataHandler(AbstractDataHandler):
     STRING = generators.IntraMolecularReactionGenerator.STRING
-    RETURN_TUPLE = namedtuple('IntraMolecularReactionDataHandler', 'reacting_mol')
 
     def __init__(self):
         self.template_repo = repo.create_template_repository()
@@ -243,7 +249,7 @@ class IntraMolecularReactionDataHandler(AbstractDataHandler):
 
     def load(self, template_key=Key(WholeRange())):
         for reacting_mol in self.template_repo.load(template_key):
-            yield self.RETURN_TUPLE(reacting_mol)
+            yield IntraMolecularReactionDataHandlerTuple(reacting_mol)
 
 
 get_all_handler_strings = utils.get_module_strings(__name__)
