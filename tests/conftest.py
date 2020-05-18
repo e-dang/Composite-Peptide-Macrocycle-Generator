@@ -34,6 +34,8 @@ def patched_configs(tmpdir, monkeypatch):
     monkeypatch.setattr('cpmg.config.DATA_FORMAT', 'hdf5')
     monkeypatch.setattr('cpmg.config.HDF5_FILEPATH', os.path.join(str(tmpdir), 'test_hdf5_repo.hdf5'))
     monkeypatch.setattr('cpmg.config.REGIOSQM_SMILES_FILEPATH', os.path.join(str(tmpdir), 'regiosqm_smiles.txt'))
+    monkeypatch.setattr('cpmg.config.REGIOSQM_RESULTS_FILEPATH', os.path.join(
+        config.TEST_DIR, 'data', 'imports', 'regiosqm_results_nm_3.csv'))
 
 
 @pytest.fixture(autouse=True)
