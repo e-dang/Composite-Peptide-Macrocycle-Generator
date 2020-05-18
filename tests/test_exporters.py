@@ -6,7 +6,7 @@ from rdkit.Chem import AllChem
 
 import cpmg.config as config
 import cpmg.exporters as exporters
-from cpmg.io_formats import load_json
+from cpmg.utils import load_json
 
 
 @pytest.fixture()

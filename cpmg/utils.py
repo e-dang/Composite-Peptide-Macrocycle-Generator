@@ -1,4 +1,6 @@
+import csv
 import functools
+import json
 import os
 import random
 from types import GeneratorType
@@ -272,3 +274,29 @@ class suppress_stdout_stderr(object):
         # Close all file descriptors
         for fd in self.null_fds + self.save_fds:
             os.close(fd)
+
+
+def load_text(filepath):
+    with open(filepath, 'r') as file:
+        return file.readlines()
+
+
+def save_text(data, filepath):
+    with open(filepath, 'w') as file:
+        for line in data:
+            file.write(line)
+
+
+def load_json(filepath):
+    with open(filepath, 'r') as file:
+        return json.load(file)
+
+
+def save_json(data, filepath):
+    with open(filepath, 'w') as file:
+        json.dump(data, file)
+
+
+def load_csv(filepath):
+    with open(filepath, 'r') as file:
+        return list(csv.reader(file, delimiter=','))

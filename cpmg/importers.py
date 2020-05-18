@@ -11,14 +11,13 @@ import cpmg.models as models
 import cpmg.repository as repo
 import cpmg.utils as utils
 from cpmg.exceptions import InvalidPrediction
-from cpmg.io_formats import load_csv, load_json, load_text
 
 
 class JsonImporter:
     def load(self, data_type):
 
         for filepath in self._assemble_filepaths(data_type):
-            for doc in load_json(filepath):
+            for doc in utils.load_json(filepath):
                 yield doc
 
     def _assemble_filepaths(self, data_type):
@@ -144,7 +143,7 @@ class RegioSQMPredictionImporter:
         self._hash_mols()
 
         data = []
-        for row, text in enumerate(load_csv(os.path.join(config.IMPORT_DIR, 'regiosqm.csv'))):
+        for row, text in enumerate(utils.load_csv(os.path.join(config.IMPORT_DIR, 'regiosqm.csv'))):
             if row % 3 == 0:
                 idx = text[0]
             elif row % 3 == 1:
@@ -159,7 +158,7 @@ class RegioSQMPredictionImporter:
 
     def _hash_mols(self):
         self.idx_to_smiles = {}
-        for line in load_text(config.REGIOSQM_SMILES_FILEPATH):
+        for line in utils.load_text(config.REGIOSQM_SMILES_FILEPATH):
             idx, smiles = line.split(' ')
             self.idx_to_smiles[idx] = smiles.strip('\n')
 
@@ -181,7 +180,7 @@ class pKaPredictionImporter:
     def import_data(self):
 
         data = []
-        for row in load_text(os.path.join(config.IMPORT_DIR, 'pkas.txt')):
+        for row in utils.load_text(os.path.join(config.IMPORT_DIR, 'pkas.txt')):
             smiles, pkas = row.split(';')
             smiles = smiles.strip(' ')
             pkas = list(map(float, pkas.strip('\n').strip(' ').split(',')))

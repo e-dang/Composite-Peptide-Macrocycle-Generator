@@ -1,5 +1,5 @@
 import cpmg.repository as repo
-from cpmg.io_formats import save_text
+from cpmg.utils import save_text
 import cpmg.config as config
 
 
