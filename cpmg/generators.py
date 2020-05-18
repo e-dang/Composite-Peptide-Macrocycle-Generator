@@ -332,7 +332,8 @@ class ConformerGenerator:
 
     def generate(self, macrocycle):
 
-        conformer, energies, rmsd, ring_rmsd, *_ = self.generator.generate(Chem.MolFromSmiles(macrocycle.kekule))
+        generator = self.factory.create_conformer_generator()
+        conformer, energies, rmsd, ring_rmsd, *_ = generator.generate(Chem.MolFromSmiles(macrocycle.kekule))
 
         return [models.Conformer.from_macrocycle(conformer, macrocycle, energies, rmsd, ring_rmsd)]
 
