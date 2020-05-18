@@ -61,6 +61,27 @@ def test_get_maximum_empty(empty_list_data, func):
     assert(utils.get_maximum(empty_list_data, func) == None)
 
 
+@pytest.mark.parametrize('factors,expected_values', [
+    ([(1, 2), (3, 4)], [[1, 3], [1, 4], [2, 3], [2, 4]])
+], ids=['two iterables'])
+def test_random_order_cartesian_product_correct_product(factors, expected_values):
+
+    product = utils.random_order_cartesian_product(*factors)
+    for element in product:
+        assert element in expected_values
+
+
+@pytest.mark.parametrize('factors,expected_number_values', [
+    ([(1, 2, 3, 4, 5), (1, 2, 3, 4, 5), (1, 2, 3, 4, 5)], 125),
+    ([range(10), range(10)], 100)
+], ids=['length 125', 'length 100'])
+def test_random_order_cartesian_product_length_only(factors, expected_number_values):
+
+    product = list(utils.random_order_cartesian_product(*factors))
+
+    assert len(product) == expected_number_values
+
+
 @pytest.mark.parametrize('mols,map_nums,stereo,clear_map_nums,expected_smiles', [
     (('[NH2:1]C(CC1=CC=C(O)C=C1)C(=O)O', 'O=[CH:2][C@@H]1C[C@H](OC2=CC=CC=C2)CN1'),
      (1, 2), None, True, 'O=C(O)C(Cc1ccc(O)cc1)NC(=O)[C@@H]1C[C@H](Oc2ccccc2)CN1'),

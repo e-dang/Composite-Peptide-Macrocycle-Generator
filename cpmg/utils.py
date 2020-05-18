@@ -1,6 +1,9 @@
+import functools
+import random
+from types import GeneratorType
+
 import numpy as np
 from rdkit import Chem
-from types import GeneratorType
 
 from cpmg.exceptions import MergeError
 
@@ -35,6 +38,51 @@ def to_list(data):
         return list(data)
 
     return [data]
+
+
+def random_order_cartesian_product(*factors):
+    """
+    Randomly samples the cartesian product of the factors without repeats.
+    Code from https://stackoverflow.com/questions/48686767/how-to-sample-from-cartesian-product-without-repetition
+
+    Yields:
+        list: A list of containing a random sample from the cartesian produce of the factors.
+    """
+
+    amount = functools.reduce(lambda prod, factor: prod * len(factor), factors, 1)
+    index_linked_list = [None, None]
+    for max_index in reversed(range(amount)):
+        index = random.randint(0, max_index)
+        index_link = index_linked_list
+        while index_link[1] is not None and index_link[1][0] <= index:  # pylint: disable=E1136
+            index += 1
+            index_link = index_link[1]
+        index_link[1] = [index, index_link[1]]
+        items = []
+        for factor in factors:
+            items.append(factor[index % len(factor)])
+            index //= len(factor)
+        yield items
+
+
+def random_sample_cartesian_product(*factors, sample_size=0):
+    """
+    Randomly samples the cartesian product of the factors without repeats. The explicit sample size makes the execution
+    faster than the random_order_cartesian_product variant.
+
+    Code from https://stackoverflow.com/questions/48686767/how-to-sample-from-cartesian-product-without-repetition
+
+    Yields:
+        list: A list of containing a random sample from the cartesian produce of the factors.
+    """
+
+    amount = functools.reduce(lambda prod, factor: prod * len(factor), factors, 1)
+    for max_index in random.sample(range(amount), sample_size):
+        items = []
+        for factor in factors:
+            items.append(factor[max_index % len(factor)])
+            max_index //= len(factor)
+        yield items
 
 
 def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
@@ -89,8 +137,8 @@ def connect_mols(*mols, map_nums, stereo=None, clear_map_nums=True):
         atom1, atom2 = [update_hydrogen_counts(atom, clear_map_nums)
                         for atom in combo.GetAtoms() if atom.GetAtomMapNum() in map_nums]
     except ValueError:
-        raise exceptions.MergeError('Could not find 2 atoms with the given map numbers. Check for duplicate map numbers'
-                                    ' or that the map numbers are present on the molecules.')
+        raise MergeError('Could not find 2 atoms with the given map numbers. Check for duplicate map numbers'
+                         ' or that the map numbers are present on the molecules.')
 
     # create bond, remove hydrogens, and sanitize
     combo.AddBond(atom1.GetIdx(), atom2.GetIdx(), order=Chem.BondType.SINGLE)
