@@ -2,9 +2,11 @@ from argparse import ArgumentParser
 import cpmg.parallelism as p
 import cpmg.orchestrator as o
 import cpmg.generators as g
+from cpmg.timer import GlobalTimer
 
 
 def execute(command_line_args):
+    GlobalTimer.instance(time_allocation=command_line_args.time, buffer_time=command_line_args.buffer_time).start()
     p.Parallelism.set_level(command_line_args.parallelism)
     params = o.ExecutionParameters(vars(command_line_args))
     orchestrator = o.Orchestrator.from_execution_parameters(params)
@@ -17,9 +19,13 @@ class GenerateArgParser:
         subparsers = parser.add_subparsers(dest='operation')
         parser.add_argument('-p', '--parallelism', choices=p.get_parallelism_strings(), nargs='?',
                             const=p.LEVEL_0, default=p.LEVEL_0,
-                            help='Selects which level of parallelism to execute the molecule generation with')
+                            help='Selects which level of parallelism to execute the molecule generation with.')
         parser.add_argument('-c', '--chunk', '--chunk_size', type=int, default=None, dest='chunk_size',
-                            help='The number of generated records to buffer before saving them to the repository. Default is specified in config.py')
+                            help='The number of generated records to buffer before saving them to the repository. Default is specified in config.py.')
+        parser.add_argument('-t', '--time', type=int, default=None, const=None, nargs='?',
+                            help='The total time allocated to the job in seconds. Defaults to -1 (unlimited time).')
+        parser.add_argument('-b', '--buffer_time', type=int, default=300, const=300, nargs='?',
+                            help='The amount of time before the maximum job time is reached that check pointing routines should be initiated. Defaults to 300 seconds.')
 
         length_parser = ArgumentParser(add_help=False)
         length_parser.add_argument('-l', '--length', '--peptide_length', type=int, choices=[3, 4, 5],
