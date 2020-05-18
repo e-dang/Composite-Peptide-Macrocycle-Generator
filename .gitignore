@@ -11,3 +11,4 @@ deprecated
 *.pdb
 scripts/data
 *.hdf5
+peptide_plan*.txt

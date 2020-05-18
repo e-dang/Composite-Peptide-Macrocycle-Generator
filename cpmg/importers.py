@@ -143,7 +143,7 @@ class RegioSQMPredictionImporter:
         self._hash_mols()
 
         data = []
-        for row, text in enumerate(utils.load_csv(os.path.join(config.IMPORT_DIR, 'regiosqm.csv'))):
+        for row, text in enumerate(utils.load_csv(config.REGIOSQM_RESULTS_FILEPATH)):
             if row % 3 == 0:
                 idx = text[0]
             elif row % 3 == 1:

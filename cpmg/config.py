@@ -25,6 +25,7 @@ COMPRESSION_OPTS = 9
 
 ##################################################### RegioSQM ######################################################
 REGIOSQM_SMILES_FILEPATH = os.path.join(DATA_DIR, 'external', 'regiosqm_mols.smiles')
+REGIOSQM_RESULTS_FILEPATH = os.path.join(IMPORT_DIR, 'regiosqm_results_nm_3.csv')
 
 ################################################ Filter Constants ################################################
 PKA_CUTOFF = 13.5
