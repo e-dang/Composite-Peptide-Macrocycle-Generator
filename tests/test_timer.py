@@ -55,5 +55,12 @@ def test_is_near_complete_true(started_timer):
     assert started_timer.is_near_complete()
 
 
+def test_is_near_complete_unlimited_time():
+    timer = t.GlobalTimer()
+
+    assert timer.time_allocation == -1
+    assert not timer.is_near_complete()
+
+
 def test_is_near_complete_false(started_timer):
     assert not started_timer.is_near_complete()
