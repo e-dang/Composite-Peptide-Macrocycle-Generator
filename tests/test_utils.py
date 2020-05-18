@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 from rdkit import Chem
@@ -241,3 +243,45 @@ def test_atom_to_wildcard(smiles):
         assert atom.GetFormalCharge() == 0
         assert not atom.GetIsAromatic()
         assert atom.GetNumExplicitHs() == 0
+
+
+@pytest.mark.parametrize('filepath,file_nums,expected_value', [
+    ('data.txt', (1,), 'data_1.txt'),
+    ('data.json', (1,), 'data_1.json'),
+    ('test/data.json', (1, 2), 'test/data_1_2.json')
+], ids=['txt extension', 'json extension', 'multiple file nums'])
+def test_attach_file_num(filepath, file_nums, expected_value):
+
+    new_filepath = utils.attach_file_num(filepath, *file_nums)
+
+    assert new_filepath == expected_value
+
+
+@pytest.mark.parametrize('filepath,file_nums', [
+    ('data.txt.so', (1,)),
+    ('data', (1,)),
+], ids=['one extension', 'zero extensions'])
+def test_attach_file_num_fail(filepath, file_nums):
+
+    with pytest.raises(OSError):
+        _ = utils.attach_file_num(filepath, *file_nums)
+
+
+@pytest.fixture()
+def example_filepath(tmpdir):
+    files = ['example_file_0.txt',
+             'example_file_1.txt',
+             'example_file_2.txt']
+
+    for file in files:
+        _ = open(tmpdir.join(file), 'w+')
+
+    yield str(tmpdir.join('example_file.txt')), str(tmpdir)
+
+
+def test_rotate_file(example_filepath):
+    base_filepath, tmp_dir_fp = example_filepath
+
+    new_filepath = utils.rotate_file(base_filepath)
+
+    assert new_filepath == os.path.join(tmp_dir_fp, 'example_file_3.txt')

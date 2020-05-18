@@ -300,3 +300,49 @@ def save_json(data, filepath):
 def load_csv(filepath):
     with open(filepath, 'r') as file:
         return list(csv.reader(file, delimiter=','))
+
+
+def attach_file_num(filepath, *file_nums, delimiter='_'):
+    """
+    Function that inserts an underscore and the specified file number to the file name given in the filepath.
+
+    Args:
+        filepath (str): The filepath containing the file name to augment.
+        file_nums (iterable): The file numbers to attach to the end of the file name in the filepath.
+
+    Returns:
+        str: The augmented filepath.
+    """
+
+    if filepath.count('.') != 1:
+        raise OSError('The given filepath needs to have exactly one \'.\' character.')
+
+    new_fp, ext = filepath.split('.')
+
+    for file_num in file_nums:
+        if file_num is not None:
+            new_fp += delimiter + str(file_num)
+
+    new_fp += '.' + ext
+
+    return new_fp
+
+
+def rotate_file(filepath):
+    """
+    Function that takes a filepath and attaches a underscore and a number before its extension to ensure uniqueness of
+    the file name given by the filepath.
+
+    Args:
+        filepath (str): The path to the file.
+
+    Returns:
+        str: The augmented filepath.
+    """
+
+    idx = 0
+    while True:
+        new_fp = attach_file_num(filepath, idx)
+        idx += 1
+        if not (os.path.exists(new_fp) and os.path.isfile(new_fp)):
+            return new_fp

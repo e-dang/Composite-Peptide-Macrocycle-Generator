@@ -4,14 +4,14 @@ from functools import partial
 from rdkit import Chem
 
 import cpmg.repository as repo
-import macrocycles.utils as utils
+import cpmg.utils as utils
 from cpmg.ranges import Key
 
 
 def conformer_to_pdb(key, filepath):
     conformers = list(repo.create_conformer_repository().load(key))
     for conformer in conformers:
-        Chem.MolToPDBFile(conformer.mol, utils.file_rotator(filepath))
+        Chem.MolToPDBFile(conformer.mol, utils.rotate_file(filepath))
 
     return True
 
