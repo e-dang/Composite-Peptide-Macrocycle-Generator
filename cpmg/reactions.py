@@ -224,7 +224,7 @@ class PictetSpangler(InterMolecularReaction):
             atoms = set().union([atom for path in paths for atom in path])
             if n_term_atom.GetIdx() not in atoms - set(atom.GetIdx() for atom in n_term_atom.GetNeighbors()):
                 raise InvalidMolecule('The reacting atom in the monomer must be 4 atoms away from the N-terminus!')
-        except AttributeError:
+        except (AttributeError, RuntimeError):
             raise InvalidMolecule
 
     def _create_reactants(self):
