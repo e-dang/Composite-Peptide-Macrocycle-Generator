@@ -491,7 +491,7 @@ class Conformer(Macrocycle):
         Chem.Kekulize(conformer_mol)
         cls.validate(conformer_mol, macrocycle)
         return cls(conformer_mol.ToBinary(), Chem.MolToSmiles(conformer_mol, kekuleSmiles=True), macrocycle.modifications,
-                   macrocycle.has_cap, macrocycle.length, macrocycle.template_peptide, macrocycle.template, macrocycle.reactions,
+                   macrocycle.length, macrocycle.has_cap, macrocycle.template_peptide, macrocycle.template, macrocycle.reactions,
                    conformer_mol.GetNumConformers(), energies, rmsd, ring_rmsd, _id=macrocycle._id)
 
     @classmethod
