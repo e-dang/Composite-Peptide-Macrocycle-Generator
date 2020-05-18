@@ -9,13 +9,16 @@ import cpmg.generators as g
 import cpmg.ranges as r
 from cpmg.config import CAPACITY
 import cpmg.config as config
-import cpmg.utils as utils
 from cpmg.parallelism import LEVEL_0, LEVEL_1, LEVEL_2
+from cpmg.timer import GlobalTimer
+from cpmg.exceptions import InvalidChunkSize
 
 
 class ExecutionParameters:
     def __init__(self, command_line_args):
         command_line_args.pop('func')
+        command_line_args.pop('time')
+        command_line_args.pop('buffer_time')
         self.operation = command_line_args.pop('operation')
         self.parallelism = command_line_args.pop('parallelism')
         self.chunk_size = command_line_args.pop('chunk_size')
@@ -73,9 +76,10 @@ class ExecutionParameters:
 class ResultBuffer:
     def __init__(self, saver, chunk_size=None):
         self.saver = saver
-        self.chunk_size = chunk_size or CAPACITY
         self.buffer = []
         self.ids = []
+        self.chunk_size = chunk_size or CAPACITY
+        self._validate_chunk_size()
 
     def __len__(self):
         return len(self.buffer)
@@ -88,6 +92,10 @@ class ResultBuffer:
     def flush(self):
         self.ids.extend(self.saver.save(self.buffer))
         self.buffer = []
+
+    def _validate_chunk_size(self):
+        if not isinstance(self.chunk_size, int) or self.chunk_size <= 0:
+            raise InvalidChunkSize('The chunk size must be a positive integer')
 
 
 class Orchestrator:
@@ -121,6 +129,7 @@ class AbstractOrchestratorImpl:
         self.generator = generator
         self.handler = handler
         self.result_buffer = ResultBuffer(handler, chunk_size=chunk_size)
+        self.timer = GlobalTimer.instance()
 
     def execute(self, **operation_parameters):
         pass
@@ -134,6 +143,9 @@ class SingleProcessOrchestrator(AbstractOrchestratorImpl):
         for args in self.handler.load(**operation_parameters):
             for record in self.generator.generate(*args):
                 self.result_buffer.add(record)
+
+            if self.timer.is_near_complete():
+                break
 
         self.result_buffer.flush()
         return self.result_buffer.ids
@@ -151,6 +163,9 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
                 for record in result:
                     self.result_buffer.add(record)
 
+                if self.timer.is_near_complete():
+                    break
+
         self.result_buffer.flush()
         return self.result_buffer.ids
 
@@ -165,6 +180,9 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
                     future = executor.submit(self.generator.generate, *args)
                     for record in future.result():
                         self.result_buffer.add(record)
+
+                    if self.timer.is_near_complete():
+                        break
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             self.result_buffer.flush()
