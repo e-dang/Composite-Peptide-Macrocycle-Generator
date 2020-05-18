@@ -15,3 +15,9 @@ class InvalidPrediction(Exception):
     """
     Raised when importing a prediction that fails the sanity test.
     """
+
+
+class ParallelismAlreadySet(Exception):
+    """
+    Raised when trying to change the parallelism level when it has already been set.
+    """

@@ -14,13 +14,6 @@ def get_parallelism_strings():
     return (LEVEL_0, LEVEL_1, LEVEL_2)
 
 
-# def finalize_mpi():
-#     print(type(atexit))
-#     print(atexit.register)
-#     if mpi4py.MPI.Is_initialized():
-#         mpi4py.MPI.Finalize()
-
-
 class Parallelism:
     __LEVEL = None
     __LEVELS = get_parallelism_strings()
