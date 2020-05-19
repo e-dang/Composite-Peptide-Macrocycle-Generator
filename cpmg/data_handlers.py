@@ -27,6 +27,9 @@ class AbstractDataHandler:
     def save(self, data):
         return self.saver.save(data)
 
+    def estimate_num_records(self):
+        pass
+
 
 class SidechainDataHandler(AbstractDataHandler):
     STRING = generators.SidechainModifier.STRING
@@ -40,6 +43,9 @@ class SidechainDataHandler(AbstractDataHandler):
         connections = list(self.connection_repo.load(connection_key))
         for sidechain in self.sidechain_repo.load(sidechain_key):
             yield SidechainDataHandlerTuple(sidechain, list(filter(lambda x: x.kekule != sidechain.connection, connections)))
+
+    def estimate_num_records(self):
+        return self.sidechain_repo.get_num_records()
 
 
 class MonomerDataHandler(AbstractDataHandler):
@@ -55,6 +61,9 @@ class MonomerDataHandler(AbstractDataHandler):
         for sidechain in self.sidechain_repo.load(sidechain_key):
             yield MonomerDataHandlerTuple(sidechain, backbones)
 
+    def estimate_num_records(self):
+        return self.sidechain_repo.get_num_records()
+
 
 class PeptidePlanDataHandler(AbstractDataHandler):
     STRING = generators.PeptidePlanGenerator.STRING
@@ -65,6 +74,9 @@ class PeptidePlanDataHandler(AbstractDataHandler):
 
     def load(self, *, peptide_length, num_records, monomer_key=Key(WholeRange())):
         yield PeptidePlanDataHandlerTuple(list(self.monomer_repo.load(monomer_key)), peptide_length, num_records)
+
+    def estimate_num_records(self):
+        return self.monomer_repo.get_num_records()
 
 
 class PeptideDataHandler(AbstractDataHandler):
@@ -93,6 +105,9 @@ class PeptideDataHandler(AbstractDataHandler):
         self.plan_repo.deactivate_records(Key(completed_combos))
         return self.saver.save(data)
 
+    def estimate_num_records(self):
+        return self.plan_repo.get_num_records()
+
     def _hash_monomers(self, key):
         self.index_hash = {}
         self.id_hash = {}
@@ -119,6 +134,9 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
         self.peptide_repo.deactivate_records(Key(completed_peptides))
         return self.saver.save(data)
 
+    def estimate_num_records(self):
+        return self.peptide_repo.get_num_records()
+
 
 class MacrocycleDataHandler(AbstractDataHandler):
     STRING = generators.MacrocycleGenerator.STRING
@@ -140,6 +158,9 @@ class MacrocycleDataHandler(AbstractDataHandler):
         completed_template_peptides = set(macrocycle.template_peptide for macrocycle in data)
         self.template_peptide_repo.deactivate_records(Key(completed_template_peptides))
         return self.saver.save(data)
+
+    def estimate_num_records(self):
+        return self.template_peptide_repo.get_num_records()
 
     def _match_reactions(self, key):
         templates = repo.create_template_repository().load()
@@ -215,6 +236,9 @@ class ConformerDataHandler(AbstractDataHandler):
         self.macrocycle_repo.remove_records(ids)
         return ids
 
+    def estimate_num_records(self):
+        return self.macrocycle_repo.get_num_records()
+
 
 class InterMolecularReactionDataHandler(AbstractDataHandler):
     STRING = generators.InterMolecularReactionGenerator.STRING
@@ -229,6 +253,9 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
         templates = list(self.template_repo.load(template_key))
         for nucleophile in self._get_filtered_sidechains(sidechain_key) + self._get_filtered_monomers(monomer_key):
             yield InterMolecularReactionDataHandlerTuple(nucleophile, templates)
+
+    def estimate_num_records(self):
+        return self.sidechain_repo.get_num_records() + self.monomer_repo.get_num_records()
 
     def _get_filtered_sidechains(self, key):
         return list(filter(lambda x: x.connection == METHANE, self.sidechain_repo.load(key)))
@@ -247,6 +274,9 @@ class IntraMolecularReactionDataHandler(AbstractDataHandler):
     def load(self, template_key=Key(WholeRange())):
         for reacting_mol in self.template_repo.load(template_key):
             yield IntraMolecularReactionDataHandlerTuple(reacting_mol)
+
+    def estimate_num_records(self):
+        return self.template_repo.get_num_records()
 
 
 get_all_handler_strings = utils.get_module_strings(__name__)
