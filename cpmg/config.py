@@ -16,7 +16,7 @@ IMPORT_DIR = os.path.join(DATA_DIR, 'imports')
 CAPACITY = 1000000
 DATA_FORMAT = 'hdf5'
 NUM_PROCS = 8
-TASKS_PER_CHILD = 5
+TASKS_PER_CHILD = None
 
 ##################################################### HDF5Params ######################################################
 HDF5_FILEPATH = os.path.join(DATA_DIR, 'macrocycle_lib.hdf5')
