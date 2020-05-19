@@ -147,7 +147,6 @@ class SingleProcessOrchestrator(AbstractOrchestratorImpl):
     STRING = LEVEL_0
 
     def execute(self, **operation_parameters):
-
         for args in self.handler.load(**operation_parameters):
             for record in self.generator.generate(*args):
                 self.result_buffer.add(record)
@@ -164,8 +163,7 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
 
     def execute(self, **operation_parameters):
 
-        with multiprocessing.Pool(processes=config.NUM_PROCS - 1, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
-            # try using callback function in data_handler.load() to calcualte the number of documents being loaded in order to calculate chunksize
+        with multiprocessing.Pool(processes=config.NUM_PROCS, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
             future = pool.starmap_async(self.generator.generate, self.handler.load(**operation_parameters))
             for result in future.get():
                 for record in result:
@@ -182,11 +180,14 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
     STRING = LEVEL_2
 
     def execute(self, **operation_parameters):
+        comm = MPI.COMM_WORLD
+        size = comm.Get_size()
         with MPICommExecutor() as executor:
             if executor is not None:
-                for args in self.handler.load(**operation_parameters):
-                    future = executor.submit(self.generator.generate, *args)
-                    for record in future.result():
+                chunk_size = int(self.handler.estimate_num_records() / size - 1)
+                for result in executor.starmap(self.generator.generate, self.handler.load(**operation_parameters),
+                                               chunksize=chunk_size, unordered=True):
+                    for record in result:
                         self.result_buffer.add(record)
 
                     if self.timer.is_near_complete():
