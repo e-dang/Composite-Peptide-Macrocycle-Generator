@@ -6,14 +6,16 @@ PROJECT_DIR = os.environ['PROJECT_DIR']
 DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 # DATA_DIR = os.path.join('/u/scratch/e/ericdang', 'data')
 LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
-TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
-#TMP_DIR = os.environ['TMPDIR']
 STDOUT_DIR = os.path.join(PROJECT_DIR, 'output')
 TEST_DIR = os.path.join(PROJECT_DIR, 'tests')
 IMPORT_DIR = os.path.join(DATA_DIR, 'imports')
+try:
+    TMP_DIR = os.environ['TMPDIR']
+except KeyError:
+    TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 
 ################################################ Miscellaneous ################################################
-CAPACITY = 1000000
+CAPACITY = 100000
 DATA_FORMAT = 'hdf5'
 NUM_PROCS = 8
 TASKS_PER_CHILD = None
@@ -58,7 +60,3 @@ ConformerArgs = namedtuple('ConformerArgs', 'repeats_per_cut num_confs_embed num
 CONFORMER_ARGS = ConformerArgs(REPEATS_PER_CUT, NUM_CONFS_EMBED, NUM_CONFS_GENETIC, NUM_CONFS_ROTAMER_SEARCH, FORCE_FIELD, DIELECTRIC,
                                SCORE, MIN_RMSD, ENERGY_DIFF, EMBED_PARAMS, SMALL_ANGLE_GRAN, LARGE_ANGLE_GRAN,
                                CLASH_THRESHOLD, DISTANCE_INTERVAL, NUM_THREADS, MAX_ITERS, EXTRA_ITERS, MIN_MACRO_RING_SIZE)
-
-########################################## EbejerConformerGenerator Parameters #########################################
-D_MIN = 0.5
-NUM_CONFS = 50
