@@ -638,8 +638,8 @@ class PeptidePlan:
         peptide_plan.reg_combinations, peptide_plan.cap_combinations = utils.split(
             array_tuple, pred=lambda x: len(x[1]) == peptide_length)
 
-        peptide_plan.reg_combinations = set(map(lambda x: (x[0], tuple(x[1])), peptide_plan.reg_combinations))
-        peptide_plan.cap_combinations = set(map(lambda x: (x[0], tuple(x[1])), peptide_plan.cap_combinations))
+        peptide_plan.reg_combinations = list(map(lambda x: (x[0], tuple(x[1])), peptide_plan.reg_combinations))
+        peptide_plan.cap_combinations = list(map(lambda x: (x[0], tuple(x[1])), peptide_plan.cap_combinations))
 
         return peptide_plan
 
