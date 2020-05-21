@@ -54,6 +54,27 @@ class HDF5File(h5py.File):
         return super().create_group(group, track_order=track_order)
 
 
+class IDFinder:
+    def __init__(self, key):
+        self.count = 0
+        self.locations = defaultdict(list)
+        self.key = key
+
+    def get_func(self):
+        def find_ids(name, obj):
+            if isinstance(obj, h5py.Dataset):
+                for _id, idx in obj.attrs.items():
+                    if _id in self.key:
+                        self.locations[obj.name].append(idx)
+                        self.count += 1
+                        if self.count >= len(self.key):
+                            return True
+                if obj.name in self.locations:
+                    self.locations[obj.name].sort()
+
+        return find_ids
+
+
 class AbstractHDF5RepositoryImpl:
     GROUP = None
     DEFAULT_INDICES = None
@@ -263,25 +284,12 @@ class AbstractHDF5RepositoryImpl:
 
     def _find(self, group, key):
         id_key = self._convert_to_id_key(key)
-        locations, func = self._get_finder(id_key)
 
+        finder = IDFinder(id_key)
         with HDF5File() as file:
-            file[group].visititems(func)
+            file[group].visititems(finder.get_func())
 
-        return locations
-
-    def _get_finder(self, key):
-        locations = defaultdict(list)
-
-        def find_ids(name, obj):
-            if isinstance(obj, h5py.Dataset):
-                for _id, idx in obj.attrs.items():
-                    if _id in key:
-                        locations[obj.name].append(idx)
-                if obj.name in locations:
-                    locations[obj.name].sort()
-
-        return locations, find_ids
+        return finder.locations
 
     def _remove_records(self, group, key):
         id_key = self._convert_to_id_key(key)
@@ -405,9 +413,13 @@ class HDF5ObjRepositoryImpl(AbstractHDF5RepositoryImpl):
 class HDF5ArrayRepositoryImpl(AbstractHDF5RepositoryImpl):
 
     def _save(self, group, data, ids=None):
+        new_ids = []
         with HDF5File() as file:
-            dataset = self._create_dataset(file.create_group(group), data)
-            return self._write(dataset, ids or self._get_unique_ids(dataset))
+            for data_chunk in self._chunkify(data):
+                dataset = self._create_dataset(file.create_group(group), data_chunk)
+                new_ids.extend(self._write(dataset, ids or self._get_unique_ids(dataset)))
+
+        return new_ids
 
     def _create_dataset(self, group, data):
         dataset = self._get_next_dataset_name(group)
@@ -424,6 +436,17 @@ class HDF5ArrayRepositoryImpl(AbstractHDF5RepositoryImpl):
 
     def _get_record(self, dataset, idx, _id):
         return (_id, dataset[idx])
+
+    def _chunkify(self, data):
+        start = 0
+        num_chunks = len(data) // config.CAPACITY
+
+        for _ in range(num_chunks):
+            end = start + config.CAPACITY
+            yield data[start: end]
+            start = end
+
+        yield data[start:]
 
 
 class ConnectionHDF5Repository(HDF5ObjRepositoryImpl):
