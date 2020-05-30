@@ -142,17 +142,27 @@ class AbstractOrchestratorImpl:
     def execute(self, **operation_parameters):
         pass
 
+    def _chunkify(self, data):
+        buffer = []
+        for record in data:
+            buffer.append(record)
+            if len(buffer) == self.result_buffer.chunk_size:
+                yield buffer
+                buffer = []
+        yield buffer
+
 
 class SingleProcessOrchestrator(AbstractOrchestratorImpl):
     STRING = LEVEL_0
 
     def execute(self, **operation_parameters):
-        for args in self.handler.load(**operation_parameters):
-            for record in self.generator.generate(*args):
-                self.result_buffer.add(record)
+        for chunk in self._chunkify(self.handler.load(**operation_parameters)):
+            for args in chunk:
+                for record in self.generator.generate(*args):
+                    self.result_buffer.add(record)
 
-            if self.timer.is_near_complete():
-                break
+                if self.timer.is_near_complete():
+                    break
 
         self.result_buffer.flush()
         return self.result_buffer.ids
@@ -164,13 +174,16 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
     def execute(self, **operation_parameters):
 
         with multiprocessing.Pool(processes=config.NUM_PROCS, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
-            future = pool.starmap_async(self.generator.generate, self.handler.load(**operation_parameters))
-            for result in future.get():
-                for record in result:
-                    self.result_buffer.add(record)
+            for chunk in self._chunkify(self.handler.load(**operation_parameters)):
+                future = pool.starmap_async(self.generator.generate, chunk)
+                for result in future.get():
+                    for record in result:
+                        self.result_buffer.add(record)
 
-                if self.timer.is_near_complete():
-                    break
+                    if self.timer.is_near_complete():
+                        break
+
+                break
 
         self.result_buffer.flush()
         return self.result_buffer.ids
@@ -184,14 +197,15 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
         size = comm.Get_size()
         with MPICommExecutor() as executor:
             if executor is not None:
-                chunk_size = int(self.handler.estimate_num_records() / size - 1)
-                for result in executor.starmap(self.generator.generate, self.handler.load(**operation_parameters),
-                                               chunksize=chunk_size, unordered=True):
-                    for record in result:
-                        self.result_buffer.add(record)
+                for chunk in self._chunkify(self.handler.load(**operation_parameters)):
+                    for result in executor.starmap(self.generator.generate, chunk,
+                                                   chunksize=int(len(chunk) / size - 1), unordered=True):
+                        for record in result:
+                            self.result_buffer.add(record)
+                            break
 
-                    if self.timer.is_near_complete():
-                        break
+                        if self.timer.is_near_complete():
+                            break
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             self.result_buffer.flush()
