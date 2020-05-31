@@ -632,17 +632,6 @@ class PeptidePlan:
 
         return ''
 
-    @classmethod
-    def from_array_tuple(cls, peptide_length, array_tuple):
-        peptide_plan = cls(peptide_length)
-        peptide_plan.reg_combinations, peptide_plan.cap_combinations = utils.split(
-            array_tuple, pred=lambda x: len(x[1]) == peptide_length)
-
-        peptide_plan.reg_combinations = list(map(lambda x: (x[0], tuple(x[1])), peptide_plan.reg_combinations))
-        peptide_plan.cap_combinations = list(map(lambda x: (x[0], tuple(x[1])), peptide_plan.cap_combinations))
-
-        return peptide_plan
-
     @property
     def combinations(self):
         return self.reg_combinations.union(self.cap_combinations)

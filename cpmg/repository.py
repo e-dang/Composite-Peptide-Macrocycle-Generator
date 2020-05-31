@@ -44,6 +44,9 @@ class AbstractRepository:
         for _id, data in self.impl.load_inactivate_records(key):
             yield self.TYPE.from_dict(data, _id=_id)
 
+    def mark_complete(self, ids):
+        self.impl.mark_complete(ids)
+
     def _check_type(self, data):
         for model in data:
             if not isinstance(model, self.TYPE):
@@ -214,7 +217,7 @@ class PeptidePlanRepository(AbstractRepository):
         if key.peptide_length is None:
             return None
 
-        return self.TYPE.from_array_tuple(key.peptide_length, self.impl.load(key))
+        return self.impl.load(key)
 
     def _check_type(self, data):
         for record in utils.to_list(data):
