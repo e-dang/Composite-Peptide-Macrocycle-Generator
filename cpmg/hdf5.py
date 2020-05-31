@@ -224,7 +224,7 @@ class AbstractHDF5RepositoryImpl:
         try:
             group.create_dataset(self.COMPLETE_DATASET, shape=(0,), maxshape=(None,), chunks=True,
                                  dtype='S36', compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
-        except OSError:
+        except (OSError, RuntimeError):
             pass
 
     def _create_index_dataset(self, group, indices_dataset, index):
