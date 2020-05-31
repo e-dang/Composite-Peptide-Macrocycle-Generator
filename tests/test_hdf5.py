@@ -35,20 +35,20 @@ def list1(dict1, dict2, dict3):
 
 
 @pytest.fixture(params=[
-    ('connection_dicts', hdf5.ConnectionHDF5Repository, ['0', 'index', 'kekule_index']),
-    ('backbone_dicts', hdf5.BackboneHDF5Repository, ['0', 'index', 'mapped_kekule_index']),
-    ('template_dicts', hdf5.TemplateHDF5Repository, ['0', 'index', 'kekule_index']),
-    ('sidechain_dicts', hdf5.SidechainHDF5Repository, ['0', 'index', 'kekule_index']),
-    ('monomer_dicts', hdf5.MonomerHDF5Repository, ['0', 'index', 'kekule_index']),
-    ('peptide_len_3_dicts', hdf5.PeptideHDF5Repository, ['3/0', 'index', 'kekule_index']),
-    ('peptide_len_4_dicts', hdf5.PeptideHDF5Repository, ['4/0', 'index', 'kekule_index']),
-    ('peptide_len_5_dicts', hdf5.PeptideHDF5Repository, ['5/0', 'index', 'kekule_index']),
-    ('template_peptide_len_3_dicts', hdf5.TemplatePeptideHDF5Repository, ['3/0', 'index', 'kekule_index']),
-    ('template_peptide_len_4_dicts', hdf5.TemplatePeptideHDF5Repository, ['4/0', 'index', 'kekule_index']),
-    ('template_peptide_len_5_dicts', hdf5.TemplatePeptideHDF5Repository, ['5/0', 'index', 'kekule_index']),
-    ('reaction_dicts', hdf5.ReactionHDF5Repository, ['0', 'index']),
-    ('regiosqm_dicts', hdf5.RegioSQMHDF5Repository, ['0', 'index', 'reacting_mol_index']),
-    ('pka_dicts', hdf5.pKaHDF5Repository, ['0', 'index', 'reacting_mol_index'])
+    ('connection_dicts', hdf5.ConnectionHDF5Repository, ['0', 'index', 'completed', 'kekule_index']),
+    ('backbone_dicts', hdf5.BackboneHDF5Repository, ['0', 'index', 'completed', 'mapped_kekule_index']),
+    ('template_dicts', hdf5.TemplateHDF5Repository, ['0', 'index', 'completed', 'kekule_index']),
+    ('sidechain_dicts', hdf5.SidechainHDF5Repository, ['0', 'index', 'completed', 'kekule_index']),
+    ('monomer_dicts', hdf5.MonomerHDF5Repository, ['0', 'index', 'completed', 'kekule_index']),
+    ('peptide_len_3_dicts', hdf5.PeptideHDF5Repository, ['3/0', 'index', 'completed', 'kekule_index']),
+    ('peptide_len_4_dicts', hdf5.PeptideHDF5Repository, ['4/0', 'index', 'completed', 'kekule_index']),
+    ('peptide_len_5_dicts', hdf5.PeptideHDF5Repository, ['5/0', 'index', 'completed', 'kekule_index']),
+    ('template_peptide_len_3_dicts', hdf5.TemplatePeptideHDF5Repository, ['3/0', 'index', 'completed', 'kekule_index']),
+    ('template_peptide_len_4_dicts', hdf5.TemplatePeptideHDF5Repository, ['4/0', 'index', 'completed', 'kekule_index']),
+    ('template_peptide_len_5_dicts', hdf5.TemplatePeptideHDF5Repository, ['5/0', 'index', 'completed', 'kekule_index']),
+    ('reaction_dicts', hdf5.ReactionHDF5Repository, ['0', 'index', 'completed']),
+    ('regiosqm_dicts', hdf5.RegioSQMHDF5Repository, ['0', 'index', 'completed', 'reacting_mol_index']),
+    ('pka_dicts', hdf5.pKaHDF5Repository, ['0', 'index', 'completed', 'reacting_mol_index'])
 ],
     ids=['connections', 'backbones', 'templates', 'sidechains', 'monomers', 'peptides_3', 'peptides_4', 'peptides_5',
          'template_peptides_3', 'template_peptides_4', 'template_peptides_5', 'reactions', 'regiosqm', 'pka'
@@ -56,13 +56,13 @@ def list1(dict1, dict2, dict3):
 def obj_data(request):
     fixture, repo, datasets = request.param
     fixture = request.getfixturevalue(fixture)
-    return fixture, repo(), datasets
+    return fixture, repo(), sorted(datasets)
 
 
 @pytest.fixture(params=[
-    ('peptide_plan_tuple_len_3', hdf5.PeptidePlanHDF5Repository, ['3/cap/0', '3/no_cap/0', 'index']),
-    ('peptide_plan_tuple_len_4', hdf5.PeptidePlanHDF5Repository, ['4/cap/0', '4/no_cap/0', 'index']),
-    ('peptide_plan_tuple_len_5', hdf5.PeptidePlanHDF5Repository, ['5/cap/0', '5/no_cap/0', 'index'])
+    ('peptide_plan_tuple_len_3', hdf5.PeptidePlanHDF5Repository, ['3/cap/0', '3/no_cap/0', 'completed', 'index']),
+    ('peptide_plan_tuple_len_4', hdf5.PeptidePlanHDF5Repository, ['4/cap/0', '4/no_cap/0', 'completed', 'index']),
+    ('peptide_plan_tuple_len_5', hdf5.PeptidePlanHDF5Repository, ['5/cap/0', '5/no_cap/0', 'completed', 'index'])
 ],
     ids=['peptide_plan_tuple_3', 'peptide_plan_tuple_4', 'peptide_plan_tuple_5'])
 def array_data(request):
@@ -121,6 +121,14 @@ def recursive_search(group, group_name):
             found_datasets.extend(recursive_search(obj, group_name))
 
     return found_datasets
+
+
+def remove_meta_data_datasets(repo, datasets):
+    for dataset in list(datasets):
+        if repo.INDEX_DATASET in dataset:
+            datasets.remove(dataset)
+        elif repo.COMPLETE_DATASET in dataset:
+            datasets.remove(dataset)
 
 
 def test_serialize_deserialize(list1):
@@ -185,7 +193,7 @@ def test_hdf5_obj_repository_save(obj_repository_w_saved_data):
 
     # verify datasets have been made properly
     with hdf5.HDF5File() as file:
-        found_datasets = recursive_search(file[repo.GROUP], repo.GROUP)
+        found_datasets = sorted(recursive_search(file[repo.GROUP], repo.GROUP))
         assert found_datasets == datasets
         assert len(file[repo.GROUP][datasets[0]]) == len(dicts)
 
@@ -313,9 +321,7 @@ def test_hdf5_obj_repository_get_datasets(obj_repository_w_saved_data):
 
     with hdf5.HDF5File() as file:
         found_datasets = recursive_search(file[repo.GROUP], repo.GROUP)
-        for dataset in list(found_datasets):
-            if repo.INDEX_DATASET in dataset:
-                found_datasets.remove(dataset)
+        remove_meta_data_datasets(repo, found_datasets)
 
     assert repo.get_datasets() == found_datasets
 
@@ -325,9 +331,7 @@ def test_hdf5_array_repository_get_datasets(array_repository_w_saved_data):
 
     with hdf5.HDF5File() as file:
         found_datasets = recursive_search(file[repo.GROUP], repo.GROUP)
-        for dataset in list(found_datasets):
-            if repo.INDEX_DATASET in dataset:
-                found_datasets.remove(dataset)
+        remove_meta_data_datasets(repo, found_datasets)
 
     assert repo.get_datasets() == found_datasets
 
@@ -487,9 +491,7 @@ def test_hdf5_obj_repository_deactivate_records(obj_repository_w_inactive_record
 
     found_datasets = repo.get_datasets()
     num_records = repo.get_num_records()
-    for dataset in list(datasets):
-        if repo.INDEX_DATASET in dataset:
-            datasets.remove(dataset)
+    remove_meta_data_datasets(repo, datasets)
 
     assert found_datasets != datasets
     assert num_records != len(ids)
@@ -502,9 +504,7 @@ def test_hdf5_array_repository_deactivate_records(array_repository_w_inactive_re
 
     found_datasets = repo.get_datasets()
     num_records = repo.get_num_records()
-    for dataset in list(datasets):
-        if repo.INDEX_DATASET in dataset:
-            datasets.remove(dataset)
+    remove_meta_data_datasets(repo, datasets)
 
     assert found_datasets != datasets
     assert num_records != len(ids)
@@ -519,9 +519,7 @@ def test_hdf5_obj_repository_activate_records(obj_repository_w_inactive_records)
 
     found_datasets = repo.get_datasets()
     num_records = repo.get_num_records()
-    for dataset in list(datasets):
-        if repo.INDEX_DATASET in dataset:
-            datasets.remove(dataset)
+    remove_meta_data_datasets(repo, datasets)
 
     assert found_datasets == datasets
     assert num_records == len(ids)
@@ -536,9 +534,7 @@ def test_hdf5_array_repository_activate_records(array_repository_w_inactive_reco
 
     found_datasets = repo.get_datasets()
     num_records = repo.get_num_records()
-    for dataset in list(datasets):
-        if repo.INDEX_DATASET in dataset:
-            datasets.remove(dataset)
+    remove_meta_data_datasets(repo, datasets)
 
     assert found_datasets == datasets
     assert num_records == len(ids)

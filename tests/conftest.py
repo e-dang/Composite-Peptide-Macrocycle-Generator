@@ -10,6 +10,7 @@ import cpmg.models as models
 from cpmg.initializer import CPMGInitializer
 from cpmg.exporters import RegioSQMExporter
 from data.mols import *
+from itertools import chain
 
 
 def add_ids(data):
@@ -132,7 +133,7 @@ def extract_attr_from_dicts():
 
 @pytest.fixture()
 def connection_dicts(dict_sort_key):
-    return sorted(TEST_CONNECTIONS, key=dict_sort_key)
+    return sorted(deepcopy(TEST_CONNECTIONS), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -142,7 +143,7 @@ def connection_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def backbone_dicts(dict_sort_key):
-    return sorted(TEST_BACKBONES, key=lambda x: x['mapped_kekule'])
+    return sorted(deepcopy(TEST_BACKBONES), key=lambda x: x['mapped_kekule'])
 
 
 @pytest.fixture()
@@ -152,7 +153,7 @@ def backbone_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def template_dicts(dict_sort_key):
-    return sorted(TEST_TEMPLATES, key=dict_sort_key)
+    return sorted(deepcopy(TEST_TEMPLATES), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -162,7 +163,7 @@ def template_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def sidechain_dicts(dict_sort_key):
-    return sorted(TEST_SIDECHAINS, key=dict_sort_key)
+    return sorted(deepcopy(TEST_SIDECHAINS), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -182,22 +183,22 @@ def monomer_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def peptide_len_3_dicts(dict_sort_key):
-    return sorted(TEST_PEPTIDES_LEN_3, key=dict_sort_key)
+    return sorted(deepcopy(TEST_PEPTIDES_LEN_3), key=dict_sort_key)
 
 
 @pytest.fixture()
 def peptide_len_4_dicts(dict_sort_key):
-    return sorted(TEST_PEPTIDES_LEN_4, key=dict_sort_key)
+    return sorted(deepcopy(TEST_PEPTIDES_LEN_4), key=dict_sort_key)
 
 
 @pytest.fixture()
 def peptide_len_5_dicts(dict_sort_key):
-    return sorted(TEST_PEPTIDES_LEN_5, key=dict_sort_key)
+    return sorted(deepcopy(TEST_PEPTIDES_LEN_5), key=dict_sort_key)
 
 
 @pytest.fixture()
 def peptide_dicts(dict_sort_key):
-    return sorted(TEST_PEPTIDES_LEN_3 + TEST_PEPTIDES_LEN_4 + TEST_PEPTIDES_LEN_5, key=dict_sort_key)
+    return sorted(deepcopy(TEST_PEPTIDES_LEN_3 + TEST_PEPTIDES_LEN_4 + TEST_PEPTIDES_LEN_5), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -207,22 +208,22 @@ def peptide_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def template_peptide_len_3_dicts(dict_sort_key):
-    return sorted(TEST_TEMPLATE_PEPTIDES_LEN_3, key=dict_sort_key)
+    return sorted(deepcopy(TEST_TEMPLATE_PEPTIDES_LEN_3), key=dict_sort_key)
 
 
 @pytest.fixture()
 def template_peptide_len_4_dicts(dict_sort_key):
-    return sorted(TEST_TEMPLATE_PEPTIDES_LEN_4, key=dict_sort_key)
+    return sorted(deepcopy(TEST_TEMPLATE_PEPTIDES_LEN_4), key=dict_sort_key)
 
 
 @pytest.fixture()
 def template_peptide_len_5_dicts(dict_sort_key):
-    return sorted(TEST_TEMPLATE_PEPTIDES_LEN_5, key=dict_sort_key)
+    return sorted(deepcopy(TEST_TEMPLATE_PEPTIDES_LEN_5), key=dict_sort_key)
 
 
 @pytest.fixture()
 def template_peptide_dicts(dict_sort_key):
-    return sorted(TEST_TEMPLATE_PEPTIDES_LEN_3 + TEST_TEMPLATE_PEPTIDES_LEN_4 + TEST_TEMPLATE_PEPTIDES_LEN_5, key=dict_sort_key)
+    return sorted(deepcopy(TEST_TEMPLATE_PEPTIDES_LEN_3 + TEST_TEMPLATE_PEPTIDES_LEN_4 + TEST_TEMPLATE_PEPTIDES_LEN_5), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -232,7 +233,7 @@ def template_peptide_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def macrocycle_dicts(dict_sort_key):
-    return sorted(TEST_MACROCYCLES, key=dict_sort_key)
+    return sorted(deepcopy(TEST_MACROCYCLES), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -242,7 +243,7 @@ def macrocycle_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def reaction_dicts(dict_sort_key):
-    return sorted(TEST_REACTIONS, key=dict_sort_key)
+    return sorted(deepcopy(TEST_REACTIONS), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -252,12 +253,12 @@ def reaction_w_id_dicts(dict_sort_key):
 
 @pytest.fixture()
 def regiosqm_dicts(dict_sort_key):
-    return sorted(TEST_REGIOSQM_PREDICTIONS, key=dict_sort_key)
+    return sorted(deepcopy(TEST_REGIOSQM_PREDICTIONS), key=dict_sort_key)
 
 
 @pytest.fixture()
 def pka_dicts(dict_sort_key):
-    return sorted(TEST_PKA_PREDICTIONS, key=dict_sort_key)
+    return sorted(deepcopy(TEST_PKA_PREDICTIONS), key=dict_sort_key)
 
 
 @pytest.fixture()
@@ -404,5 +405,8 @@ def peptide_plans(request):
 @pytest.fixture(params=['peptide_plan_tuple_len_3', 'peptide_plan_tuple_len_4', 'peptide_plan_tuple_len_5'])
 def peptide_plans_w_ids(request):
     plan_tup = request.getfixturevalue(request.param)
-    peptide_plan = models.PeptidePlan.from_array_tuple(plan_tup.length, add_ids_to_peptide_plan_tuple(plan_tup))
-    return peptide_plan
+    data = []
+    for combo in plan_tup.reg_combos + plan_tup.cap_combos:
+        data.append((str(uuid.uuid4()), combo))
+
+    return data

@@ -6,7 +6,7 @@ import cpmg.data_handlers as handlers
 import cpmg.models as models
 from data.mols import *
 
-REPO_SPEC = ['load', 'save', 'deactivate_records']
+REPO_SPEC = ['load', 'save', 'mark_complete']
 
 
 def extract_ids(data):
@@ -63,7 +63,7 @@ def peptide_repo(peptide_w_id_mols):
     mock_peptide_repo = mock.MagicMock(spec=REPO_SPEC)
     mock_peptide_repo.load.return_value = peptide_w_id_mols
     mock_peptide_repo.save.return_value = Key(extract_ids(peptide_w_id_mols))
-    mock_peptide_repo.deactivate_records.return_value = True
+    mock_peptide_repo.mark_complete.return_value = True
     with mock.patch('cpmg.repository.create_peptide_repository', return_value=mock_peptide_repo):
         yield mock_peptide_repo
 
@@ -109,8 +109,8 @@ def peptide_data_handler_loaded_repos(monomer_repo, peptide_plan_repo, peptide_r
     plan_repo, peptide_plan = peptide_plan_repo
     handler = handlers.PeptideDataHandler()
 
-    key = Key(WholeRange(), peptide_length=peptide_plan.reg_length)
-    yield handler, list(handler.load(peptide_plan_key=key)), monomer_repo, plan_repo, peptide_repo, peptide_plan
+    key = Key(WholeRange(), peptide_length=min([len(combo) for combo in peptide_plan[1]]))
+    yield handler, list(handler.load(peptide_plan_key=key)), monomer_repo, plan_repo, peptide_repo, peptide_plan, key
 
 
 def test_sidechain_data_handler_load(sidechain_repo, connection_repo, sidechain_w_id_mols):
@@ -162,7 +162,7 @@ def test_monomer_data_handler_save(monomer_w_idx_mols, monomer_repo):
 
 
 def test_peptide_data_handler_load(peptide_data_handler_loaded_repos):
-    _, data, monomer_repo, plan_repo, _, peptide_plan = peptide_data_handler_loaded_repos
+    _, data, monomer_repo, plan_repo, _, peptide_plan, key = peptide_data_handler_loaded_repos
 
     data_indices = []
     for monomer_combination, _ in data:
@@ -180,7 +180,7 @@ def test_peptide_data_handler_load(peptide_data_handler_loaded_repos):
     assert len(data) == len(peptide_plan)
     assert data_indices == plan_indices
     for monomer_combination, peptide_length in data:
-        assert peptide_length == peptide_plan.reg_length
+        assert peptide_length == key.peptide_length
         for monomer in monomer_combination:
             assert isinstance(monomer, models.Monomer)
 

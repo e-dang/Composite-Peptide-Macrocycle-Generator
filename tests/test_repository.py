@@ -1,6 +1,7 @@
 import pytest
 
 import cpmg.repository as repo
+import cpmg.utils as utils
 from data.mols import *
 
 
@@ -211,15 +212,11 @@ def test_peptide_plan_repository(peptide_plans):
     ids = peptide_plan_repo.save(peptide_plans)
     ids.set_peptide_length(peptide_plans.reg_length)
 
-    data = peptide_plan_repo.load(ids)
+    _, data = zip(*peptide_plan_repo.load(ids))
 
-    reg_combos = set(tuple(tup[1]) for tup in data.reg_combinations)
-    cap_combos = set(tuple(tup[1]) for tup in data.cap_combinations)
-
-    assert reg_combos == peptide_plans.reg_combinations
-    assert cap_combos == peptide_plans.cap_combinations
-    assert data.reg_length == peptide_plans.reg_length
-    assert data.cap_length == peptide_plans.cap_length
+    reg_combos, cap_combos = utils.split(data, lambda x: len(x) == peptide_plans.reg_length)
+    assert set(reg_combos) == peptide_plans.reg_combinations
+    assert set(cap_combos) == peptide_plans.cap_combinations
 
 
 def test_get_all_repository_strings():
