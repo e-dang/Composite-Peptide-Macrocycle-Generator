@@ -12,11 +12,12 @@ import numpy as np
 
 import cpmg.config as config
 import cpmg.utils as utils
-from cpmg.ranges import IndexKey, Key, Range, WholeRange
+from cpmg.ranges import IndexKey, Key, Range, WholeRange, DiscreteDataChunk
 import cpmg.models as models
 
 
 def serialize(data):
+    data['_id'] = str(uuid.uuid4())
     return pickle.dumps(data).hex()
 
 
@@ -78,7 +79,9 @@ class IDFinder:
 class AbstractHDF5RepositoryImpl:
     GROUP = None
     DEFAULT_INDICES = None
+    COMPLETE_DATASET = 'completed'
     INDEX_DATASET = 'index'
+    ENCODING = 'ascii'
     INDENT = '   '
 
     def __repr__(self):
@@ -103,6 +106,7 @@ class AbstractHDF5RepositoryImpl:
 
         group = file.create_group(self.GROUP)
         self._init_index(group)
+        self._init_completed_dataset(group)
 
     def load(self, key):
         group = self._refine_group_from_key(self.GROUP, key)
@@ -181,6 +185,20 @@ class AbstractHDF5RepositoryImpl:
             for record_index, _id in zip(self._extract_index_data(index, data), ids):
                 index_dataset.attrs[record_index] = _id
 
+    def mark_complete(self, ids):
+        with HDF5File() as file:
+            completed_ids = np.array([_id.encode(self.ENCODING) for _id in ids])
+            dataset = file[self.GROUP][self.COMPLETE_DATASET]
+            dataset_len = len(dataset)
+            dataset.resize((dataset_len + len(ids), ))
+            dataset[dataset_len:] = completed_ids
+
+    def clean_completed(self):
+        self._load_completed()
+        self.deactivate_records(Key(self.completed))
+        with HDF5File() as file:
+            del file[self.GROUP][self.COMPLETE_DATASET]
+
     def _save(self, group, data, ids=None):
         """
         To be overriden by subclasses
@@ -202,6 +220,13 @@ class AbstractHDF5RepositoryImpl:
             if index not in self.indices:
                 self._create_index_dataset(group, indices_dataset, index)
 
+    def _init_completed_dataset(self, group):
+        try:
+            group.create_dataset(self.COMPLETE_DATASET, shape=(0,), maxshape=(None,), chunks=True,
+                                 dtype='S36', compression=config.COMPRESSION, compression_opts=config.COMPRESSION_OPTS)
+        except OSError:
+            pass
+
     def _create_index_dataset(self, group, indices_dataset, index):
         index_name = '_'.join([index, self.INDEX_DATASET])
         indices_dataset.attrs[index] = index_name
@@ -220,10 +245,16 @@ class AbstractHDF5RepositoryImpl:
         return num_records
 
     def _load(self, group, key):
+        self._load_completed()
         if isinstance(key.key, IndexKey):
             return self._load_from_ids(group, self._convert_to_id_key(key))
         else:
             return self._load_from_range(group, key)
+
+    def _load_completed(self):
+        if not hasattr(self, 'completed'):
+            with HDF5File(mode='r') as file:
+                self.completed = set(_id.decode(self.ENCODING) for _id in file[self.GROUP][self.COMPLETE_DATASET])
 
     def _convert_to_id_key(self, key):
         if key.index == 'id':
@@ -252,7 +283,7 @@ class AbstractHDF5RepositoryImpl:
                     if key in Range(range_index, range_index + len(dataset)):
                         # items must be sorted manually until track_order argument is fixed in h5py
                         for _id, idx in sorted(dataset.attrs.items(), key=lambda x: x[1]):
-                            if range_index in key:
+                            if range_index in key and _id not in self.completed:
                                 yield self._get_record(dataset, idx, _id)
                             range_index += 1
                     else:
@@ -275,7 +306,7 @@ class AbstractHDF5RepositoryImpl:
         paths = []
 
         def find_dataset_path(name, obj):
-            if isinstance(obj, h5py.Dataset) and self.INDEX_DATASET not in name:
+            if isinstance(obj, h5py.Dataset) and self.INDEX_DATASET not in name and self.COMPLETE_DATASET not in name:
                 paths.append(name)
 
         group.visititems(find_dataset_path)
@@ -371,7 +402,6 @@ class AbstractHDF5RepositoryImpl:
 
 
 class HDF5ObjRepositoryImpl(AbstractHDF5RepositoryImpl):
-    ENCODING = 'ascii'
 
     def _save(self, group, data, ids=None):
         serialized_data = serialize_chunk(data)
@@ -435,7 +465,7 @@ class HDF5ArrayRepositoryImpl(AbstractHDF5RepositoryImpl):
         return used_ids
 
     def _get_record(self, dataset, idx, _id):
-        return (_id, dataset[idx])
+        return (_id, tuple(dataset[idx]))
 
     def _chunkify(self, data):
         start = 0
