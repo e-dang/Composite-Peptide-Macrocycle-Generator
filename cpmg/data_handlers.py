@@ -102,7 +102,7 @@ class PeptideDataHandler(AbstractDataHandler):
             indices = tuple(self.id_hash[monomer['_id']] for monomer in peptide.monomers)
             completed_combos.append(self.hashed_plan[indices])
 
-        self.plan_repo.deactivate_records(Key(completed_combos))
+        self.plan_repo.mark_complete(Key(completed_combos))
         return self.saver.save(data)
 
     def estimate_num_records(self):
@@ -131,7 +131,7 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
 
     def save(self, data):
         completed_peptides = set(template_peptide.peptide['_id'] for template_peptide in data)
-        self.peptide_repo.deactivate_records(Key(completed_peptides))
+        self.peptide_repo.mark_complete(Key(completed_peptides))
         return self.saver.save(data)
 
     def estimate_num_records(self):
@@ -156,7 +156,7 @@ class MacrocycleDataHandler(AbstractDataHandler):
 
     def save(self, data):
         completed_template_peptides = set(macrocycle.template_peptide for macrocycle in data)
-        self.template_peptide_repo.deactivate_records(Key(completed_template_peptides))
+        self.template_peptide_repo.mark_complete(Key(completed_template_peptides))
         return self.saver.save(data)
 
     def estimate_num_records(self):
