@@ -183,8 +183,6 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
                     if self.timer.is_near_complete():
                         break
 
-                break
-
         self.result_buffer.flush()
         return self.result_buffer.ids
 
