@@ -98,6 +98,7 @@ class ResultBuffer:
             self.flush()
 
     def flush(self):
+        print('flushing')
         self.ids.extend(self.saver.save(self.buffer))
         self.buffer = []
 
@@ -156,13 +157,12 @@ class SingleProcessOrchestrator(AbstractOrchestratorImpl):
     STRING = LEVEL_0
 
     def execute(self, **operation_parameters):
-        for chunk in self._chunkify(self.handler.load(**operation_parameters)):
-            for args in chunk:
-                for record in self.generator.generate(*args):
-                    self.result_buffer.add(record)
+        for args in self.handler.load(**operation_parameters):
+            for record in self.generator.generate(*args):
+                self.result_buffer.add(record)
 
-                if self.timer.is_near_complete():
-                    break
+            if self.timer.is_near_complete():
+                break
 
         self.result_buffer.flush()
         return self.result_buffer.ids
@@ -180,8 +180,8 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
                     for record in result:
                         self.result_buffer.add(record)
 
-                    if self.timer.is_near_complete():
-                        break
+                if self.timer.is_near_complete():
+                    break
 
         self.result_buffer.flush()
         return self.result_buffer.ids
@@ -202,8 +202,8 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
                             self.result_buffer.add(record)
                             break
 
-                        if self.timer.is_near_complete():
-                            break
+                    if self.timer.is_near_complete():
+                        break
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             self.result_buffer.flush()
