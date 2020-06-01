@@ -6,7 +6,11 @@ from cpmg.timer import GlobalTimer
 
 
 def execute(command_line_args):
-    GlobalTimer.instance(time_allocation=command_line_args.time, buffer_time=command_line_args.buffer_time).start()
+    timer = GlobalTimer.instance(time_allocation=command_line_args.time, buffer_time=command_line_args.buffer_time)
+    timer.start()
+    if timer.is_near_complete():
+        return []
+
     p.Parallelism.set_level(command_line_args.parallelism)
     params = o.ExecutionParameters(vars(command_line_args))
     orchestrator = o.Orchestrator.from_execution_parameters(params)
