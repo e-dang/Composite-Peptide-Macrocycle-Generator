@@ -5,13 +5,13 @@ from cpmg.exceptions import TimerAlreadyStarted, TimerNotStarted
 
 class GlobalTimer:
 
-    def __init__(self, time_allocation=None, buffer_time=300):  # buffer time is 5 minutes
+    def __init__(self, time_allocation=None, buffer_time=600):  # buffer time is 10 minutes
         self.__start_time = None
         self.time_allocation = time_allocation or -1
         self.buffer_time = buffer_time
 
     @classmethod
-    def instance(cls, time_allocation=None, buffer_time=300):
+    def instance(cls, time_allocation=None, buffer_time=600):
         if not hasattr(cls, '_instance'):
             cls._instance = cls(time_allocation=time_allocation, buffer_time=buffer_time)
         return cls._instance
