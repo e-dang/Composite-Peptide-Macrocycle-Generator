@@ -250,6 +250,7 @@ class AbstractHDF5RepositoryImpl:
             return self._load_from_ids(group, self._convert_to_id_key(key))
         else:
             return self._load_from_range(group, key)
+        delattr(self, 'completed')
 
     def _load_completed(self):
         if not hasattr(self, 'completed'):
