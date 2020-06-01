@@ -175,10 +175,11 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
 
         with multiprocessing.Pool(processes=config.NUM_PROCS, maxtasksperchild=config.TASKS_PER_CHILD) as pool:
             for chunk in self._chunkify(self.handler.load(**operation_parameters)):
-                future = pool.starmap_async(self.generator.generate, chunk)
-                for result in future.get():
-                    for record in result:
-                        self.result_buffer.add(record)
+                if len(chunk) > 0:
+                    future = pool.starmap_async(self.generator.generate, chunk)
+                    for result in future.get():
+                        for record in result:
+                            self.result_buffer.add(record)
 
                 if self.timer.is_near_complete():
                     break
@@ -196,11 +197,14 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
         with MPICommExecutor() as executor:
             if executor is not None:
                 for chunk in self._chunkify(self.handler.load(**operation_parameters)):
-                    for result in executor.starmap(self.generator.generate, chunk,
-                                                   chunksize=int(len(chunk) / size - 1), unordered=True):
-                        for record in result:
-                            self.result_buffer.add(record)
-                            break
+                    if len(chunk) > 0:
+                        chunksize = int(len(chunk) / size - 1)
+                        chunksize = chunksize if chunksize > 0 else len(chunk)
+                        for result in executor.starmap(self.generator.generate, chunk,
+                                                       chunksize=chunksize, unordered=True):
+                            for record in result:
+                                self.result_buffer.add(record)
+                                break
 
                     if self.timer.is_near_complete():
                         break
