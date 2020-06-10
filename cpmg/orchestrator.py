@@ -204,7 +204,6 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
                                                        chunksize=chunksize, unordered=True):
                             for record in result:
                                 self.result_buffer.add(record)
-                                break
 
                     if self.timer.is_near_complete():
                         break
