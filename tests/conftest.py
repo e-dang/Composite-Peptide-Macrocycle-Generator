@@ -49,7 +49,7 @@ def hdf5_reset():
 @pytest.fixture()
 def partial_initialized_repository():
     initializer = CPMGInitializer()
-    initializer.initialize_mols_only()
+    initializer._initialize_mols_only()
     yield None
 
 
@@ -58,7 +58,7 @@ def initialized_repository(partial_initialized_repository):
     exporter = RegioSQMExporter()
     exporter.export_regiosqm_smiles_file()
     initializer = CPMGInitializer()
-    initializer.initialize_predictions_only()
+    initializer._initialize_predictions_only()
     yield None
 
 

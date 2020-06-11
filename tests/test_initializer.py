@@ -16,7 +16,7 @@ def test_initialize_predictions_only(partial_initialized_repository):
     exporter.export_regiosqm_smiles_file()
 
     initializer = CPMGInitializer()
-    initializer.initialize_predictions_only()
+    initializer._initialize_predictions_only()
 
     assert len(list(repo.create_backbone_repository().load())) == 3
     assert len(list(repo.create_connection_repository().load())) == 2
