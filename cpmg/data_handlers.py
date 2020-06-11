@@ -39,7 +39,7 @@ class SidechainDataHandler(AbstractDataHandler):
         self.sidechain_repo = repo.create_sidechain_repository()
         super().__init__(self.sidechain_repo)
 
-    def load(self, *, sidechain_key=Key(WholeRange()), connection_key=Key(WholeRange())):
+    def load(self, *, sidechain_key=Key(WholeRange()), connection_key=Key(WholeRange()), **kwargs):
         connections = list(self.connection_repo.load(connection_key))
         for sidechain in self.sidechain_repo.load(sidechain_key):
             yield SidechainDataHandlerTuple(sidechain, list(filter(lambda x: x.kekule != sidechain.connection, connections)))
@@ -56,7 +56,7 @@ class MonomerDataHandler(AbstractDataHandler):
         self.sidechain_repo = repo.create_sidechain_repository()
         super().__init__(repo.create_monomer_repository())
 
-    def load(self, sidechain_key=Key(WholeRange()), backbone_key=Key(WholeRange())):
+    def load(self, sidechain_key=Key(WholeRange()), backbone_key=Key(WholeRange()), **kwargs):
         backbones = list(self.backbone_repo.load(backbone_key))
         for sidechain in self.sidechain_repo.load(sidechain_key):
             yield MonomerDataHandlerTuple(sidechain, backbones)
@@ -72,7 +72,7 @@ class PeptidePlanDataHandler(AbstractDataHandler):
         self.monomer_repo = repo.create_monomer_repository()
         super().__init__(repo.create_peptide_plan_repository())
 
-    def load(self, *, peptide_length, num_records, monomer_key=Key(WholeRange())):
+    def load(self, *, peptide_length, num_records, monomer_key=Key(WholeRange()), **kwargs):
         yield PeptidePlanDataHandlerTuple(list(self.monomer_repo.load(monomer_key)), peptide_length, num_records)
 
     def estimate_num_records(self):
@@ -87,7 +87,7 @@ class PeptideDataHandler(AbstractDataHandler):
         self.monomer_repo = repo.create_monomer_repository()
         super().__init__(repo.create_peptide_repository())
 
-    def load(self, *, peptide_plan_key, monomer_key=Key(WholeRange())):
+    def load(self, *, peptide_plan_key, monomer_key=Key(WholeRange()), **kwargs):
         self._hash_monomers(monomer_key)
 
         self.hashed_plan = {}
@@ -124,7 +124,7 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
         self.peptide_repo = repo.create_peptide_repository()
         super().__init__(repo.create_template_peptide_repository())
 
-    def load(self, *, peptide_key, template_key=Key(WholeRange())):
+    def load(self, *, peptide_key, template_key=Key(WholeRange()), **kwargs):
         templates = list(self.template_repo.load(template_key))
         for peptide in list(self.peptide_repo.load(peptide_key)):
             yield TemplatePeptideDataHandlerTuple(peptide, templates)
@@ -150,7 +150,7 @@ class MacrocycleDataHandler(AbstractDataHandler):
         self.template_peptide_repo = repo.create_template_peptide_repository()
         super().__init__(repo.create_macrocycle_repository())
 
-    def load(self, *, template_peptide_key, reaction_key=Key(WholeRange())):
+    def load(self, *, template_peptide_key, reaction_key=Key(WholeRange()), **kwargs):
         self._hash_reactions(reaction_key)
         return self._match_reactions(template_peptide_key)
 
@@ -227,7 +227,7 @@ class ConformerDataHandler(AbstractDataHandler):
         self.macrocycle_repo = repo.create_macrocycle_repository()
         super().__init__(repo.create_conformer_repository())
 
-    def load(self, macrocycle_key):
+    def load(self, macrocycle_key, **kwargs):
         for macrocycle in self.macrocycle_repo.load(macrocycle_key):
             yield ConformerDataHandlerTuple(macrocycle)
 
@@ -249,7 +249,7 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
         self.template_repo = repo.create_template_repository()
         super().__init__(repo.create_reaction_repository())
 
-    def load(self, sidechain_key=Key(WholeRange()), monomer_key=Key(WholeRange()), template_key=Key(WholeRange())):
+    def load(self, sidechain_key=Key(WholeRange()), monomer_key=Key(WholeRange()), template_key=Key(WholeRange()), **kwargs):
         templates = list(self.template_repo.load(template_key))
         for nucleophile in self._get_filtered_sidechains(sidechain_key) + self._get_filtered_monomers(monomer_key):
             yield InterMolecularReactionDataHandlerTuple(nucleophile, templates)
@@ -271,7 +271,7 @@ class IntraMolecularReactionDataHandler(AbstractDataHandler):
         self.template_repo = repo.create_template_repository()
         super().__init__(repo.create_reaction_repository())
 
-    def load(self, template_key=Key(WholeRange())):
+    def load(self, template_key=Key(WholeRange()), **kwargs):
         for reacting_mol in self.template_repo.load(template_key):
             yield IntraMolecularReactionDataHandlerTuple(reacting_mol)
 
