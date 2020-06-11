@@ -195,9 +195,10 @@ class AbstractHDF5RepositoryImpl:
 
     def deactivate_completed(self):
         self._load_completed()
-        self.deactivate_records(Key(self.completed))
-        with HDF5File() as file:
-            del file[self.GROUP][self.COMPLETE_DATASET]
+        if len(self.completed):
+            self.deactivate_records(Key(self.completed))
+            with HDF5File() as file:
+                del file[self.GROUP][self.COMPLETE_DATASET]
 
     def _save(self, group, data, ids=None):
         """
