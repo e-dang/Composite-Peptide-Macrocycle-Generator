@@ -29,9 +29,9 @@ class ConnectionImporter:
         self.loader = loader
         self.saver = repo.create_connection_repository()
 
-    def import_data(self):
+    def import_data(self, filepath=None):
         data = [models.Connection.from_mol(Chem.MolFromSmiles(connection['kekule']))
-                for connection in self.loader.load(self.saver.TYPE.STRING)]
+                for connection in self.loader.load(filepath or self.saver.TYPE.STRING)]
         return self.saver.save(data)
 
 
@@ -40,9 +40,9 @@ class BackboneImporter:
         self.loader = loader
         self.saver = repo.create_backbone_repository()
 
-    def import_data(self):
+    def import_data(self, filepath=None):
         data = []
-        for backbone in self.loader.load(self.saver.TYPE.STRING):
+        for backbone in self.loader.load(filepath or self.saver.TYPE.STRING):
             backbone['binary'] = Chem.MolFromSmiles(backbone['mapped_kekule']).ToBinary()
             data.append(models.Backbone.from_dict(backbone))
 
@@ -54,9 +54,9 @@ class TemplateImporter:
         self.loader = loader
         self.saver = repo.create_template_repository()
 
-    def import_data(self):
+    def import_data(self, filepath=None):
         data = []
-        for template in self.loader.load(self.saver.TYPE.STRING):
+        for template in self.loader.load(filepath or self.saver.TYPE.STRING):
             template['binary'] = Chem.MolFromSmiles(template['kekule']).ToBinary()
             data.append(models.Template.from_dict(template))
 
@@ -68,12 +68,12 @@ class SidechainImporter:
         self.loader = loader
         self.saver = repo.create_sidechain_repository()
 
-    def import_data(self):
+    def import_data(self, filepath=None):
         self._load_connections()
         self._check_connections()
 
         data = []
-        for sidechain in self.loader.load(self.saver.TYPE.STRING):
+        for sidechain in self.loader.load(filepath or self.saver.TYPE.STRING):
             if sidechain['connection'] not in self.connections:
                 print(f'Skipping sidechain with unrecognized connection. Sidechain - {sidechain}')
                 continue
@@ -102,13 +102,13 @@ class MonomerImporter:
         self.loader = loader
         self.saver = repo.create_monomer_repository()
 
-    def import_data(self):
+    def import_data(self, filepath=None):
         self._load_backbones()
         self._check_backbones()
         mock_sidechain = namedtuple('sidechain', 'shared_id connection')
 
         data = []
-        for monomer in self.loader.load(self.saver.TYPE.STRING):
+        for monomer in self.loader.load(filepath or self.saver.TYPE.STRING):
             data.append(models.Monomer.from_mol(Chem.MolFromSmiles(
                 monomer['kekule']), self._match_backbone(monomer['backbone']), mock_sidechain(None, None), True))
 
@@ -139,11 +139,11 @@ class RegioSQMPredictionImporter:
         self.solvent = solvent
         self.cutoff = cutoff
 
-    def import_data(self):
+    def import_data(self, filepath=None):
         self._hash_mols()
 
         data = []
-        for row, text in enumerate(utils.load_csv(config.REGIOSQM_RESULTS_FILEPATH)):
+        for row, text in enumerate(utils.load_csv(filepath or config.REGIOSQM_RESULTS_FILEPATH)):
             if row % 3 == 0:
                 idx = text[0]
             elif row % 3 == 1:
@@ -177,10 +177,10 @@ class pKaPredictionImporter:
         self.saver = repo.create_pka_repository()
         self.solvent = solvent
 
-    def import_data(self):
+    def import_data(self, filepath=None):
 
         data = []
-        for row in utils.load_text(os.path.join(config.IMPORT_DIR, 'pkas.txt')):
+        for row in utils.load_text(os.path.join(filepath or config.IMPORT_DIR, 'pkas.txt')):
             smiles, pkas = row.split(';')
             smiles = smiles.strip(' ')
             pkas = list(map(float, pkas.strip('\n').strip(' ').split(',')))
