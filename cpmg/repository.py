@@ -47,6 +47,9 @@ class AbstractRepository:
     def mark_complete(self, ids):
         self.impl.mark_complete(ids)
 
+    def deactivate_completed(self):
+        self.impl.deactivate_completed()
+
     def _check_type(self, data):
         for model in data:
             if not isinstance(model, self.TYPE):

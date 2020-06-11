@@ -193,7 +193,7 @@ class AbstractHDF5RepositoryImpl:
             dataset.resize((dataset_len + len(ids), ))
             dataset[dataset_len:] = completed_ids
 
-    def clean_completed(self):
+    def deactivate_completed(self):
         self._load_completed()
         self.deactivate_records(Key(self.completed))
         with HDF5File() as file:
