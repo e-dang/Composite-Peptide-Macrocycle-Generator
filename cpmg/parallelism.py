@@ -28,11 +28,12 @@ class Parallelism:
 
     @classmethod
     def set_level(cls, level):
-        if cls.__LEVEL == None and level in cls.__LEVELS:
-            cls.__LEVEL = level
-            if level == LEVEL_2:
-
-                MPI.Init_thread()
-                atexit.register(MPI.Finalize)
-        else:
+        if cls.__LEVEL != None:
             raise ParallelismAlreadySet('Can not reset the parallelism level when it has already been set.')
+        if level not in cls.__LEVELS:
+            raise ValueError(f'Unrecognized parallelism option! Valid choices are {cls.__LEVELS}')
+
+        cls.__LEVEL = level
+        if level == LEVEL_2:
+            MPI.Init_thread()
+            atexit.register(MPI.Finalize)
