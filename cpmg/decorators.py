@@ -5,7 +5,7 @@ from itertools import chain, combinations, product
 
 from rdkit import Chem
 
-import macrocycles.utils as utils
+import cpmg.utils as utils
 from cpmg.models import CARBOXYL
 
 
