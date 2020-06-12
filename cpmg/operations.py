@@ -51,6 +51,9 @@ def get_calculation_from_string(string):
 
 def pca_convex_hull(filepath, output):
     from scipy.spatial import ConvexHull
+    import numpy as np
+    import csv
+
     set_to_array = lambda set_data: np.array([np.array(list(point)) for point in set_data])
 
     points = {}
