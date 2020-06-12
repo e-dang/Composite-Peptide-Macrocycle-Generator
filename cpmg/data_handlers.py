@@ -279,6 +279,20 @@ class IntraMolecularReactionDataHandler(AbstractDataHandler):
         return self.template_repo.get_num_records()
 
 
+class DataHandlerWrapper:
+    def __init__(self, repo, output_func, filepath):
+        self.repo = repo
+        self.output_func = output_func
+        self.filepath = filepath
+
+    def load(self, key):
+        for record in self.repo.load(key):
+            yield (record,)
+
+    def save(self, data):
+        return self.output_func(data, utils.rotate_file(self.filepath))
+
+
 get_all_handler_strings = utils.get_module_strings(__name__)
 
 create_handler_from_string = utils.create_factory_function_closure(__name__, 'handler')
