@@ -15,14 +15,11 @@ from cpmg.exceptions import InvalidChunkSize
 
 
 class ExecutionParameters:
-    def __init__(self, command_line_args):
-        command_line_args.pop('func')
-        command_line_args.pop('time')
-        command_line_args.pop('buffer_time')
-        self.operation = command_line_args.pop('operation')
-        self.parallelism = command_line_args.pop('parallelism')
-        self.chunk_size = command_line_args.pop('chunk_size')
-        self.operation_parameters = self.__extract_operation_parameters(command_line_args)
+    def __init__(self, *, record_type, parallelism, chunk_size, **kwargs):
+        self.operation = record_type
+        self.parallelism = parallelism
+        self.chunk_size = chunk_size
+        self.operation_parameters = self.__extract_operation_parameters(kwargs)
 
     def __extract_operation_parameters(self, command_line_args):
         if self.operation == g.SidechainModifier.STRING:
@@ -99,7 +96,13 @@ class ResultBuffer:
 
     def flush(self):
         print('flushing')
-        self.ids.extend(self.saver.save(self.buffer))
+        ret_val = self.saver.save(self.buffer)
+
+        try:
+            self.ids.extend(ret_val)
+        except TypeError:
+            pass
+
         self.buffer = []
 
     def _validate_chunk_size(self):
@@ -113,9 +116,7 @@ class Orchestrator:
         self.impl = impl
 
     @classmethod
-    def from_strings(cls, parallelism, operation, chunk_size=None):
-        generator = g.create_generator_from_string(operation)
-        handler = h.create_handler_from_string(operation)
+    def from_objects(cls, parallelism, generator, handler, chunk_size=None):
         if parallelism == SingleProcessOrchestrator.STRING:
             return cls(SingleProcessOrchestrator(generator, handler, chunk_size=chunk_size))
 
@@ -124,6 +125,12 @@ class Orchestrator:
 
         if parallelism == DistributedOrchestrator.STRING:
             return cls(DistributedOrchestrator(generator, handler, chunk_size=chunk_size))
+
+    @classmethod
+    def from_strings(cls, parallelism, operation, chunk_size=None):
+        generator = g.create_generator_from_string(operation)
+        handler = h.create_handler_from_string(operation)
+        return cls.from_objects(parallelism, generator, handler, chunk_size=chunk_size)
 
     @classmethod
     def from_execution_parameters(cls, params):
@@ -164,7 +171,9 @@ class SingleProcessOrchestrator(AbstractOrchestratorImpl):
             if self.timer.is_near_complete():
                 break
 
-        self.result_buffer.flush()
+        if len(self.result_buffer) > 0:
+            self.result_buffer.flush()
+
         return self.result_buffer.ids
 
 
@@ -184,7 +193,9 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
                 if self.timer.is_near_complete():
                     break
 
-        self.result_buffer.flush()
+        if len(self.result_buffer) > 0:
+            self.result_buffer.flush()
+
         return self.result_buffer.ids
 
 
@@ -208,7 +219,7 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
                     if self.timer.is_near_complete():
                         break
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0 and len(self.result_buffer) > 0:
             self.result_buffer.flush()
 
         return self.result_buffer.ids
