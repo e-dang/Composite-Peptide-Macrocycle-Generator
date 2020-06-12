@@ -47,7 +47,12 @@ class WholeRange(Range):
 class DiscreteDataChunk(Range):
     def __init__(self, indices):
         self.indices = sorted(indices)
-        super().__init__(self.indices[0], self.indices[-1])
+        if len(self.indices) == 0:
+            raise ValueError('Must have at least one indice in the data chunk!')
+        elif len(self.indices) > 1:
+            super().__init__(self.indices[0], self.indices[-1])
+        else:
+            super().__init__(self.indices[0], self.indices[0] + 1)
 
     def __str__(self):
         return str(self.indices)
