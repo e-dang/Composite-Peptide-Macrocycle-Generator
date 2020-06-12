@@ -232,9 +232,9 @@ class ConformerDataHandler(AbstractDataHandler):
             yield ConformerDataHandlerTuple(macrocycle)
 
     def save(self, data):
-        ids = self.saver.save(data)
-        self.macrocycle_repo.remove_records(ids)
-        return ids
+        completed_macrocycles = set(conformer._id for conformer in data)
+        self.macrocycle_repo.mark_complete(completed_macrocycles)
+        return self.saver.save(data)
 
     def estimate_num_records(self):
         return self.macrocycle_repo.get_num_records()
