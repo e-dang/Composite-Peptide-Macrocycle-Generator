@@ -45,13 +45,6 @@ def add_selection_options(parser):
                        help='The SMILES strings of the records that will be used in the operation.')
     group.add_argument('-r', '--rand', '--random_sample', type=int, dest='rand',
                        help='Causes the specified number of records to be randomly selected for the operation.')
-    # group.add_argument('--in_order', type=int,
-    #                    help='Causes the specified number of records to be loaded in order for the operation.')
-    # parser.add_argument('-t', '--type', '--selection_type', type=str, choices=['ids', 'smiles', 'rand', 'in_order'],
-    #                     nargs='?', default='in_order', dest='selection_type',
-    #                     help='The method to use to select the desired records. ids = list of ids, smiles = list of '
-    #                     'SMILES strings, rand = random sampling (requires --num_records), in_order = loads the records '
-    #                     'in the order they were stored (optionally takes --num_records). Defaults to in_order.')
     parser.add_argument('-n', '--num', '--num_records', type=check_positive,
                         required='--rand' in sys.argv or '-r' in sys.argv, dest='num_records',
                         help='The number of records to load. Invalid option if --selection_type is "ids" or "smiles". '
@@ -89,10 +82,6 @@ def add_repository_argument(parser, default=False):
 
 def add_record_type_subparser(parser):
     return parser.add_subparsers(dest='record_type', help='The type of record to use for the selected operation.')
-
-
-def add_component_subparser(parser):
-    return parser.add_subparsers(dest='component_type', help='The type of record(s) that are components of the selected type for the selected operation.')
 
 
 def add_connection_parser(parser, selection=False):
@@ -155,7 +144,7 @@ def add_peptide_plan_parser(parser, selection=False, length=True, number=True):
     return peptide_plan_parser
 
 
-def add_peptide_parser(parser, selection=False, length=True):
+def add_peptide_parser(parser, selection=False, length=True, number=True):
     peptide_parser = parser.add_parser(g.PeptideGenerator.STRING)
 
     if selection:
@@ -164,10 +153,13 @@ def add_peptide_parser(parser, selection=False, length=True):
     if length:
         add_length_option(peptide_parser)
 
+    if number:
+        add_number_option(peptide_parser)
+
     return peptide_parser
 
 
-def add_template_peptide_parser(parser, selection=False, length=True):
+def add_template_peptide_parser(parser, selection=False, length=True, number=True):
     template_peptide_parser = parser.add_parser(g.TemplatePeptideGenerator.STRING)
 
     if selection:
@@ -176,10 +168,13 @@ def add_template_peptide_parser(parser, selection=False, length=True):
     if length:
         add_length_option(template_peptide_parser)
 
+    if number:
+        add_number_option(template_peptide_parser)
+
     return template_peptide_parser
 
 
-def add_macrocycle_parser(parser, selection=False, length=True):
+def add_macrocycle_parser(parser, selection=False, length=True, number=True):
     macrocycle_parser = parser.add_parser(g.MacrocycleGenerator.STRING)
 
     if selection:
@@ -188,10 +183,13 @@ def add_macrocycle_parser(parser, selection=False, length=True):
     if length:
         add_length_option(macrocycle_parser)
 
+    if number:
+        add_number_option(macrocycle_parser)
+
     return macrocycle_parser
 
 
-def add_conformer_parser(parser, selection=False, length=True):
+def add_conformer_parser(parser, selection=False, length=True, number=True):
     conformer_parser = parser.add_parser(g.ConformerGenerator.STRING)
 
     if selection:
@@ -199,6 +197,9 @@ def add_conformer_parser(parser, selection=False, length=True):
 
     if length:
         add_length_option(conformer_parser)
+
+    if number:
+        add_number_option(conformer_parser)
 
     return conformer_parser
 
@@ -293,18 +294,15 @@ class CalculateParser(AbstractParser):
         add_file_options(self.parser)
 
         subparser = add_record_type_subparser(self.parser)
+        add_connection_parser(subparser, selection=True)
+        add_template_parser(subparser, selection=True)
+        add_backbone_parser(subparser, selection=True)
         add_sidechain_parser(subparser, selection=True)
         add_monomer_parser(subparser, selection=True)
         add_peptide_parser(subparser, selection=True)
         add_template_peptide_parser(subparser, selection=True)
         add_macrocycle_parser(subparser, selection=True)
         add_conformer_parser(subparser, selection=True)
-        # self.parser.add_argument('record_type', type=str, choices=[m.Connection.STRING, m.Template.STRING,
-        #                                                            m.Backbone.STRING, m.Sidechain.STRING,
-        #                                                            m.Monomer.STRING, m.Peptide.STRING,
-        #                                                            m.TemplatePeptide.STRING, m.Macrocycle.STRING,
-        #                                                            m.Conformer.STRING],
-        #                          help='The type of record to perform the calculation on.')
 
     @staticmethod
     def __execute(command_line_args):
@@ -314,7 +312,6 @@ class CalculateParser(AbstractParser):
             return []
 
         p.Parallelism.set_level(command_line_args.parallelism)
-        # params = o.ExecutionParameters(**vars(command_line_args))
         key = create_selection_key(command_line_args)
         generator = g.GeneratorWrapper(ops.get_calculation_from_string(command_line_args.operation))
         handler = h.DataHandlerWrapper(r.create_repository_from_string(
