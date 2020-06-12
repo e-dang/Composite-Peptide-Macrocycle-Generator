@@ -2,6 +2,7 @@ import ast
 from functools import partial
 
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 import cpmg.repository as repo
 import cpmg.utils as utils
@@ -14,6 +15,38 @@ def conformer_to_pdb(key, filepath):
         Chem.MolToPDBFile(conformer.mol, utils.rotate_file(filepath))
 
     return True
+
+
+class CalcMW:
+    STRING = 'mw'
+
+    def __call__(self, mol):
+        return (AllChem.CalcExactMolWt(Chem.Mol(mol.binary)), )
+
+
+class CalcRB:
+    STRING = 'rb'
+
+    def __call__(self, mol):
+        return (AllChem.CalcNumRotatableBonds(Chem.Mol(mol.binary)), )
+
+
+class CalcTPSA:
+    STRING = 'tpsa'
+
+    def __call__(self, mol):
+        return (AllChem.CalcTPSA(Chem.Mol(mol.binary), includeSandP=True), )
+
+
+def get_calculation_from_string(string):
+    if string == CalcMW.STRING:
+        return CalcMW()
+
+    if string == CalcRB.STRING:
+        return CalcRB()
+
+    if string == CalcTPSA.STRING:
+        return CalcTPSA()
 
 
 class Finder:
