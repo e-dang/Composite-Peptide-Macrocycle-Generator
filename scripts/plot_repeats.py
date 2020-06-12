@@ -5,7 +5,7 @@ import glob
 import os
 import json
 from collections import Counter, defaultdict
-import macrocycles.config as config
+import cpmg.config as config
 import numpy as np
 from scipy.stats import iqr
 

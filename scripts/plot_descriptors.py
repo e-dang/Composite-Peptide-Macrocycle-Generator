@@ -4,7 +4,7 @@ from matplotlib import gridspec
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import os
-import macrocycles.config as config
+import cpmg.config as config
 from scipy.stats import iqr
 import numpy as np
 from numpy.random import rand

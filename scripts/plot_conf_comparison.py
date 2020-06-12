@@ -3,7 +3,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
 
 import matplotlib.pyplot as plt
-import macrocycles.config as config
+import cpmg.config as config
 import numpy as np
 
 

@@ -1,7 +1,7 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplc
-import macrocycles.config as config
+import cpmg.config as config
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import os
 import numpy as np
