@@ -408,6 +408,15 @@ class IntraMolecularReactionGenerator:
         return reactions
 
 
+class GeneratorWrapper:
+
+    def __init__(self, func):
+        self.func = func
+
+    def generate(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
+
+
 get_all_generator_strings = utils.get_module_strings(__name__)
 
 create_generator_from_string = utils.create_factory_function_closure(__name__, 'generator')
