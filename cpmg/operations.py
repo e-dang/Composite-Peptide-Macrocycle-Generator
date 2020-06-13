@@ -88,7 +88,7 @@ class Finder:
         self.records = []
 
     def execute(self, command_line_args):
-        self.repo = repo.create_repository_from_string(command_line_args.repo)
+        self.repo = repo.create_repository_from_string(command_line_args.repository)
         self.__load_records(command_line_args)
         projection = self.__create_projection_func(command_line_args.projection)
         self.__print_records(projection, command_line_args.chunk_size)
