@@ -38,14 +38,14 @@ echo "Generating template peptides of length 4..." &&
 echo "Generating template peptides of length 5..." &&
 ./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) template_peptide -l 5 &&
 echo "Generating macrocycles of length 3..." &&
-./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) macrocycle -l 3
+./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) macrocycle -l 3 &&
 echo "Generating macrocycles of length 4..." &&
-./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) macrocycle -l 4
+./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) macrocycle -l 4 &&
 echo "Generating macrocycles of length 5..." &&
-./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) macrocycle -l 5
+./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) macrocycle -l 5 &&
 echo "Generating conformers..." &&
 ./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) conformer -l 3
 echo "Generating conformers..." &&
-./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) conformer -l 4
+./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) conformer -l 4 &&
 echo "Generating conformers..." &&
 ./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) conformer -l 5
