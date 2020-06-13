@@ -166,7 +166,7 @@ class MacrocycleDataHandler(AbstractDataHandler):
         templates = repo.create_template_repository().load()
         ps_capable_templates = tuple(template._id for template in filter(lambda x: x.pictet_spangler_kekule, templates))
 
-        for template_peptide in list(self.template_peptide_repo.load(key)):
+        for template_peptide in self.template_peptide_repo.load(key):
             reactions = []
             sidechain_data = set(monomer['sidechain'] for monomer in template_peptide.monomers if
                                  monomer['sidechain'] is not None)
