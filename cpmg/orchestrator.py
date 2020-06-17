@@ -190,6 +190,9 @@ class MultiProcessOrchestrator(AbstractOrchestratorImpl):
                         for record in result:
                             self.result_buffer.add(record)
 
+                        if self.timer.is_near_complete():
+                            break
+
                 if self.timer.is_near_complete():
                     break
 
@@ -215,6 +218,9 @@ class DistributedOrchestrator(AbstractOrchestratorImpl):
                                                        chunksize=chunksize, unordered=True):
                             for record in result:
                                 self.result_buffer.add(record)
+
+                            if self.timer.is_near_complete():
+                                break
 
                     if self.timer.is_near_complete():
                         break
