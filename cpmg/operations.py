@@ -125,7 +125,7 @@ class Finder:
 
             return True
 
-        if self.records is None:
+        if len(self.records) == 0:
             self.__load_all_records()
 
         func = partial(filter_func, filter_criteria=filter_criteria)
