@@ -2,7 +2,7 @@ import os
 from collections import namedtuple
 
 ################################################ Directories ################################################
-PROJECT_DIR = os.environ['PROJECT_DIR']
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 # DATA_DIR = os.path.join('/u/scratch/e/ericdang', 'data')
 LOG_DIR = os.path.join(PROJECT_DIR, 'logs')
