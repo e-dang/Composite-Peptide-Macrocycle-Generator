@@ -215,7 +215,10 @@ class AbstractHDF5RepositoryImpl:
         pass
 
     def _init_index(self, group):
-        indices_dataset = group.require_dataset(self.INDEX_DATASET, shape=(0,), dtype='f', exact=True)
+        if self.INDEX_DATASET not in group:
+            indices_dataset = group.create_dataset(self.INDEX_DATASET, data=h5py.Empty("f"))
+        else:
+            indices_dataset = group[self.INDEX_DATASET]
         self.indices = dict(indices_dataset.attrs.items())
         for index in self.DEFAULT_INDICES:
             if index not in self.indices:
