@@ -89,7 +89,10 @@ class AbstractHDF5RepositoryImpl:
             path = obj.name.split('/')
             path.remove('')
             num = len(path)
-            print((self.INDENT * num) + name.split('/')[-1] + ' - ' + str(len(obj)))
+            try:
+                print((self.INDENT * num) + name.split('/')[-1] + ' - ' + str(len(obj)))
+            except TypeError:
+                print((self.INDENT * num) + name.split('/')[-1])
 
         with HDF5File() as file:
             print(f'{self.INDENT}{self.GROUP}')
