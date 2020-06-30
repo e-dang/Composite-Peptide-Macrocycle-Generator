@@ -42,7 +42,7 @@ def pka_filter(original_func):
             if reaction.type in types:
                 pkas = predictions[reaction.reacting_mol['kekule']]
                 rxn_atom = reaction.rxn_atom_idx
-                if pkas[str(rxn_atom)] < cutoff and pkas[str(rxn_atom)] > 0:
+                if pkas[str(rxn_atom)] <= cutoff and pkas[str(rxn_atom)] > 0:
                     data.append(reaction)
             else:   # filter is not applicable to this type of reaction
                 data.append(reaction)
