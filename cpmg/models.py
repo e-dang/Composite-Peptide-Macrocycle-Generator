@@ -73,9 +73,9 @@ class Backbone(AbstractMolecule):
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), mapped_kekule)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
+    def from_dict(cls, data):
         cls.validate(Chem.Mol(data['binary']))
-        return cls(data['binary'], data['kekule'], data['mapped_kekule'], _id=_id)
+        return cls(data['binary'], data['kekule'], data['mapped_kekule'], _id=data.get('_id', None))
 
     @staticmethod
     def validate(mol):
@@ -109,8 +109,8 @@ class Connection(AbstractMolecule):
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True))
 
     @classmethod
-    def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], _id=_id)
+    def from_dict(cls, data):
+        return cls(data['binary'], data['kekule'], _id=data.get('_id', None))
 
 
 class Template(AbstractMolecule):
@@ -152,11 +152,11 @@ class Template(AbstractMolecule):
                    pyrroloindoline_kekule, aldehyde_cyclization_kekule)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
+    def from_dict(cls, data):
         cls.validate(data)
         return cls(data['binary'], data['kekule'], data['oligomerization_kekule'], data['friedel_crafts_kekule'],
                    data['tsuji_trost_kekule'], data['pictet_spangler_kekule'], data['template_pictet_spangler_kekule'],
-                   data['pyrroloindoline_kekule'], data['aldehyde_cyclization_kekule'], _id=_id)
+                   data['pyrroloindoline_kekule'], data['aldehyde_cyclization_kekule'], _id=data.get('_id', None))
 
     @staticmethod
     def validate(data):
@@ -298,9 +298,9 @@ class Sidechain(AbstractMolecule):
         return cls(mol.ToBinary(), Chem.MolToSmiles(mol, kekuleSmiles=True), attachment_point, connection.kekule, shared_id)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
+    def from_dict(cls, data):
         attachment_point = cls.validate(Chem.Mol(data['binary']))
-        return cls(data['binary'], data['kekule'], attachment_point, data['connection'], data['shared_id'], _id=_id)
+        return cls(data['binary'], data['kekule'], attachment_point, data['connection'], data['shared_id'], _id=data.get('_id', None))
 
     @staticmethod
     def validate(mol):
@@ -347,10 +347,10 @@ class Monomer(AbstractMolecule):
                    backbone.to_reduced_dict(), sidechain.shared_id, sidechain.connection, cls.is_proline(mol), imported)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
+    def from_dict(cls, data):
         mol = Chem.Mol(data['binary'])
         return cls(data['binary'], data['kekule'], cls.is_required(mol), data['backbone'], data['sidechain'],
-                   data['connection'], cls.is_proline(mol), data['imported'], _id=_id, index=data['index'])
+                   data['connection'], cls.is_proline(mol), data['imported'], _id=data.get('_id', None), index=data['index'])
 
     @staticmethod
     def is_required(mol):
@@ -393,8 +393,8 @@ class Peptide(AbstractMolecule):
         return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), length, has_cap, monomers)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], data['length'], data['has_cap'], data['monomers'], _id=_id)
+    def from_dict(cls, data):
+        return cls(data['binary'], data['kekule'], data['length'], data['has_cap'], data['monomers'], _id=data.get('_id', None))
 
 
 class TemplatePeptide(AbstractMolecule):
@@ -418,8 +418,8 @@ class TemplatePeptide(AbstractMolecule):
         return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
-        return cls(data['binary'], data['kekule'], data['template'], data['peptide'], _id=_id)
+    def from_dict(cls, data):
+        return cls(data['binary'], data['kekule'], data['template'], data['peptide'], _id=data.get('_id', None))
 
     @property
     def monomers(self):
@@ -452,9 +452,9 @@ class Macrocycle(AbstractMolecule):
                    template_peptide.peptide['has_cap'], template_peptide._id, template_peptide.template, reactions)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
+    def from_dict(cls, data):
         return cls(data['binary'], data['kekule'], data['modifications'], data['length'], data['has_cap'],
-                   data['template_peptide'], data['template'], data['reactions'], _id=_id)
+                   data['template_peptide'], data['template'], data['reactions'], _id=data.get('_id', None))
 
     @classmethod
     def add_modification(cls, original_macrocycle, new_macrocycle, modification):
@@ -495,9 +495,9 @@ class Conformer(Macrocycle):
                    conformer_mol.GetNumConformers(), energies, rmsd, ring_rmsd, _id=macrocycle._id)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
+    def from_dict(cls, data):
         return cls(data['binary'], data['kekule'], data['modifications'], data['length'], data['has_cap'],
-                   data['template_peptide'], data['template'], data['reactions'], data['num_conformers'], data['energies'], data['rmsd'], data['ring_rmsd'], _id=_id)
+                   data['template_peptide'], data['template'], data['reactions'], data['num_conformers'], data['energies'], data['rmsd'], data['ring_rmsd'], _id=data.get('_id', None))
 
     @staticmethod
     def validate(mol, macrocycle):
@@ -536,8 +536,8 @@ class Reaction:
         return cls(rxn_type, AllChem.ReactionFromSmarts(smarts).ToBinary(), smarts, template._id, reacting_mol, rxn_atom_idx)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
-        return cls(data['type'], data['binary'], data['smarts'], data['template'], data['reacting_mol'], data['rxn_atom_idx'], _id=_id)
+    def from_dict(cls, data):
+        return cls(data['type'], data['binary'], data['smarts'], data['template'], data['reacting_mol'], data['rxn_atom_idx'], _id=data.get('_id', None))
 
     @property
     def rxn(self):
@@ -583,8 +583,8 @@ class RegioSQMPrediction(AbstractPrediction):
         return super().__eq__(other) and self.cutoff == other.cutoff
 
     @classmethod
-    def from_dict(cls, data, _id=None):
-        return cls(data['predictions'], data['reacting_mol'], data['solvent'], data['cutoff'], _id=_id)
+    def from_dict(cls, data):
+        return cls(data['predictions'], data['reacting_mol'], data['solvent'], data['cutoff'], _id=data.get('_id', None))
 
 
 class pKaPrediction(AbstractPrediction):
@@ -594,8 +594,8 @@ class pKaPrediction(AbstractPrediction):
         super().__init__(predictions, reacting_mol, solvent, _id)
 
     @classmethod
-    def from_dict(cls, data, _id=None):
-        return cls(data['predictions'], data['reacting_mol'], data['solvent'], _id=_id)
+    def from_dict(cls, data):
+        return cls(data['predictions'], data['reacting_mol'], data['solvent'], _id=data.get('_id', None))
 
 
 class PeptidePlan:
