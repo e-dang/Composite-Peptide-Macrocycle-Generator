@@ -1,13 +1,7 @@
 .vscode
-backup
 data/chemdraw/data
-data/generated
-logs
 __pycache__
-test.py
-deprecated
 .pytest_cache
-*.png
 *.pdb
 scripts/data
 *.hdf5
