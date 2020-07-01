@@ -27,7 +27,7 @@ echo "Generating peptide plan for peptides of length 4..."
 ./cpmg.sh generate -t $((${ALLOC_TIME} - ${SECONDS})) peptide_plan -l 4 -n 100
 echo "Generating peptide plan for peptides of length 5..."
 ./cpmg.sh generate -t $((${ALLOC_TIME} - ${SECONDS})) peptide_plan -l 5 -n 100
-echo "Generating peptides of length 4..."
+echo "Generating peptides of length 3..."
 ./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) peptide -l 3
 echo "Generating peptides of length 4..."
 ./cpmg.sh generate -p multi -t $((${ALLOC_TIME} - ${SECONDS})) peptide -l 4
