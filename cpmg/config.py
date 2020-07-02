@@ -35,6 +35,8 @@ MONGO_DB_DAEMON_PORT = '27017'
 MONGO_DB_CLIENT_PORT = 27017
 MONGO_DB_HOST = 'localhost'
 MONGO_DB_DATABASE = 'cpmg'
+if not os.path.exists(MONGO_DB_DATA_PATH):
+    os.makedirs(MONGO_DB_DATA_PATH)
 
 ##################################################### RegioSQM ######################################################
 REGIOSQM_SMILES_FILEPATH = os.path.join(DATA_DIR, 'external', 'regiosqm_mols.smiles')
