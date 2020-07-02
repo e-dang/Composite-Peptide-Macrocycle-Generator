@@ -233,13 +233,19 @@ def create_selection_key(command_line_args):
 
     if command_line_args.rand is not None:
         repo = r.create_repository_from_string(command_line_args.record_type)
-        indices = list(random.sample(range(repo.get_num_records()), command_line_args.num_records))
+        indices = list(random.sample(list(range(repo.get_num_records())), command_line_args.num_records))
         return r.Key(indices, peptide_length=peptide_length)
 
     if command_line_args.num_records is not None:
         return r.Key(ranges.DiscreteDataChunk(list(range(command_line_args.num_records))), peptide_length=peptide_length)
 
     return r.Key(r.WholeRange(), peptide_length=peptide_length)
+
+
+def global_initialize_routine(command_line_args):
+    GlobalTimer.instance(time_allocation=command_line_args.time,
+                         buffer_time=command_line_args.buffer_time).start()
+    p.Parallelism.set_level(command_line_args.parallelism)
 
 
 class AbstractParser:
@@ -272,12 +278,10 @@ class GenerateParser(AbstractParser):
 
     @staticmethod
     def __execute(command_line_args):
-        timer = GlobalTimer.instance(time_allocation=command_line_args.time, buffer_time=command_line_args.buffer_time)
-        timer.start()
-        if timer.is_near_complete():
+        global_initialize_routine(command_line_args)
+        if GlobalTimer.instance().is_near_complete():
             return []
 
-        p.Parallelism.set_level(command_line_args.parallelism)
         params = o.ExecutionParameters(**vars(command_line_args))
         orchestrator = o.Orchestrator.from_execution_parameters(params)
         return orchestrator.execute(**params.operation_parameters)
@@ -306,12 +310,10 @@ class CalculateParser(AbstractParser):
 
     @staticmethod
     def __execute(command_line_args):
-        timer = GlobalTimer.instance(time_allocation=command_line_args.time, buffer_time=command_line_args.buffer_time)
-        timer.start()
-        if timer.is_near_complete():
+        global_initialize_routine(command_line_args)
+        if GlobalTimer.instance().is_near_complete():
             return []
 
-        p.Parallelism.set_level(command_line_args.parallelism)
         key = create_selection_key(command_line_args)
         generator = g.GeneratorWrapper(ops.get_calculation_from_string(command_line_args.operation))
         handler = h.DataHandlerWrapper(r.create_repository_from_string(
@@ -470,7 +472,7 @@ class DeactivateParser(AbstractParser):
             deactivated_mols = file_mols
 
         deactivated_ids = [repo_mols[kekule] for kekule in deactivated_mols]
-        return repo.deactivate_records(r.Key(deactivated_ids))
+        return repo.deactivate_records(deactivated_ids)
 
 
 class CPMGParser:
