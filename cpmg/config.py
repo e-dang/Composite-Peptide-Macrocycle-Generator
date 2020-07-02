@@ -15,8 +15,10 @@ except KeyError:
     TMP_DIR = os.path.join(PROJECT_DIR, 'tmp')
 
 ################################################ Miscellaneous ################################################
+HDF5 = 'hdf5'
+MONGO = 'mongo'
 CAPACITY = 100000
-DATA_FORMAT = 'hdf5'
+DATA_FORMAT = MONGO
 NUM_PROCS = 8
 TASKS_PER_CHILD = None
 
@@ -24,6 +26,15 @@ TASKS_PER_CHILD = None
 HDF5_FILEPATH = os.path.join(DATA_DIR, 'macrocycle_lib.hdf5')
 COMPRESSION = 'gzip'
 COMPRESSION_OPTS = 9
+
+##################################################### MongoDBParams ######################################################
+MONGO_DB_EXECUTABLE = '/usr/local/bin/mongod'
+MONGO_DB_DATA_PATH = os.path.join(DATA_DIR, 'mongodb')
+MONGO_DB_LOG_PATH = os.path.join(MONGO_DB_DATA_PATH, 'mongod.log')
+MONGO_DB_DAEMON_PORT = '27017'
+MONGO_DB_CLIENT_PORT = 27017
+MONGO_DB_HOST = 'localhost'
+MONGO_DB_DATABASE = 'cpmg'
 
 ##################################################### RegioSQM ######################################################
 REGIOSQM_SMILES_FILEPATH = os.path.join(DATA_DIR, 'external', 'regiosqm_mols.smiles')

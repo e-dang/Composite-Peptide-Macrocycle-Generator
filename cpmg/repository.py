@@ -1,11 +1,14 @@
 import cpmg.config as config
-import cpmg.models as models
 import cpmg.hdf5 as hdf5
-from cpmg.ranges import WholeRange, Key
+import cpmg.models as models
+import cpmg.mongodb as mongo
 import cpmg.utils as utils
+from cpmg.ranges import Key, WholeRange
 
-# impl enumeration
-HDF5 = 'hdf5'
+
+def add_completed_tag(record):
+    record['completed'] = False
+    return record
 
 
 class AbstractRepository:
@@ -19,17 +22,14 @@ class AbstractRepository:
         return self.impl.__repr__()
 
     def load(self, key=Key(WholeRange())):
-        for _id, data in self.impl.load(key):
-            yield self.TYPE.from_dict(data, _id=_id)
+        for doc in self.impl.load(key):
+            yield self.TYPE.from_dict(doc)
 
     def save(self, data):
         return self.impl.save(data)
 
     def get_num_records(self):
         return self.impl.get_num_records()
-
-    def remove_group(self, group):
-        return self.impl.remove_dataset(group)
 
     def remove_records(self, key):
         return self.impl.remove_records(key)
@@ -58,7 +58,7 @@ class AbstractRepository:
                     f'been skipped and saved in instance variable \'self.failed_instances\'.')
                 self.failed_instances.append(model)
             else:
-                yield model.to_dict()
+                yield add_completed_tag(model.to_dict())
 
 
 class BackboneRepository(AbstractRepository):
@@ -220,17 +220,19 @@ class PeptidePlanRepository(AbstractRepository):
         if key.peptide_length is None:
             return None
 
-        return self.impl.load(key)
+        for record in self.impl.load(key):
+            yield (record['_id'], tuple(record['combination']))
 
     def _check_type(self, data):
-        for record in utils.to_list(data):
+        for record in data:
             if not isinstance(record, self.TYPE):
                 print(
                     f'Type error! Repository of type {self.TYPE} cannot save model of type {type(record)}. The instance has '
                     f'been skipped and saved in instance variable \'self.failed_instances\'.')
                 self.failed_instances.append(record)
             else:
-                return record.data()
+                for combo in record.data():
+                    yield add_completed_tag(combo)
 
 
 class InactivesRepository(AbstractRepository):
@@ -243,8 +245,11 @@ class InactivesRepository(AbstractRepository):
 def repository_impl_from_string(impl=None):
     impl = impl or config.DATA_FORMAT
 
-    if impl == HDF5:
+    if impl == config.HDF5:
         return hdf5.HDF5Repository.instance()
+
+    if impl == config.MONGO:
+        return mongo.MongoRepository.instance()
 
     raise ValueError('Unrecognized repository implementation!')
 
@@ -294,14 +299,13 @@ class CPMGRepository:
         self.regiosqm_repo = create_regiosqm_repository(impl)
         self.pka_repo = create_pka_repository(impl)
         self.peptide_plan_repo = create_peptide_plan_repository(impl)
-        self.inactives_repo = create_inactives_repository(impl)
 
     def __repr__(self):
-        print('/')
+        string = '/'
         for repo in self.__dict__.values():
-            repo.__repr__()
+            string += '\n\t' + repo.__repr__()
 
-        return ''
+        return string
 
     def load(self, key):
         for repo in self.__dict__.values():
@@ -320,7 +324,7 @@ def create_repository_from_string(string, impl=None):
         try:
             if string == member.STRING:
                 return member(repository_impl_from_string(impl))
-        except AttributeError as error:
+        except AttributeError:
             pass
 
     raise ValueError(f'Unrecognized repository string: {string}')
