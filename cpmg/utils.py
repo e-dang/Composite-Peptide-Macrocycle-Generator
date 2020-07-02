@@ -81,7 +81,8 @@ def random_sample_cartesian_product(*factors, sample_size=0):
     """
 
     amount = functools.reduce(lambda prod, factor: prod * len(factor), factors, 1)
-    for max_index in random.sample(list(range(amount)), sample_size):
+    # IMPORTANT: don't expand that range into list...too much memory
+    for max_index in random.sample(range(amount), sample_size):  # pylint: disable=range-builtin-not-iterating
         items = []
         for factor in factors:
             items.append(factor[max_index % len(factor)])
