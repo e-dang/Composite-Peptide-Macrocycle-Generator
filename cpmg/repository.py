@@ -40,15 +40,8 @@ class AbstractRepository:
     def activate_records(self, key):
         return self.impl.activate_records(key)
 
-    def load_inactive_records(self, key):
-        for _id, data in self.impl.load_inactivate_records(key):
-            yield self.TYPE.from_dict(data, _id=_id)
-
     def mark_complete(self, ids):
         self.impl.mark_complete(ids)
-
-    def deactivate_completed(self):
-        self.impl.deactivate_completed()
 
     def _check_type(self, data):
         for model in data:
