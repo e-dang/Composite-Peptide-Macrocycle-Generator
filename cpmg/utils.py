@@ -9,6 +9,7 @@ import numpy as np
 from rdkit import Chem
 
 from cpmg.exceptions import MergeError
+from cpmg.ranges import Key
 
 
 def split(data, pred):
@@ -37,7 +38,7 @@ def to_list(data):
     if isinstance(data, (list, tuple)):
         return data
 
-    if isinstance(data, (GeneratorType, map, filter)):
+    if isinstance(data, (GeneratorType, map, filter, Key)):
         return list(data)
 
     return [data]
@@ -80,7 +81,7 @@ def random_sample_cartesian_product(*factors, sample_size=0):
     """
 
     amount = functools.reduce(lambda prod, factor: prod * len(factor), factors, 1)
-    for max_index in random.sample(range(amount), sample_size):
+    for max_index in random.sample(list(range(amount)), sample_size):
         items = []
         for factor in factors:
             items.append(factor[max_index % len(factor)])
