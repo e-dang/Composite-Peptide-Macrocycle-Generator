@@ -400,10 +400,11 @@ class Peptide(AbstractMolecule):
 class TemplatePeptide(AbstractMolecule):
     STRING = 'template_peptide'
 
-    def __init__(self, binary, kekule, template, peptide, _id=None):
+    def __init__(self, binary, kekule, template, peptide, length, _id=None):
         super().__init__(binary, kekule, _id)
         self.template = template
         self.peptide = peptide
+        self.length = length
 
     def __eq__(self, other):
         return self.kekule == other.kekule and self.template == other.template and self.peptide == other.peptide
@@ -415,19 +416,15 @@ class TemplatePeptide(AbstractMolecule):
         Chem.Kekulize(mol)
         peptide = deepcopy(peptide.__dict__)
         peptide.pop('binary')
-        return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide)
+        return cls(binary, Chem.MolToSmiles(mol, kekuleSmiles=True), template._id, peptide, peptide.pop('length'))
 
     @classmethod
     def from_dict(cls, data):
-        return cls(data['binary'], data['kekule'], data['template'], data['peptide'], _id=data.get('_id', None))
+        return cls(data['binary'], data['kekule'], data['template'], data['peptide'], data['length'], _id=data.get('_id', None))
 
     @property
     def monomers(self):
         return self.peptide['monomers']
-
-    @property
-    def length(self):
-        return self.peptide['length']
 
 
 class Macrocycle(AbstractMolecule):
@@ -645,9 +642,8 @@ class PeptidePlan:
             raise RuntimeError('The combination does not meet the peptide plan\'s requirements!')
 
     def data(self):
-        reg_combinations = np.array(list(self.reg_combinations))
-        cap_combinations = np.array(list(self.cap_combinations))
-        return self.PeptidePlanData(reg_combinations, cap_combinations, self.reg_length)
+        for combo in self.combinations:
+            yield {'combination': combo, 'peptide_length': self.reg_length}
 
 
 get_all_model_strings = utils.get_module_strings(__name__)
