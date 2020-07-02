@@ -643,7 +643,7 @@ class PeptidePlan:
 
     def data(self):
         for combo in self.combinations:
-            yield {'combination': combo, 'peptide_length': self.reg_length}
+            yield {'combination': combo, 'length': self.reg_length}
 
 
 get_all_model_strings = utils.get_module_strings(__name__)
