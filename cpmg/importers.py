@@ -65,6 +65,7 @@ class TemplateImporter:
 
 class SidechainImporter:
     def __init__(self, loader):
+        self.connections = set()
         self.loader = loader
         self.saver = repo.create_sidechain_repository()
 
@@ -85,7 +86,6 @@ class SidechainImporter:
         return self.saver.save(data)
 
     def _load_connections(self):
-        self.connections = set()
         for connection in repo.create_connection_repository().load():
             self.connections.add(connection.kekule)
 
@@ -101,6 +101,7 @@ class MonomerImporter:
     def __init__(self, loader):
         self.loader = loader
         self.saver = repo.create_monomer_repository()
+        self.backbones = {}
 
     def import_data(self, filepath=None):
         self._load_backbones()
@@ -115,7 +116,6 @@ class MonomerImporter:
         return self.saver.save(data)
 
     def _load_backbones(self):
-        self.backbones = {}
         for backbone in repo.create_backbone_repository().load():
             self.backbones[backbone.kekule] = backbone
 
@@ -138,6 +138,7 @@ class RegioSQMPredictionImporter:
         self.saver = repo.create_regiosqm_repository()
         self.solvent = solvent
         self.cutoff = cutoff
+        self.idx_to_smiles = {}
 
     def import_data(self, filepath=None):
         self._hash_mols()
@@ -157,7 +158,6 @@ class RegioSQMPredictionImporter:
         return self.saver.save(data)
 
     def _hash_mols(self):
-        self.idx_to_smiles = {}
         for line in utils.load_text(config.REGIOSQM_SMILES_FILEPATH):
             idx, smiles = line.split(' ')
             self.idx_to_smiles[idx] = smiles.strip('\n')
@@ -232,13 +232,15 @@ class PeptidePlanImporter:
     def import_data(self, filepath, peptide_length):
         peptide_plan = models.PeptidePlan(peptide_length)
 
+        num_lines_in_file = -1
         for i, line in enumerate(utils.load_text(filepath)):
             combo = tuple(map(int, line.strip('\n').split(',')))
             peptide_plan.add(combo)
+            num_lines_in_file = i
 
-        self._validate_peptide_plan(peptide_plan, i)
+        self._validate_peptide_plan(peptide_plan, num_lines_in_file)
 
-        return self.saver.save(peptide_plan)
+        return self.saver.save([peptide_plan])
 
     def _validate_peptide_plan(self, peptide_plan, num_lines_in_file):
         if len(peptide_plan) != num_lines_in_file + 1:
