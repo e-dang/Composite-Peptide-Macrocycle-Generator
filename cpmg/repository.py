@@ -1,3 +1,5 @@
+import ast
+
 import cpmg.config as config
 import cpmg.hdf5 as hdf5
 import cpmg.models as models
@@ -214,7 +216,7 @@ class PeptidePlanRepository(AbstractRepository):
             return None
 
         for record in self.impl.load(key):
-            yield (record['_id'], tuple(record['combination']))
+            yield (record['_id'], tuple(ast.literal_eval(record['combination'])))
 
     def _check_type(self, data):
         for record in data:

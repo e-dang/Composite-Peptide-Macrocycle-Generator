@@ -1,18 +1,24 @@
+# THESE MPI IMPORTS MUST COME FIRST
 from cpmg.parallelism import Parallelism  # noqa
 import mpi4py  # noqa
 mpi4py.rc(initialize=False, finalize=False)  # noqa
 from mpi4py import MPI  # noqa
 
 import atexit
+import json
+import os
+import socket
 from subprocess import Popen
 
-from pymongo import MongoClient, ASCENDING
-from pymongo.errors import ConnectionFailure, BulkWriteError
+from bson import json_util
+from pymongo import DESCENDING, ASCENDING, MongoClient
+from pymongo.errors import BulkWriteError, ConnectionFailure
 
-import cpmg.utils as utils
-import cpmg.ranges as ranges
 import cpmg.config as config
+import cpmg.ranges as ranges
+import cpmg.utils as utils
 
+IP_ADDR = socket.gethostbyname(socket.gethostname())
 
 MOL_VALIDATOR = {
     '$jsonSchema': {
@@ -53,7 +59,8 @@ class DataBaseDaemon:
         if cls.__DAEMON is None:
             if not Parallelism.is_distributed() or (Parallelism.is_distributed() and MPI.COMM_WORLD.Get_rank() == 0):
                 cls.__DAEMON = Popen([config.MONGO_DB_EXECUTABLE, '--dbpath', config.MONGO_DB_DATA_PATH, '--logappend',
-                                      '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT])
+                                      '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT,
+                                      '--bind_ip', IP_ADDR])
                 atexit.register(cls.close)
 
     @classmethod
@@ -86,7 +93,10 @@ class MongoDataBase:
             return self.__collection.insert_many(utils.to_list(data), ordered=False).inserted_ids
         except BulkWriteError as err:
             self.failed_instances.extend([failed_instance['op'] for failed_instance in err.details['writeErrors']])
-            print(f'Failed to write {len(self.failed_instances)} {self.COLLECTION}s!')
+            print(
+                f'Failed to write {len(self.failed_instances)} {self.COLLECTION}s! These are probably duplicates, but dumping to data directory anyway...', flush=True)
+            utils.save_json(json.loads(json_util.dumps(self.failed_instances)),
+                            utils.rotate_file(os.path.join(config.DATA_DIR, f'{self.COLLECTION}.json')))
 
     def get_num_records(self):
         self.__make_connection()
@@ -119,7 +129,7 @@ class MongoDataBase:
         from time import sleep
         for _ in range(10):  # try 10 times then fail if still not working
             try:
-                self.__client = MongoClient(config.MONGO_DB_HOST, config.MONGO_DB_CLIENT_PORT)
+                self.__client = MongoClient(IP_ADDR, config.MONGO_DB_CLIENT_PORT)
                 break
             except ConnectionFailure:
                 sleep(1)
@@ -258,13 +268,14 @@ class pKaMongoRepository(MongoDataBase):
 class PeptidePlanMongoRepository(MongoDataBase):
     COLLECTION = 'peptide_plan'
     VALIDATION_LEVEL = 'strict'
+    INDEX = [('combination', DESCENDING), ('length', ASCENDING)]
     VALIDATOR = {
         '$jsonSchema': {
             'bsonType': 'object',
             'required': ['combination', 'length'],
             'properties': {
                 'combination': {
-                    'bsonType': ['array'],
+                    'bsonType': 'string',
                     'description': 'The indices of the monomers to form into a peptide'
                 },
                 'length': {
