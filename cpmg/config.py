@@ -21,6 +21,7 @@ CAPACITY = 100000
 DATA_FORMAT = MONGO
 NUM_PROCS = 8
 TASKS_PER_CHILD = None
+RETURN_IDS = False
 
 ##################################################### HDF5Params ######################################################
 HDF5_FILEPATH = os.path.join(DATA_DIR, 'macrocycle_lib.hdf5')
@@ -33,7 +34,6 @@ MONGO_DB_DATA_PATH = os.path.join(DATA_DIR, 'mongodb')
 MONGO_DB_LOG_PATH = os.path.join(MONGO_DB_DATA_PATH, 'mongod.log')
 MONGO_DB_DAEMON_PORT = '27017'
 MONGO_DB_CLIENT_PORT = 27017
-MONGO_DB_HOST = 'localhost'
 MONGO_DB_DATABASE = 'cpmg'
 if not os.path.exists(MONGO_DB_DATA_PATH):
     os.makedirs(MONGO_DB_DATA_PATH)

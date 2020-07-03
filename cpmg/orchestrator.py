@@ -95,13 +95,14 @@ class ResultBuffer:
             self.flush()
 
     def flush(self):
-        print('flushing')
+        print('flushing', flush=True)
         ret_val = self.saver.save(self.buffer)
 
-        try:
-            self.ids.extend(ret_val)
-        except TypeError:
-            pass
+        if config.RETURN_IDS:
+            try:
+                self.ids.extend(ret_val)
+            except TypeError:
+                pass
 
         self.buffer = []
 
