@@ -188,7 +188,7 @@ class MacrocycleDataHandler(AbstractDataHandler):
                     ((first_monomer is not None) or (first_monomer is None and not is_proline)):
 
                 # get pictet_spangler reactions involving only the first monomer or any other type of reaction
-                reactions = filter(lambda x: ((x.type == self.PS and x.reacting_mol == first_monomer)
+                reactions = filter(lambda x: ((x.type == self.PS and x.reacting_mol['_id'] == first_monomer)
                                               or x.type in (self.FC, self.TT, self.PI)), reactions)
 
                 # sort reactions based on if they are pictet_spangler or not
