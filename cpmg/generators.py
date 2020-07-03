@@ -293,9 +293,7 @@ class MacrocycleGenerator:
                             # protect atoms that participated in this reaction from reacting again in subsequent reactions
                             self._set_protected_atoms(macrocycle, rxn)
 
-                            # the number of atoms shouldn't have changed significantly
-                            if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE:
-                                macrocycles[Chem.MolToSmiles(macrocycle)] = macrocycle
+                            macrocycles[Chem.MolToSmiles(macrocycle)] = macrocycle
 
                     if rxn_type in (self.PS, self.TPS, self.ALDH) and len(macrocycles) == 0:  # reaction failed; reuse reactant
                         continue
@@ -304,10 +302,11 @@ class MacrocycleGenerator:
                     successful_rxn = True
                     successful_rxns.append(reaction_combo[i])
 
-            for macrocycle in macrocycles:
+            for macrocycle in macrocycles.values():
                 try:
-                    final_macrocycles.append(models.Macrocycle.from_mol(
-                        Chem.MolFromSmiles(macrocycle), '', template_peptide, successful_rxns))
+                    if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE:
+                        final_macrocycles.append(models.Macrocycle.from_mol(
+                            macrocycle, '', template_peptide, successful_rxns))
                 except InvalidMolecule:
                     continue
 
@@ -349,7 +348,7 @@ class InterMolecularReactionGenerator:
     @filters.pka_filter
     @filters.regiosqm_filter
     def generate(self, nucleophile, templates):
-        nucleophile_mol = nucleophile.mol
+        nucleophile_mol = Chem.MolFromSmiles(nucleophile.kekule)  # kekulized mols breaks symmetry here
 
         non_symmetric_atom_idxs = self._get_non_symmetric_atoms(nucleophile_mol)
 
