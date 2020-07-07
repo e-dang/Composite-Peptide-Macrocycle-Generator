@@ -6,3 +6,4 @@ __pycache__
 scripts/data
 *.hdf5
 peptide_plan*.txt
+mongodb
