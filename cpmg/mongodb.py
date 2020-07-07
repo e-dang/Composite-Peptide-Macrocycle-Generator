@@ -60,7 +60,7 @@ class DataBaseDaemon:
             if not Parallelism.is_distributed() or (Parallelism.is_distributed() and MPI.COMM_WORLD.Get_rank() == 0):
                 cls.__DAEMON = Popen([config.MONGO_DB_EXECUTABLE, '--dbpath', config.MONGO_DB_DATA_PATH, '--logappend',
                                       '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT,
-                                      '--bind_ip', IP_ADDR])
+                                      '--bind_ip', IP_ADDR, '--setParameter', f'cursorTimeoutMillis={config.MONGO_DB_CURSOR_TIMEOUT}'])
                 atexit.register(cls.close)
 
     @classmethod
