@@ -12,7 +12,7 @@ from subprocess import Popen
 
 from bson import json_util
 from pymongo import DESCENDING, ASCENDING, MongoClient
-from pymongo.errors import BulkWriteError, ConnectionFailure
+from pymongo.errors import BulkWriteError, ConnectionFailure, ServerSelectionTimeoutError
 
 import cpmg.config as config
 import cpmg.ranges as ranges
@@ -77,6 +77,10 @@ class MongoDataBase:
         self.__collection = None
         self.failed_instances = []
 
+    def __del__(self):
+        if self.__client is not None:
+            self.__client.close()
+
     def __repr__(self):
         return self.COLLECTION + ' - ' + str(self.get_num_records())
 
@@ -126,13 +130,25 @@ class MongoDataBase:
             self.__collection = self.__database[self.COLLECTION]
 
     def __connect_to_client(self):
-        from time import sleep
-        for _ in range(10):  # try 10 times then fail if still not working
+        for i in range(config.MONGO_DB_MAX_TRIES):  # try some number of times then fail if still not working
             try:
-                self.__client = MongoClient(IP_ADDR, config.MONGO_DB_CLIENT_PORT)
+                self.__client = MongoClient(IP_ADDR, config.MONGO_DB_CLIENT_PORT,
+                                            serverSelectionTimeoutMS=config.MONGO_DB_SERVER_TIMEOUT)
+                self.__client.server_info()
                 break
+            except ServerSelectionTimeoutError:
+                self.__handle_connection_error(i, 'MongoDB Server Time Out Error....Retrying')
             except ConnectionFailure:
-                sleep(1)
+                self.__handle_connection_error(i, 'MongoDB Connection Failure....Retrying')
+
+    def __handle_connection_error(self, iteration, message):
+        from time import sleep
+        if iteration == config.MONGO_DB_MAX_TRIES - 1:
+            print(f'Tried to connect to server {config.MONGO_DB_MAX_TRIES} times but failed...exiting.')
+            exit(1)
+        else:
+            print(message)
+            sleep(1)
 
     def __setup_validator(self):
         if self.COLLECTION not in self.__database.collection_names():
