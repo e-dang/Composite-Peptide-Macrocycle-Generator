@@ -9,10 +9,11 @@ import json
 import os
 import socket
 from subprocess import Popen
+from time import sleep
 
 from bson import json_util
 from pymongo import DESCENDING, ASCENDING, MongoClient
-from pymongo.errors import BulkWriteError, ConnectionFailure, ServerSelectionTimeoutError
+from pymongo.errors import BulkWriteError, ConnectionFailure, ServerSelectionTimeoutError, CursorNotFound
 
 import cpmg.config as config
 import cpmg.ranges as ranges
@@ -60,7 +61,7 @@ class DataBaseDaemon:
             if not Parallelism.is_distributed() or (Parallelism.is_distributed() and MPI.COMM_WORLD.Get_rank() == 0):
                 cls.__DAEMON = Popen([config.MONGO_DB_EXECUTABLE, '--dbpath', config.MONGO_DB_DATA_PATH, '--logappend',
                                       '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT,
-                                      '--bind_ip', IP_ADDR, '--setParameter', f'cursorTimeoutMillis={config.MONGO_DB_CURSOR_TIMEOUT}'])
+                                      '--bind_ip', IP_ADDR])
                 atexit.register(cls.close)
 
     @classmethod
@@ -86,10 +87,13 @@ class MongoDataBase:
 
     def load(self, key):
         self.__make_connection()
-        if key.peptide_length is None:
-            return self.__load_no_pep_length(key)
-        else:
-            return self.__load_specific_pep_length(key)
+        cursor = self.__collection.find(self.__get_query(key), no_cursor_timeout=True)
+        with cursor:
+            try:
+                for doc in cursor:
+                    yield doc
+            except CursorNotFound:
+                pass
 
     def save(self, data):
         self.__make_connection()
@@ -142,7 +146,6 @@ class MongoDataBase:
                 self.__handle_connection_error(i, 'MongoDB Connection Failure....Retrying')
 
     def __handle_connection_error(self, iteration, message):
-        from time import sleep
         if iteration == config.MONGO_DB_MAX_TRIES - 1:
             print(f'Tried to connect to server {config.MONGO_DB_MAX_TRIES} times but failed...exiting.')
             exit(1)
@@ -161,17 +164,17 @@ class MongoDataBase:
             except AttributeError:
                 pass
 
-    def __load_no_pep_length(self, key):
-        if isinstance(key.key, ranges.IndexKey):
-            return self.__collection.find({'_id': {'$in': key}})
+    def __get_query(self, key):
+        if key.peptide_length is None:
+            if isinstance(key.key, ranges.IndexKey):
+                return {'_id': {'$in': key}}
+            else:
+                return {'completed': False}
         else:
-            return self.__collection.find({'completed': False})
-
-    def __load_specific_pep_length(self, key):
-        if isinstance(key.key, ranges.IndexKey):
-            return self.__collection.find({'_id': {'$in': key}, 'length': key.peptide_length})
-        else:
-            return self.__collection.find({'completed': False, 'length': key.peptide_length})
+            if isinstance(key.key, ranges.IndexKey):
+                return {'_id': {'$in': key}, 'length': key.peptide_length}
+            else:
+                return {'completed': False, 'length': key.peptide_length}
 
 
 class ConnectionMongoRepository(MongoDataBase):
