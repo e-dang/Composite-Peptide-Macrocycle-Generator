@@ -284,6 +284,7 @@ class MacrocycleGenerator:
                     macrocycles = {}
                     successful_rxn = False
                     for reactant in reactants:
+                        reactant = Chem.Mol(reactant)
                         for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
                             # santization is expected to fail some what often, mostly due to 2 sidechains where one contains
                             # the other as a substructure which causes the failure
@@ -293,7 +294,7 @@ class MacrocycleGenerator:
                             # protect atoms that participated in this reaction from reacting again in subsequent reactions
                             self._set_protected_atoms(macrocycle, rxn)
 
-                            macrocycles[Chem.MolToSmiles(macrocycle)] = macrocycle
+                            macrocycles[Chem.MolToSmiles(macrocycle)] = macrocycle.ToBinary()
 
                     if rxn_type in (self.PS, self.TPS, self.ALDH) and len(macrocycles) == 0:  # reaction failed; reuse reactant
                         continue
@@ -302,7 +303,8 @@ class MacrocycleGenerator:
                     successful_rxn = True
                     successful_rxns.append(reaction_combo[i])
 
-            for macrocycle in macrocycles.values():
+            for binary in macrocycles.values():
+                macrocycle = Chem.Mol(binary)
                 try:
                     if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE:
                         final_macrocycles.append(models.Macrocycle.from_mol(
