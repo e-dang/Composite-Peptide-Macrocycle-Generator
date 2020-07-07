@@ -126,7 +126,7 @@ class TemplatePeptideDataHandler(AbstractDataHandler):
 
     def load(self, *, peptide_key, template_key=Key(WholeRange()), **kwargs):
         templates = list(self.template_repo.load(template_key))
-        for peptide in list(self.peptide_repo.load(peptide_key)):
+        for peptide in self.peptide_repo.load(peptide_key):
             yield TemplatePeptideDataHandlerTuple(peptide, templates)
 
     def save(self, data):
