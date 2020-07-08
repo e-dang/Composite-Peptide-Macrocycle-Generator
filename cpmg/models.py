@@ -34,8 +34,16 @@ class AbstractMolecule:
         self.binary = binary
         self.kekule = kekule
 
+    def __key(self):
+        return (self.kekule,)
+
+    def __hash__(self):
+        return hash(self.__key())
+
     def __eq__(self, other):
-        return self.kekule == other.kekule
+        if isinstance(other, type(self)):
+            return self.__key() == other.__key()
+        return NotImplemented
 
     def __repr__(self):
         print_model(self.STRING, self.__dict__)  # pylint: disable=no-member

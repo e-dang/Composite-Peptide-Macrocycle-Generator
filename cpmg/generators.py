@@ -266,7 +266,7 @@ class MacrocycleGenerator:
     @filters.aldehyde_filter
     def generate(self, template_peptide, reaction_combos):
 
-        final_macrocycles = []
+        final_macrocycles = set()
         num_atoms = len(template_peptide.mol.GetAtoms())
         for reaction_combo in reaction_combos:
             reactants = [template_peptide.mol]
@@ -307,7 +307,7 @@ class MacrocycleGenerator:
                 macrocycle = Chem.Mol(binary)
                 try:
                     if abs(num_atoms - len(macrocycle.GetAtoms())) < self.MAX_ATOM_DIFFERENCE:
-                        final_macrocycles.append(models.Macrocycle.from_mol(
+                        final_macrocycles.add(models.Macrocycle.from_mol(
                             macrocycle, '', template_peptide, successful_rxns))
                 except InvalidMolecule:
                     continue
