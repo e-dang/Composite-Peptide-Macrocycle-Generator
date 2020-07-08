@@ -1,9 +1,8 @@
 from collections import namedtuple
 from copy import deepcopy
 from itertools import chain
-from pprint import pprint
+import pprint
 
-import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
@@ -25,7 +24,7 @@ def print_model(obj_type, obj_dict):
     data = {'type': obj_type}
     data.update(obj_dict)
     data.pop('binary', None)
-    pprint(data)
+    return pprint.pformat(data)
 
 
 class AbstractMolecule:
@@ -46,9 +45,7 @@ class AbstractMolecule:
         return NotImplemented
 
     def __repr__(self):
-        print_model(self.STRING, self.__dict__)  # pylint: disable=no-member
-
-        return ''
+        return print_model(self.STRING, self.__dict__)  # pylint: disable=no-member
 
     @property
     def mol(self):
@@ -529,8 +526,7 @@ class Reaction:
             and self.reacting_mol == other.reacting_mol and self.rxn_atom_idx == other.rxn_atom_idx
 
     def __repr__(self):
-        print_model(self.STRING, self.__dict__)
-        return ''
+        return print_model(self.STRING, self.__dict__)
 
     @classmethod
     def from_mols(cls, rxn_type, smarts, template, reacting_mol, rxn_atom_idx):
