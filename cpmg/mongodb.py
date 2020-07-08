@@ -59,9 +59,12 @@ class DataBaseDaemon:
     def start(cls):
         if cls.__DAEMON is None:
             if not Parallelism.is_distributed() or (Parallelism.is_distributed() and MPI.COMM_WORLD.Get_rank() == 0):
-                cls.__DAEMON = Popen([config.MONGO_DB_EXECUTABLE, '--dbpath', config.MONGO_DB_DATA_PATH, '--logappend',
-                                      '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT,
-                                      '--bind_ip', IP_ADDR])
+                mongod_args = [config.MONGO_DB_EXECUTABLE, '--dbpath', config.MONGO_DB_DATA_PATH, '--logappend',
+                               '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT,
+                               '--bind_ip', IP_ADDR]
+                if config.NUMA_MACHINE:
+                    mongod_args = ['numactl' '--interleave=all'] + mongod_args
+                cls.__DAEMON = Popen(mongod_args)
                 atexit.register(cls.close)
 
     @classmethod
@@ -87,8 +90,7 @@ class MongoDataBase:
 
     def load(self, key):
         self.__make_connection()
-        cursor = self.__collection.find(self.__get_query(key), no_cursor_timeout=True)
-        with cursor:
+        with self.__collection.find(self.__get_query(key), no_cursor_timeout=True) as cursor:
             try:
                 for doc in cursor:
                     yield doc
@@ -105,6 +107,7 @@ class MongoDataBase:
                 f'Failed to write {len(self.failed_instances)} {self.COLLECTION}s! These are probably duplicates, but dumping to data directory anyway...', flush=True)
             utils.save_json(json.loads(json_util.dumps(self.failed_instances)),
                             utils.rotate_file(os.path.join(config.DATA_DIR, f'{self.COLLECTION}.json')))
+            self.failed_instances = []
 
     def get_num_records(self):
         self.__make_connection()
