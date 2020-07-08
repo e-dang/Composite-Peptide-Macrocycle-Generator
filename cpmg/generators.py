@@ -252,6 +252,8 @@ class TemplatePeptideGenerator:
 class MacrocycleGenerator:
     STRING = models.Macrocycle.STRING
 
+    FC = rxns.FriedelCrafts.TYPE
+    TT = rxns.TsujiTrost.TYPE
     PS = rxns.PictetSpangler.TYPE
     TPS = rxns.TemplatePictetSpangler.TYPE
     ALDH = rxns.AldehydeCyclization.TYPE
@@ -285,10 +287,15 @@ class MacrocycleGenerator:
                     successful_rxn = False
                     for reactant in reactants:
                         reactant = Chem.Mol(reactant)
+                        num_bonds_before = reactant.GetNumBonds()
                         for macrocycle in chain.from_iterable(rxn.RunReactants((reactant,))):
                             # santization is expected to fail some what often, mostly due to 2 sidechains where one contains
                             # the other as a substructure which causes the failure
                             if Chem.SanitizeMol(macrocycle, catchErrors=True):
+                                continue
+
+                            # the number of bonds in macrocycle should increase in friedel crafts and tsuji trost reactions
+                            if rxn_type in (self.FC, self.TT) and macrocycle.GetNumBonds() <= num_bonds_before:
                                 continue
 
                             # protect atoms that participated in this reaction from reacting again in subsequent reactions
