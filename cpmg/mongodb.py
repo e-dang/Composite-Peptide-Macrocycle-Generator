@@ -108,7 +108,7 @@ class MongoDataBase:
 
     def get_num_records(self):
         self.__make_connection()
-        return self.__collection.count_documents({})
+        return self.__collection.estimated_document_count()
 
     def remove_records(self, key):
         self.__make_connection()
