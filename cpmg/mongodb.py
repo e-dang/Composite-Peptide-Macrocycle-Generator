@@ -63,7 +63,7 @@ class DataBaseDaemon:
                                '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT,
                                '--bind_ip', IP_ADDR, '--wiredTigerCacheSizeGB', config.MONGO_DB_CACHE_SIZE]
                 if config.NUMA_MACHINE:
-                    mongod_args = ['numactl' '--interleave=all'] + mongod_args
+                    mongod_args = ['numactl', '--interleave=all'] + mongod_args
                 cls.__DAEMON = Popen(mongod_args)
                 atexit.register(cls.close)
 
