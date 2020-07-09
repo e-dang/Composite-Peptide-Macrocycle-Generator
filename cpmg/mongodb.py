@@ -61,7 +61,7 @@ class DataBaseDaemon:
             if not Parallelism.is_distributed() or (Parallelism.is_distributed() and MPI.COMM_WORLD.Get_rank() == 0):
                 mongod_args = [config.MONGO_DB_EXECUTABLE, '--dbpath', config.MONGO_DB_DATA_PATH, '--logappend',
                                '--logpath', config.MONGO_DB_LOG_PATH, '--port', config.MONGO_DB_DAEMON_PORT,
-                               '--bind_ip', IP_ADDR]
+                               '--bind_ip', IP_ADDR, '--wiredTigerCacheSizeGB', config.MONGO_DB_CACHE_SIZE]
                 if config.NUMA_MACHINE:
                     mongod_args = ['numactl' '--interleave=all'] + mongod_args
                 cls.__DAEMON = Popen(mongod_args)
