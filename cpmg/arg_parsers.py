@@ -14,6 +14,7 @@ import cpmg.repository as r
 import cpmg.data_handlers as h
 import cpmg.utils as utils
 import cpmg.ranges as ranges
+import cpmg.config as config
 from cpmg.timer import GlobalTimer
 from cpmg.initializer import CPMGInitializer
 from cpmg.exporters import RegioSQMExporter
@@ -400,6 +401,12 @@ class FindParser(AbstractParser):
     def __init__(self, args):
         super().__init__(args, self.__execute)
         add_repository_argument(self.parser)
+        if config.DATA_FORMAT == config.MONGO:
+            self.__mongo_parser()
+        else:
+            self.__hdf5_parser()
+
+    def __hdf5_parser(self):
         self.parser.add_argument('-a', '--all', action='store_true',
                                  help='Flag that causes all records in the specified repo to be loaded.')
         self.parser.add_argument('-k', '--kekule', type=str, nargs='+',
@@ -414,10 +421,19 @@ class FindParser(AbstractParser):
                                  dest='chunk_size',
                                  help='The number of records to display on screen at a single time.')
 
+    def __mongo_parser(self):
+        self.parser.add_argument('query', type=str, help='The query to pass to the mongo daemon.')
+
     @staticmethod
     def __execute(command_line_args):
-        finder = ops.Finder()
-        return finder.execute(command_line_args)
+        if config.DATA_FORMAT == config.MONGO:
+            import ast
+            repo = r.create_repository_from_string(command_line_args.repository)
+            for doc in repo.find(ast.literal_eval(command_line_args.query)):
+                print(doc)
+        else:
+            finder = ops.Finder()
+            return finder.execute(command_line_args)
 
 
 class RemoveParser(AbstractParser):

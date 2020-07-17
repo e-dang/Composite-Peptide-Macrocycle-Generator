@@ -27,6 +27,9 @@ class AbstractRepository:
         for doc in self.impl.load(key):
             yield self.TYPE.from_dict(doc)
 
+    def find(self, query):
+        return self.impl.find(query)
+
     def save(self, data):
         return self.impl.save(data)
 

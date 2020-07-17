@@ -90,7 +90,11 @@ class MongoDataBase:
 
     def load(self, key):
         self.__make_connection()
-        with self.__collection.find(self.__get_query(key), no_cursor_timeout=True) as cursor:
+        return self.find(self.__get_query(key))
+
+    def find(self, query):
+        self.__make_connection()
+        with self.__collection.find(query, no_cursor_timeout=True) as cursor:
             try:
                 for doc in cursor:
                     yield doc
