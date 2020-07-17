@@ -259,6 +259,7 @@ class MacrocycleGenerator:
     ALDH = rxns.AldehydeCyclization.TYPE
     MAX_ATOM_DIFFERENCE = 5
 
+    @decorators.check_macrocycle_generated
     @decorators.apply_stereochemistry
     @filters.tpsa_filter
     @filters.rotatable_bond_filter

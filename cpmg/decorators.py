@@ -112,3 +112,17 @@ def carboxyl_to_amide(original_func):
         return data
 
     return c_to_a_wrapper
+
+
+def check_macrocycle_generated(original_func):
+
+    @wraps(original_func)
+    def _check_macrocycle_generated(*args, **kwargs):
+        _, template_peptide, *_ = args
+        results = original_func(*args, **kwargs)
+        if len(results) == 0:
+            return [template_peptide]
+        else:
+            return results
+
+    return _check_macrocycle_generated

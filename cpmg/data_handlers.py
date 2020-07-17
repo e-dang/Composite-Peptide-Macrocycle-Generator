@@ -6,6 +6,7 @@ import cpmg.reactions as rxns
 from cpmg.ranges import Key, WholeRange
 import cpmg.generators as generators
 import cpmg.utils as utils
+import cpmg.models as models
 from cpmg.models import METHANE
 
 
@@ -155,9 +156,20 @@ class MacrocycleDataHandler(AbstractDataHandler):
         return self._match_reactions(template_peptide_key)
 
     def save(self, data):
-        completed_template_peptides = set(macrocycle.template_peptide for macrocycle in data)
+        macrocycles, completed_template_peptides = self._get_completed_template_peptides(data)
         self.template_peptide_repo.mark_complete(Key(completed_template_peptides))
-        return self.saver.save(data)
+        return self.saver.save(macrocycles)
+
+    def _get_completed_template_peptides(self, data):
+        completed_template_peptides = set()
+        macrocycles = []
+        for mol in data:
+            if isinstance(mol, models.Macrocycle):
+                completed_template_peptides.add(mol.template_peptide)
+                macrocycles.append(mol)
+            else:
+                completed_template_peptides.add(mol._id)
+        return macrocycles, completed_template_peptides
 
     def estimate_num_records(self):
         return self.template_peptide_repo.get_num_records()
