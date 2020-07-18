@@ -7,7 +7,6 @@ from cpmg.ranges import Key, WholeRange
 import cpmg.generators as generators
 import cpmg.utils as utils
 import cpmg.models as models
-from cpmg.models import METHANE
 
 
 SidechainDataHandlerTuple = namedtuple('SidechainDataHandlerTuple', 'sidechain connections')
@@ -270,7 +269,7 @@ class InterMolecularReactionDataHandler(AbstractDataHandler):
         return self.sidechain_repo.get_num_records() + self.monomer_repo.get_num_records()
 
     def _get_filtered_sidechains(self, key):
-        return list(filter(lambda x: x.connection == METHANE, self.sidechain_repo.load(key)))
+        return list(filter(lambda x: x.connection == models.METHANE, self.sidechain_repo.load(key)))
 
     def _get_filtered_monomers(self, key):
         return list(filter(lambda x: x.required and x.imported, self.monomer_repo.load(key)))
