@@ -157,7 +157,10 @@ class MacrocycleDataHandler(AbstractDataHandler):
     def save(self, data):
         macrocycles, completed_template_peptides = self._get_completed_template_peptides(data)
         self.template_peptide_repo.mark_complete(Key(completed_template_peptides))
-        return self.saver.save(macrocycles)
+        if len(macrocycles):
+            return self.saver.save(macrocycles)
+        else:
+            return []
 
     def _get_completed_template_peptides(self, data):
         completed_template_peptides = set()
