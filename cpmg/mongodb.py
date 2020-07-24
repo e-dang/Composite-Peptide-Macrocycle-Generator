@@ -158,7 +158,7 @@ class MongoDataBase:
             exit(1)
         else:
             print(message)
-            sleep(1)
+            sleep(min(2 ** iteration, 300))  # exp backoff till max of 5 min
 
     def __setup_validator(self):
         if self.COLLECTION not in self.__database.collection_names():
