@@ -17,9 +17,10 @@ def open_file(filepath):
             yield val
 
 
+mpl.rcParams.update({'font.size': 15})
 cm = plt.cm.get_cmap('inferno')
 cm = cm.reversed()
-COLOR = 'purple'
+COLOR = 'inf'
 
 
 class MidpointNormalize(mpl.colors.Normalize):
@@ -74,14 +75,14 @@ def plot_mw(data, save=False):
     ax1.set_xticklabels(map(lambda x: int(round(x)), bins))
     for tick in ax1.get_xticklabels():
         tick.set_rotation(45)
-    ax1.set_xlabel('Molecular Weight ($g \cdot mol^{-1}$)')
+    ax1.set_xlabel('Molecular Weight ($g/mol$)')
     ax1.set_ylabel('Counts')
     ax1.set_title('Molecular Weight Distribution')
     ax2.set_ylabel('% Total')
     # ax1.tick_params(axis='x',which='minor',direction='out',bottom=True,length=5)
     plt.tight_layout()
     if save:
-        path = os.path.join(config.PROJECT_DIR, 'scripts', 'figs', f'hist_mw_{COLOR}.png')
+        path = os.path.join(config.PROJECT_DIR, 'images', f'hist_mw_{COLOR}_new.png')
         # plt.savefig(path, dpi=2000)
         fig.savefig(path, dpi=1000)
     else:
@@ -136,7 +137,7 @@ def plot_tpsa(data, save=False):
     ax2.set_ylabel('% Total')
     plt.tight_layout()
     if save:
-        path = os.path.join(config.PROJECT_DIR, 'scripts', 'figs', f'hist_tpsa_{COLOR}.png')
+        path = os.path.join(config.PROJECT_DIR, 'images', f'hist_tpsa_{COLOR}_new.png')
         # plt.savefig(path, dpi=2000)
         fig.savefig(path, dpi=1000)
     else:
@@ -180,7 +181,7 @@ def plot_rb(data, save=False):
     ax1.set_title('Rotatable Bonds Distribution')
     plt.tight_layout()
     if save:
-        path = os.path.join(config.PROJECT_DIR, 'scripts', 'figs', f'hist_rb_{COLOR}.png')
+        path = os.path.join(config.PROJECT_DIR, 'images', f'hist_rb_{COLOR}_new.png')
         fig.savefig(path, dpi=1000)
     else:
         plt.show()
@@ -191,5 +192,5 @@ if __name__ == "__main__":
     tpsa = open_file(os.path.join(config.PROJECT_DIR, 'scripts', 'data', 'tpsa.json'))
     rb = open_file(os.path.join(config.PROJECT_DIR, 'scripts', 'data', 'rb.json'))
     # plot_mw(mw, True)
-    # plot_tpsa(tpsa, True)
-    # plot_rb(rb, True)
+    plot_tpsa(tpsa, True)
+    plot_rb(rb, True)
