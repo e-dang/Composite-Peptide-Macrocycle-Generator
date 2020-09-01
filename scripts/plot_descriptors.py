@@ -17,10 +17,10 @@ def open_file(filepath):
             yield val
 
 
-mpl.rcParams.update({'font.size': 15})
+mpl.rcParams.update({'font.size': 20})
 cm = plt.cm.get_cmap('inferno')
 cm = cm.reversed()
-COLOR = 'inf'
+COLOR = 'purple'
 
 
 class MidpointNormalize(mpl.colors.Normalize):
@@ -74,7 +74,7 @@ def plot_mw(data, save=False):
     ax1.set_xticks(bins)
     ax1.set_xticklabels(map(lambda x: int(round(x)), bins))
     for tick in ax1.get_xticklabels():
-        tick.set_rotation(45)
+        tick.set_rotation(90)
     ax1.set_xlabel('Molecular Weight ($g/mol$)')
     ax1.set_ylabel('Counts')
     ax1.set_title('Molecular Weight Distribution')
@@ -131,7 +131,7 @@ def plot_tpsa(data, save=False):
     ax1.set_xlabel('TPSA ($Å^{2}$)')
     ax1.set_xticklabels(map(lambda x: int(round(x)), bins))
     for tick in ax1.get_xticklabels():
-        tick.set_rotation(45)
+        tick.set_rotation(90)
     ax1.set_ylabel('Counts')
     ax1.set_title('TPSA Distribution')
     ax2.set_ylabel('% Total')
@@ -193,4 +193,4 @@ if __name__ == "__main__":
     rb = open_file(os.path.join(config.PROJECT_DIR, 'scripts', 'data', 'rb.json'))
     # plot_mw(mw, True)
     plot_tpsa(tpsa, True)
-    plot_rb(rb, True)
+    # plot_rb(rb, True)
